@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-body text-center">
+                <h5 class="card-title">CPU Usage</h5>
+                <p class="card-text display-6" dir="ltr">{{ stats.cpu }}%</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-success mb-3">
+            <div class="card-body text-center">
+                <h5 class="card-title">Memory Usage</h5>
+                <p class="card-text display-6" dir="ltr">{{ stats.mem }}%</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-info mb-3">
+            <div class="card-body text-center">
+                <h5 class="card-title">Disk Usage</h5>
+                <p class="card-text display-6" dir="ltr">{{ stats.disk }}%</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">لیست پروکسی‌های فعال</h5>
+        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addProxyModal">
+            <i class="bi bi-plus-lg"></i> افزودن پروکسی جدید
+        </button>
+    </div>
+    <div class="card-body">
+        {% if proxies %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Port</th>
+                        <th>Secret</th>
+                        <th>Tag</th>
+                        <th>Workers</th>
+                        <th>Status</th>
+                        <th>Link</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in proxies %}
+                    <tr>
+                        <td>{{ p.port }}</td>
+                        <td dir="ltr"><small><code>{{ p.secret }}</code></small></td>
+                        <td>{{ p.tag }}</td>
+                        <td>{{ p.workers }}</td>
+                        <td>
+                            {% if p.status == 'running' %}
+                            <span class="badge bg-success">Running</span>
+                            {% else %}
+                            <span class="badge bg-danger">{{ p.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="https://t.me/proxy?server=YOUR_IP&port={{ p.port }}&secret={{ p.secret }}" target="_blank" class="btn btn-info btn-sm">Connect</a>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('restart_proxy', id=p.id) }}" class="btn btn-warning btn-sm">Restart</a>
+                            <a href="{{ url_for('delete_proxy', id=p.id) }}" class="btn btn-danger btn-sm" onclick="return confirm('آیا از حذف این پروکسی مطمئن هستید؟')">Delete</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-center text-muted">هیچ پروکسی فعالی وجود ندارد.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Activity Logs -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">گزارش فعالیت‌ها (آخرین 10 مورد)</h5>
+    </div>
+    <div class="card-body p-0">
+        <ul class="list-group list-group-flush">
+            {% for log in logs %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>{{ log.action }}</strong>
+                    <span class="text-muted ms-2">- {{ log.details }}</span>
+                </div>
+                <small class="text-muted" dir="ltr">{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+            </li>
+            {% else %}
+            <li class="list-group-item text-center text-muted">فعالیتی ثبت نشده است.</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<!-- Add Modal -->
+<div class="modal fade" id="addProxyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="POST" action="{{ url_for('add_proxy') }}">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">افزودن پروکسی جدید</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Port</label>
+                        <input type="number" name="port" class="form-control" required placeholder="e.g. 443">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Secret (خالی بگذارید تا خودکار ساخته شود)</label>
+                        <input type="text" name="secret" class="form-control" placeholder="Hex secret...">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Ad Tag (اختیاری)</label>
+                        <input type="text" name="tag" class="form-control" placeholder="Ad tag...">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Workers</label>
+                        <input type="number" name="workers" class="form-control" value="1" min="1" max="16">
+                        <div class="form-text">تعداد پردازش‌های همزمان برای این پورت.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">لغو</button>
+                    <button type="submit" class="btn btn-primary">ایجاد پروکسی</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
