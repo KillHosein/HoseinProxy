@@ -10,11 +10,56 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
-echo "[*] Updating system..."
-apt-get update
+# Function to wait for apt locks
+wait_for_apt_locks() {
+    echo "[*] Checking for background updates..."
+    # Check for running package manager processes
+    while pgrep -x "apt" >/dev/null || pgrep -x "apt-get" >/dev/null || pgrep -x "dpkg" >/dev/null || pgrep -f "unattended-upgr" >/dev/null; do
+        echo "   Waiting for other package managers to finish (apt/dpkg)..."
+        sleep 5
+    done
+}
 
-echo "[*] Installing dependencies..."
-apt-get install -y python3 python3-pip python3-venv docker.io curl
+# Robust update function
+run_apt_update() {
+    echo "[*] Updating system..."
+    local MAX_RETRIES=5
+    local COUNT=0
+    while [ $COUNT -lt $MAX_RETRIES ]; do
+        wait_for_apt_locks
+        if apt-get update; then
+            return 0
+        fi
+        echo "   Update failed. Retrying in 10 seconds..."
+        sleep 10
+        COUNT=$((COUNT+1))
+    done
+    echo "Error: Failed to update system after multiple attempts."
+    exit 1
+}
+
+# Robust install function
+run_apt_install() {
+    echo "[*] Installing dependencies..."
+    local MAX_RETRIES=5
+    local COUNT=0
+    while [ $COUNT -lt $MAX_RETRIES ]; do
+        wait_for_apt_locks
+        if apt-get install -y "$@"; then
+            return 0
+        fi
+        echo "   Install failed. Retrying in 10 seconds..."
+        sleep 10
+        COUNT=$((COUNT+1))
+    done
+    echo "Error: Failed to install dependencies."
+    exit 1
+}
+
+run_apt_update
+run_apt_install python3 python3-pip python3-venv docker.io curl
+
+
 
 echo "[*] Setting up Docker..."
 systemctl enable docker
