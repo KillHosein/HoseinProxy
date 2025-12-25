@@ -452,7 +452,7 @@
                             </td>
                             
                             <td data-label="اتصالات">
-                                <div class="d-flex align-items-center gap-2 cursor-pointer p-1 rounded hover-bg-light" onclick="openProxyDetails({{ proxy.id|tojson }}, {{ proxy.port|tojson }})">
+                                <div class="d-flex align-items-center gap-2 cursor-pointer p-1 rounded hover-bg-light" onclick="openProxyDetails({{ proxy.id|tojson|forceescape }}, {{ proxy.port|tojson|forceescape }})">
                                     <i class="fas fa-users text-secondary small"></i>
                                     <span class="text-white fw-bold" id="proxy-users-{{ proxy.id }}">{{ proxy.active_connections }}</span>
                                 </div>
@@ -515,7 +515,7 @@
                                         <i class="fas fa-redo"></i>
                                     </a>
                                     
-                                    <button class="btn btn-action btn-action-primary" onclick="openProxyEdit({{ proxy.id|tojson }}, {{ proxy.port|tojson }}, {{ proxy.tag|tojson|forceescape }}, {{ ((proxy.quota_bytes / (1024*1024*1024))|round(2) if proxy.quota_bytes else 0)|tojson }}, {{ proxy.secret|tojson|forceescape }}, {{ proxy.status|tojson|forceescape }}, {{ proxy.username|tojson|forceescape }}, {{ proxy.password|tojson|forceescape }}, {{ proxy.proxy_ip|tojson|forceescape }}, {{ proxy.name|tojson|forceescape }})" title="ویرایش">
+                                    <button class="btn btn-action btn-action-primary" onclick="openProxyEdit({{ proxy.id|tojson|forceescape }}, {{ proxy.port|tojson|forceescape }}, {{ proxy.tag|tojson|forceescape }}, {{ ((proxy.quota_bytes / (1024*1024*1024))|round(2) if proxy.quota_bytes else 0)|tojson|forceescape }}, {{ proxy.secret|tojson|forceescape }}, {{ proxy.status|tojson|forceescape }}, {{ proxy.username|tojson|forceescape }}, {{ proxy.password|tojson|forceescape }}, {{ proxy.proxy_ip|tojson|forceescape }}, {{ proxy.name|tojson|forceescape }})" title="ویرایش">
                                         <i class="fas fa-cog"></i>
                                     </button>
                                     
