@@ -72,8 +72,8 @@ def add():
                 ports=ports_config,
                 environment={
                     'SECRET': secret,
-                    'TAG': tag,
-                    'WORKERS': workers
+                    'TAG': tag or '',
+                    'WORKERS': str(workers)
                 },
                 restart_policy={"Name": "always"},
                 name=f"mtproto_{port}"
@@ -307,8 +307,8 @@ def update(id):
                         ports=ports_config,
                         environment={
                             'SECRET': proxy.secret,
-                            'TAG': proxy.tag,
-                            'WORKERS': proxy.workers
+                            'TAG': proxy.tag or '',
+                            'WORKERS': str(proxy.workers)
                         },
                         restart_policy={"Name": "always"},
                         name=f"mtproto_{proxy.port}"

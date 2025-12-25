@@ -337,8 +337,8 @@ def run_telegram_bot(app):
                                 ports={'443/tcp': data['port']},
                                 environment={
                                     'SECRET': data['secret'],
-                                    'TAG': data['tag'],
-                                    'WORKERS': 1
+                                    'TAG': data['tag'] or '',
+                                    'WORKERS': '1'
                                 },
                                 restart_policy={"Name": "always"},
                                 name=f"mtproto_{data['port']}"
