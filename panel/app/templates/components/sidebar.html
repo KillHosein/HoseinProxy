@@ -1,261 +1,192 @@
-{% extends "layouts/base.html" %}
-
-{% block title %}تنظیمات | HoseinProxy{% endblock %}
-
-{% block content %}
+{% if current_user.is_authenticated %}
 <style>
-    :root {
-        --card-bg: rgba(30, 41, 59, 0.4);
-        --card-border: rgba(255, 255, 255, 0.08);
-        --text-secondary: #94a3b8;
-        --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+    /* Top Navigation Styles */
+    #sidebar-wrapper {
+        background: #0f172a !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        display: flex;
+        flex-direction: row; /* Horizontal layout */
+        align-items: center;
+        padding: 0.5rem 1rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        width: 100%;
+        justify-content: space-between;
     }
 
-    #starfield {
-        position: fixed;
-        top: 0; left: 0; width: 100%; height: 100%;
-        z-index: -1;
-        background: radial-gradient(circle at top center, #1e293b 0%, #020617 80%);
-        pointer-events: none;
+    #sidebar-wrapper .sidebar-heading {
+        padding: 0.5rem 1rem;
+        font-size: 1.2rem;
+        font-weight: 800;
+        color: #fff;
+        background: transparent;
+        border: none;
+        margin: 0;
+        white-space: nowrap;
     }
 
-    .glass-card {
-        background: var(--card-bg);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid var(--card-border);
-        border-radius: 16px;
-        box-shadow: var(--glass-shadow);
-        transition: transform 0.3s ease, border-color 0.3s;
-        overflow: hidden;
+    #sidebar-wrapper .list-group {
+        display: flex;
+        flex-direction: row; /* Horizontal list */
+        margin: 0;
+        padding: 0;
+        flex-wrap: wrap;
+        justify-content: center;
+        flex-grow: 1;
     }
 
-    .glass-card:hover {
-        border-color: rgba(139, 92, 246, 0.3);
+    .list-group-item {
+        background-color: transparent !important;
+        color: #94a3b8 !important;
+        border: none !important;
+        padding: 0.6rem 1rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        margin: 0 4px;
+        border-right: none !important; /* Remove vertical border style */
+        border-bottom: 2px solid transparent !important; /* Add horizontal active indicator */
+    }
+
+    .list-group-item:hover {
+        background-color: rgba(255, 255, 255, 0.03) !important;
+        color: #f1f5f9 !important;
         transform: translateY(-2px);
     }
 
-    .card-header-clean {
-        background: rgba(255, 255, 255, 0.03);
-        border-bottom: 1px solid var(--card-border);
-        padding: 1.25rem 1.5rem;
-    }
-
-    /* استایل فرم‌ها */
-    .form-control, .form-select {
-        background-color: rgba(15, 23, 42, 0.6) !important;
-        border: 1px solid var(--card-border) !important;
+    .list-group-item.active {
+        background: rgba(255, 255, 255, 0.05) !important;
         color: #fff !important;
-        border-radius: 10px;
-        padding: 0.7rem 1rem;
+        border-bottom-color: #8b5cf6 !important;
+        box-shadow: none;
     }
 
-    .form-control:focus {
-        background-color: rgba(15, 23, 42, 0.9) !important;
-        border-color: #8b5cf6 !important;
-        box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1) !important;
+    .list-group-item i {
+        width: 20px;
+        font-size: 1rem;
+        margin-left: 8px !important; /* Adjust icon spacing for RTL */
+        margin-right: 0 !important;
     }
 
-    .form-text {
-        color: var(--text-secondary);
-        font-size: 0.85rem;
-        margin-top: 0.5rem;
+    /* Navbar Profile Styles */
+    .user-pill {
+        background: rgba(30, 41, 59, 0.6);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 50rem;
+        padding: 0.4rem 1rem;
+        color: #e2e8f0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        white-space: nowrap;
     }
 
-    /* دکمه ذخیره */
-    .btn-glow-primary {
-        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-        border: none; color: white;
-        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
-        transition: all 0.3s;
-        padding: 0.8rem;
-        font-weight: 600;
-        border-radius: 12px;
-    }
-    .btn-glow-primary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6);
+    .user-pill:hover {
+        background: rgba(30, 41, 59, 0.8);
+        border-color: rgba(139, 92, 246, 0.3);
+        color: #fff;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
 
-    /* سوئیچ */
-    .form-switch .form-check-input {
-        background-color: rgba(255, 255, 255, 0.1);
-        border-color: rgba(255, 255, 255, 0.2);
-        width: 3em; 
-        height: 1.5em;
-    }
-    .form-switch .form-check-input:checked {
-        background-color: #10b981;
-        border-color: #10b981;
+    .theme-toggle-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #94a3b8;
+        transition: all 0.3s ease;
+        margin-left: 1rem;
+        text-decoration: none;
+        cursor: pointer;
     }
 
-    .fade-in-up { animation: fadeInUp 0.6s ease-out forwards; opacity: 0; transform: translateY(20px); }
-    @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
-    .delay-1 { animation-delay: 0.1s; }
-    .delay-2 { animation-delay: 0.2s; }
+    .theme-toggle-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fbbf24;
+        transform: rotate(15deg);
+        box-shadow: 0 0 15px rgba(251, 191, 36, 0.2);
+    }
+    
+    .sidebar-footer { display: none; }
+    
+    /* Responsive Adjustments */
+    @media (max-width: 991px) {
+        #sidebar-wrapper {
+            flex-direction: column;
+            padding: 1rem;
+        }
+        #sidebar-wrapper .list-group {
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+        .list-group-item {
+            font-size: 0.9rem;
+            padding: 0.5rem 0.8rem;
+        }
+        .sidebar-heading { margin-bottom: 0.5rem !important; }
+        .nav-controls {
+            width: 100%;
+            justify-content: center;
+            margin-top: 0.5rem;
+        }
+    }
 </style>
 
-<!-- بوم پس‌زمینه -->
-<canvas id="starfield"></canvas>
-
-<div class="container-fluid py-4 px-lg-5">
+<div id="sidebar-wrapper">
+    <div class="sidebar-heading">
+        <i class="fas fa-rocket me-2 text-primary"></i> HoseinProxy
+    </div>
     
-    <!-- هدر صفحه -->
-    <div class="d-flex justify-content-between align-items-center mb-5 fade-in-up">
-        <div>
-            <h2 class="fw-bold text-white mb-1">تنظیمات سیستم</h2>
-            <p class="text-secondary mb-0">پیکربندی سرور و مدیریت هشدارها</p>
-        </div>
-        <!-- دکمه ذخیره اصلی (خارج از فرم‌ها برای دسترسی سریع - با جاوااسکریپت به فرم متصل می‌شود) -->
-        <button type="button" class="btn btn-glow-primary px-4 d-none d-md-block" onclick="submitSettings()">
-            <i class="fas fa-save me-2"></i> ذخیره تغییرات
-        </button>
+    <div class="list-group">
+        <a href="{{ url_for('main.dashboard') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'main.dashboard' %}active{% endif %}">
+            <i class="fas fa-tachometer-alt"></i> داشبورد
+        </a>
+        <a href="{{ url_for('reports.index') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'reports.index' %}active{% endif %}">
+            <i class="fas fa-chart-pie"></i> گزارشات
+        </a>
+        <a href="{{ url_for('users.list') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'users.list' %}active{% endif %}">
+            <i class="fas fa-users-cog"></i> مدیران
+        </a>
+        <a href="{{ url_for('firewall.index') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'firewall.index' %}active{% endif %}">
+            <i class="fas fa-shield-alt"></i> فایروال
+        </a>
+        <a href="{{ url_for('system.page') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'system.page' %}active{% endif %}">
+            <i class="fas fa-server"></i> سیستم
+        </a>
+        <a href="{{ url_for('tools.index') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'tools.index' %}active{% endif %}">
+            <i class="fas fa-network-wired"></i> ابزارها
+        </a>
+        <a href="{{ url_for('settings.index') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'settings.index' %}active{% endif %}">
+            <i class="fas fa-cogs"></i> تنظیمات
+        </a>
     </div>
 
-    <form method="POST" id="settingsForm">
-        <input type="hidden" name="settings_form_submitted" value="1">
-        
-        <div class="row g-4">
-            
-            <!-- Server Settings -->
-            <div class="col-lg-6 fade-in-up delay-1">
-                <div class="glass-card h-100">
-                    <div class="card-header-clean d-flex align-items-center">
-                        <div class="bg-primary bg-opacity-10 text-primary rounded p-2 me-3">
-                            <i class="fas fa-network-wired"></i>
-                        </div>
-                        <h5 class="mb-0 text-white">تنظیمات اتصال سرور</h5>
-                    </div>
-                    <div class="p-4">
-                        <div class="mb-4">
-                            <label for="server_ip" class="form-label text-white small fw-bold">آی‌پی سرور (Server IP)</label>
-                            <input type="text" class="form-control font-monospace" id="server_ip" name="server_ip" value="{{ server_ip }}" placeholder="e.g. 192.168.1.1">
-                            <div class="form-text"><i class="fas fa-info-circle me-1"></i>این IP برای تولید لینک‌های اتصال و کانفیگ کلاینت‌ها استفاده می‌شود.</div>
-                        </div>
-                        
-                        <div class="mb-2">
-                            <label for="server_domain" class="form-label text-white small fw-bold">دامنه سرور (Server Domain)</label>
-                            <input type="text" class="form-control font-monospace" id="server_domain" name="server_domain" value="{{ server_domain }}" placeholder="e.g. proxy.example.com">
-                            <div class="form-text"><i class="fas fa-globe me-1"></i>در صورت داشتن دامنه متصل به سرور، آن را وارد کنید (اختیاری).</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Alert Settings -->
-            <div class="col-lg-6 fade-in-up delay-1">
-                <div class="glass-card h-100">
-                    <div class="card-header-clean d-flex align-items-center">
-                        <div class="bg-warning bg-opacity-10 text-warning rounded p-2 me-3">
-                            <i class="fas fa-bell"></i>
-                        </div>
-                        <h5 class="mb-0 text-white">آستانه‌های هشدار</h5>
-                    </div>
-                    <div class="p-4">
-                        <div class="mb-4">
-                            <label class="form-label text-white small fw-bold">حداکثر اتصال مجاز هر پورت</label>
-                            <input type="number" name="alert_conn_threshold" class="form-control font-monospace" value="{{ alert_conn_threshold }}" min="1">
-                            <div class="form-text">اگر تعداد کاربران متصل به یک پورت از این عدد بیشتر شود، هشدار ارسال می‌شود.</div>
-                        </div>
-                        <div class="mb-2">
-                            <label for="alert_ip_conn_threshold" class="form-label text-white small fw-bold">محدودیت اتصال هر IP</label>
-                            <input type="number" name="alert_ip_conn_threshold" class="form-control font-monospace" value="{{ alert_ip_conn_threshold }}" min="1">
-                            <div class="form-text">تعداد کانکشن‌های مجاز همزمان از یک آدرس IP مشخص.</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <!-- Controls (Theme + Profile + Logout) -->
+    <div class="d-flex align-items-center gap-2 nav-controls">
+        <button class="theme-toggle-btn" id="themeToggle" title="تغییر تم">
+            <i class="fas fa-moon"></i>
+        </button>
 
-            <!-- Telegram Settings -->
-            <div class="col-lg-6 fade-in-up delay-2">
-                <div class="glass-card h-100">
-                    <div class="card-header-clean d-flex align-items-center">
-                        <div class="bg-info bg-opacity-10 text-info rounded p-2 me-3">
-                            <i class="fab fa-telegram-plane"></i>
-                        </div>
-                        <h5 class="mb-0 text-white">اطلاع‌رسانی تلگرام</h5>
-                    </div>
-                    <div class="p-4">
-                        <div class="mb-4">
-                            <label for="telegram_bot_token" class="form-label text-white small fw-bold">توکن ربات (Bot Token)</label>
-                            <input type="text" class="form-control font-monospace" id="telegram_bot_token" name="telegram_bot_token" value="{{ telegram_bot_token }}" placeholder="123456:ABC...">
-                            <div class="form-text">توکن دریافتی از BotFather را اینجا وارد کنید.</div>
-                        </div>
-                        
-                        <div class="mb-2">
-                            <label for="telegram_chat_id" class="form-label text-white small fw-bold">شناسه چت (Chat ID)</label>
-                            <input type="text" class="form-control font-monospace" id="telegram_chat_id" name="telegram_chat_id" value="{{ telegram_chat_id }}" placeholder="123456789">
-                            <div class="form-text">شناسه عددی اکانت، گروه یا کانال برای دریافت گزارشات.</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Auto Actions -->
-            <div class="col-lg-6 fade-in-up delay-2">
-                <div class="glass-card h-100">
-                    <div class="card-header-clean d-flex align-items-center">
-                        <div class="bg-danger bg-opacity-10 text-danger rounded p-2 me-3">
-                            <i class="fas fa-robot"></i>
-                        </div>
-                        <h5 class="mb-0 text-white">اقدامات خودکار (Auto-Actions)</h5>
-                    </div>
-                    <div class="p-4">
-                        <div class="d-flex align-items-center justify-content-between p-3 rounded-3 bg-white bg-opacity-5 border border-white border-opacity-10 mb-3">
-                            <div>
-                                <h6 class="text-white mb-1">مسدودسازی خودکار (Auto Block)</h6>
-                                <p class="text-secondary small mb-0">افزودن IPهای متخلف به فایروال</p>
-                            </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input cursor-pointer" type="checkbox" id="auto_block_enabled" name="auto_block_enabled" {% if auto_block_enabled == '1' %}checked{% endif %}>
-                            </div>
-                        </div>
-                        
-                        <div class="alert alert-danger bg-danger bg-opacity-10 border-danger border-opacity-25 text-white small">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            <strong>توجه:</strong> با فعال‌سازی این گزینه، اگر یک IP بیشتر از حد مجاز (تنظیم شده در بخش هشدارها) اتصال برقرار کند، بلافاصله در فایروال مسدود خواهد شد.
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-12 mt-4 mb-5 fade-in-up delay-2 d-md-none">
-                <button type="submit" class="btn btn-glow-primary w-100 py-3">
-                    <i class="fas fa-save me-2"></i> ذخیره همه تغییرات
-                </button>
-            </div>
-
+        <div class="user-pill">
+            <i class="fas fa-user-circle fa-lg text-primary"></i>
+            <span class="font-weight-bold small">{{ current_user.username }}</span>
         </div>
-    </form>
+
+        <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-danger ms-2 d-flex align-items-center" title="خروج">
+            <i class="fas fa-sign-out-alt"></i>
+        </a>
+    </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-    // --- Starfield Animation ---
-    const canvas = document.getElementById('starfield');
-    const ctx = canvas.getContext('2d');
-    let width, height, stars = [];
-    const resizeCanvas = () => { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; };
-    class Star {
-        constructor() { this.reset(); }
-        reset() { this.x = Math.random()*width; this.y = Math.random()*height; this.size = Math.random()*1.5+0.5; this.speed = Math.random()*0.1+0.02; this.opacity = Math.random()*0.8; }
-        update() { this.y -= this.speed; if(this.y<0) this.reset(); }
-        draw() { ctx.fillStyle = `rgba(255,255,255,${this.opacity})`; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill(); }
-    }
-    const initStars = () => { stars = Array.from({length:100}, () => new Star()); };
-    const animateStars = () => { ctx.clearRect(0,0,width,height); stars.forEach(s => { s.update(); s.draw(); }); requestAnimationFrame(animateStars); };
-    window.addEventListener('resize', () => { resizeCanvas(); initStars(); });
-    resizeCanvas(); initStars(); animateStars();
-
-    // --- Form Submit Helper ---
-    function submitSettings() {
-        document.getElementById('settingsForm').submit();
-    }
-    
-    // Check for success flash message to show sweetalert
-    // (This part assumes backend sends a flash message on success, 
-    // the base.html handles displaying alerts, but we can enhance it here if needed)
-</script>
-{% endblock %}
+{% endif %}
