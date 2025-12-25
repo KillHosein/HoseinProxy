@@ -12,9 +12,28 @@
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
     
     <style>
+        :root {
+            --bs-body-bg: #f8f9fa;
+            --bs-body-color: #212529;
+            --card-bg: #ffffff;
+            --sidebar-bg: #343a40;
+            --sidebar-text: #c2c7d0;
+            --sidebar-active-bg: #007bff;
+        }
+
+        [data-bs-theme="dark"] {
+            --bs-body-bg: #212529;
+            --bs-body-color: #f8f9fa;
+            --card-bg: #2c3034;
+            --sidebar-bg: #1a1d20;
+            --sidebar-text: #adb5bd;
+            --sidebar-active-bg: #0d6efd;
+        }
+
         body {
             font-family: 'Vazirmatn', sans-serif;
-            background-color: #f8f9fa;
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
             overflow-x: hidden;
         }
         
@@ -26,7 +45,7 @@
             -moz-transition: margin .25s ease-out;
             -o-transition: margin .25s ease-out;
             transition: margin .25s ease-out;
-            background-color: #343a40;
+            background-color: var(--sidebar-bg);
             color: #fff;
         }
 
@@ -35,7 +54,7 @@
             font-size: 1.2rem;
             font-weight: bold;
             text-align: center;
-            border-bottom: 1px solid #4b545c;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
 
         #sidebar-wrapper .list-group {
@@ -51,21 +70,21 @@
         }
 
         .list-group-item {
-            background-color: #343a40;
-            color: #c2c7d0;
+            background-color: var(--sidebar-bg);
+            color: var(--sidebar-text);
             border: none;
             padding: 1rem 1.5rem;
         }
         
         .list-group-item:hover {
             color: #fff;
-            background-color: #494e53;
+            background-color: rgba(255,255,255,0.1);
         }
         
         .list-group-item.active {
-            background-color: #007bff;
+            background-color: var(--sidebar-active-bg);
             color: #fff;
-            border-color: #007bff;
+            border-color: var(--sidebar-active-bg);
         }
 
         .card-custom {
@@ -73,9 +92,55 @@
             border-radius: 10px;
             box-shadow: 0 0 15px rgba(0,0,0,0.05);
             margin-bottom: 20px;
+            background-color: var(--card-bg);
+        }
+        
+        .bg-white {
+            background-color: var(--card-bg) !important;
+        }
+        
+        [data-bs-theme="dark"] .table {
+            color: #fff;
+            border-color: #373b3e;
+        }
+        
+        [data-bs-theme="dark"] .table-hover > tbody > tr:hover {
+            --bs-table-accent-bg: #373b3e;
+        }
+        
+        [data-bs-theme="dark"] .bg-light {
+            background-color: #343a40 !important;
+        }
+        
+        [data-bs-theme="dark"] .text-muted {
+            color: #adb5bd !important;
+        }
+        
+        [data-bs-theme="dark"] .text-secondary {
+            color: #adb5bd !important;
+        }
+        
+        [data-bs-theme="dark"] .form-control, [data-bs-theme="dark"] .form-select {
+            background-color: #2c3034;
+            border-color: #495057;
+            color: #fff;
+        }
+        
+        [data-bs-theme="dark"] .modal-content {
+            background-color: #2c3034;
+            border-color: #495057;
+        }
+        
+        [data-bs-theme="dark"] .modal-header, [data-bs-theme="dark"] .modal-footer {
+            border-color: #495057;
+        }
+        
+        [data-bs-theme="dark"] .close {
+            filter: invert(1) grayscale(100%) brightness(200%);
         }
 
         @media (min-width: 768px) {
+
             #sidebar-wrapper {
                 margin-right: 0;
             }
@@ -115,6 +180,9 @@
                 <a href="{{ url_for('system_page') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'system_page' %}active{% endif %}">
                     <i class="fas fa-server me-2"></i> مدیریت سیستم
                 </a>
+                <a href="{{ url_for('network_tools') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'network_tools' %}active{% endif %}">
+                    <i class="fas fa-network-wired me-2"></i> ابزارهای شبکه
+                </a>
                 <a href="{{ url_for('logout') }}" class="list-group-item list-group-item-action text-danger">
                     <i class="fas fa-sign-out-alt me-2"></i> خروج
                 </a>
@@ -140,7 +208,12 @@
                     </button>
 
                     <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                        <ul class="navbar-nav ms-auto mt-2 mt-lg-0">
+                        <ul class="navbar-nav ms-auto mt-2 mt-lg-0 align-items-center">
+                            <li class="nav-item">
+                                <button class="btn btn-link nav-link" id="themeToggle">
+                                    <i class="fas fa-moon"></i>
+                                </button>
+                            </li>
                             {% if current_user.is_authenticated %}
                             <li class="nav-item">
                                 <span class="nav-link text-secondary">
@@ -182,6 +255,35 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <script>
+        // Theme Toggle
+        const themeToggle = document.getElementById('themeToggle');
+        const html = document.documentElement;
+        const icon = themeToggle.querySelector('i');
+        
+        // Load saved theme
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        html.setAttribute('data-bs-theme', savedTheme);
+        if (savedTheme === 'dark') {
+            icon.classList.remove('fa-moon');
+            icon.classList.add('fa-sun');
+        }
+        
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = html.getAttribute('data-bs-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            
+            html.setAttribute('data-bs-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            if (newTheme === 'dark') {
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            } else {
+                icon.classList.remove('fa-sun');
+                icon.classList.add('fa-moon');
+            }
+        });
+
         // Page Loader
         window.addEventListener('load', function() {
             const loader = document.getElementById('loader');

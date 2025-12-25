@@ -988,6 +988,50 @@ def bulk_create_proxies():
         
     return redirect(url_for('dashboard'))
 
+@app.route('/tools')
+@login_required
+def network_tools():
+    return render_template('tools.html')
+
+@app.route('/api/tools/speedtest', methods=['POST'])
+@login_required
+def api_speedtest():
+    def run_speedtest():
+        try:
+            import speedtest
+            st = speedtest.Speedtest()
+            st.get_best_server()
+            download = st.download() / 1_000_000 # Mbps
+            upload = st.upload() / 1_000_000 # Mbps
+            ping = st.results.ping
+            return {"download": round(download, 2), "upload": round(upload, 2), "ping": round(ping, 2)}
+        except Exception as e:
+            return {"error": str(e)}
+            
+    # Since speedtest is slow, we should ideally run it async. 
+    # But for simplicity, we'll block (user waits) or we can implement a simple async pattern later.
+    # Given the request for "Pro features", let's make it real-time if possible, but standard AJAX wait is fine for now.
+    result = run_speedtest()
+    return jsonify(result)
+
+@app.route('/api/tools/ping', methods=['POST'])
+@login_required
+def api_ping():
+    host = request.json.get('host', '8.8.8.8')
+    try:
+        # Validate host to prevent command injection (basic check)
+        if not all(c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_" for c in host):
+             return jsonify({"output": "Invalid host format"})
+             
+        cmd = ['ping', '-c', '4', host] if sys.platform.startswith('linux') else ['ping', '-n', '4', host]
+        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode()
+        return jsonify({"output": output})
+    except subprocess.CalledProcessError as e:
+        return jsonify({"output": e.output.decode()})
+    except Exception as e:
+        return jsonify({"output": str(e)})
+
+
 
 @app.route('/reports')
 @login_required

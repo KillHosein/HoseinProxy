@@ -5,4 +5,5 @@ flask-limiter
 docker
 psutil
 requests
+speedtest-cli
 gunicorn
