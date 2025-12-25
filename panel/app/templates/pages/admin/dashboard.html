@@ -871,24 +871,6 @@
         document.getElementById('newSecret').value = type==='dd' ? 'dd'+sec : sec;
     };
     const generateRandomHex = () => [...Array(32)].map(()=>Math.floor(Math.random()*16).toString(16)).join('');
-    
-    const setRandomSecretForEdit = () => {
-        const secretInput = document.getElementById('editProxySecret');
-        const currentSecret = secretInput.value;
-        const tlsField = document.getElementById('editProxyTlsField');
-        const isTls = (currentSecret && currentSecret.startsWith('ee')) || !tlsField.classList.contains('d-none');
-        
-        const rand = generateRandomHex();
-        
-        if (isTls) {
-            const domain = document.getElementById('editProxyDomain').value || 'google.com';
-            const domainHex = domain.split('').map(c => c.charCodeAt(0).toString(16)).join('');
-            secretInput.value = 'ee' + rand + domainHex;
-            tlsField.classList.remove('d-none'); // Ensure it stays visible
-        } else {
-            secretInput.value = rand;
-        }
-    };
 
     const copyProxyLink = (port, secret, proxyIp) => {
         const serverIp = proxyIp || '{{ server_ip }}' || window.location.hostname;
