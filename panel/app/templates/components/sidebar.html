@@ -68,10 +68,55 @@
         margin-left: 8px !important; /* Adjust icon spacing for RTL */
         margin-right: 0 !important;
     }
-    
-    .sidebar-footer {
-        display: none; /* Hide footer in top nav mode to save space */
+
+    /* Navbar Profile Styles */
+    .user-pill {
+        background: rgba(30, 41, 59, 0.6);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 50rem;
+        padding: 0.4rem 1rem;
+        color: #e2e8f0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        white-space: nowrap;
     }
+
+    .user-pill:hover {
+        background: rgba(30, 41, 59, 0.8);
+        border-color: rgba(139, 92, 246, 0.3);
+        color: #fff;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .theme-toggle-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #94a3b8;
+        transition: all 0.3s ease;
+        margin-left: 1rem;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .theme-toggle-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fbbf24;
+        transform: rotate(15deg);
+        box-shadow: 0 0 15px rgba(251, 191, 36, 0.2);
+    }
+    
+    .sidebar-footer { display: none; }
     
     /* Responsive Adjustments */
     @media (max-width: 991px) {
@@ -84,12 +129,18 @@
             flex-wrap: wrap;
             justify-content: center;
             width: 100%;
+            margin-bottom: 1rem;
         }
         .list-group-item {
             font-size: 0.9rem;
             padding: 0.5rem 0.8rem;
         }
         .sidebar-heading { margin-bottom: 0.5rem !important; }
+        .nav-controls {
+            width: 100%;
+            justify-content: center;
+            margin-top: 0.5rem;
+        }
     }
 </style>
 
@@ -120,9 +171,21 @@
         <a href="{{ url_for('settings.index') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'settings.index' %}active{% endif %}">
             <i class="fas fa-cogs"></i> تنظیمات
         </a>
-        
-        <a href="{{ url_for('auth.logout') }}" class="list-group-item list-group-item-action text-danger ms-lg-auto" style="color: #ef4444 !important;">
-            <i class="fas fa-sign-out-alt"></i> خروج
+    </div>
+
+    <!-- Controls (Theme + Profile + Logout) -->
+    <div class="d-flex align-items-center gap-2 nav-controls">
+        <button class="theme-toggle-btn" id="themeToggle" title="تغییر تم">
+            <i class="fas fa-moon"></i>
+        </button>
+
+        <div class="user-pill">
+            <i class="fas fa-user-circle fa-lg text-primary"></i>
+            <span class="font-weight-bold small">{{ current_user.username }}</span>
+        </div>
+
+        <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-danger ms-2 d-flex align-items-center" title="خروج">
+            <i class="fas fa-sign-out-alt"></i>
         </a>
     </div>
 </div>
