@@ -262,6 +262,18 @@
                 </div>
             </div>
             
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary btn-sm rounded-pill px-3 py-2 dropdown-toggle text-white border-opacity-25" type="button" data-bs-toggle="dropdown" style="background: rgba(255,255,255,0.05);">
+                    <i class="fas fa-bolt me-2 text-warning"></i>عملیات
+                </button>
+                <ul class="dropdown-menu dropdown-menu-dark shadow-lg border-secondary border-opacity-25">
+                    <li><a class="dropdown-item" href="#" onclick="restartService()"><i class="fas fa-power-off me-2 text-danger"></i>ریستارت سرویس</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="backupSystem()"><i class="fas fa-download me-2 text-info"></i>دانلود بکاپ</a></li>
+                    <li><hr class="dropdown-divider border-secondary border-opacity-25"></li>
+                    <li><a class="dropdown-item" href="{{ url_for('firewall.index') }}"><i class="fas fa-shield-alt me-2 text-warning"></i>مدیریت فایروال</a></li>
+                </ul>
+            </div>
+
             <button class="btn btn-glow-primary btn-sm rounded-pill px-3 py-2" data-bs-toggle="modal" data-bs-target="#addProxyModal">
                 <i class="fas fa-plus me-2"></i>پروکسی جدید
             </button>
@@ -503,6 +515,10 @@
                                     
                                     <div class="vr bg-secondary opacity-25 mx-1"></div>
                                     
+                                    <a href="{{ url_for('proxy.renew', id=proxy.id) }}" class="btn btn-action btn-action-success" title="تمدید (30 روز)">
+                                        <i class="fas fa-calendar-plus"></i>
+                                    </a>
+
                                     <a href="{{ url_for('proxy.reset_quota', id=proxy.id) }}" class="btn btn-action btn-action-warning" title="ریست حجم">
                                         <i class="fas fa-redo"></i>
                                     </a>
