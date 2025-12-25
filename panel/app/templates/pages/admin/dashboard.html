@@ -341,7 +341,7 @@
                         <span class="ms-auto text-success fw-bold">{{ ((proxies|selectattr('status', 'equalto', 'running')|list|length / proxies|length * 100) if proxies|length > 0 else 0)|round|int }}%</span>
                     </div>
                     <div class="progress bg-dark bg-opacity-50 mt-2" style="height: 4px;">
-                        <div class="progress-bar bg-warning" style="width: {{ ((proxies|selectattr('status', 'equalto', 'running')|list|length / proxies|length * 100) if proxies|length > 0 else 0) }}%"></div>
+                        <div class="progress-bar bg-warning init-width" style="width: 0%" data-width="{{ ((proxies|selectattr('status', 'equalto', 'running')|list|length / proxies|length * 100) if proxies|length > 0 else 0) }}%"></div>
                     </div>
                 </div>
             </div>
@@ -452,7 +452,7 @@
                             </td>
                             
                             <td data-label="اتصالات">
-                                <div class="d-flex align-items-center gap-2 cursor-pointer p-1 rounded hover-bg-light" onclick="openProxyDetails({{ proxy.id|tojson|forceescape }}, {{ proxy.port|tojson|forceescape }})">
+                                <div class="d-flex align-items-center gap-2 cursor-pointer p-1 rounded hover-bg-light" onclick="openProxyDetails(this.dataset.id, this.dataset.port)" data-id="{{ proxy.id }}" data-port="{{ proxy.port }}">
                                     <i class="fas fa-users text-secondary small"></i>
                                     <span class="text-white fw-bold" id="proxy-users-{{ proxy.id }}">{{ proxy.active_connections }}</span>
                                 </div>
@@ -480,10 +480,10 @@
                             
                             <td data-label="لینک" class="text-center">
                                 <div class="d-flex gap-2 justify-content-center">
-                                    <button class="btn btn-action btn-action-info" onclick="copyProxyLink('{{ proxy.port }}', {{ proxy.secret|tojson|forceescape }}, {{ proxy.proxy_ip|tojson|forceescape }})" title="کپی لینک">
+                                    <button class="btn btn-action btn-action-info" onclick="copyProxyLink(this.dataset.port, this.dataset.secret, this.dataset.ip)" data-port="{{ proxy.port }}" data-secret="{{ proxy.secret }}" data-ip="{{ proxy.proxy_ip or '' }}" title="کپی لینک">
                                         <i class="far fa-copy"></i>
                                     </button>
-                                    <button class="btn btn-action btn-action-info" onclick="showLink('{{ proxy.port }}', {{ proxy.secret|tojson|forceescape }}, {{ proxy.proxy_ip|tojson|forceescape }})" title="نمایش QR">
+                                    <button class="btn btn-action btn-action-info" onclick="showLink(this.dataset.port, this.dataset.secret, this.dataset.ip)" data-port="{{ proxy.port }}" data-secret="{{ proxy.secret }}" data-ip="{{ proxy.proxy_ip or '' }}" title="نمایش QR">
                                         <i class="fas fa-qrcode"></i>
                                     </button>
                                 </div>
@@ -515,7 +515,7 @@
                                         <i class="fas fa-redo"></i>
                                     </a>
                                     
-                                    <button class="btn btn-action btn-action-primary" onclick="openProxyEdit({{ proxy.id|tojson|forceescape }}, {{ proxy.port|tojson|forceescape }}, {{ proxy.tag|tojson|forceescape }}, {{ ((proxy.quota_bytes / (1024*1024*1024))|round(2) if proxy.quota_bytes else 0)|tojson|forceescape }}, {{ proxy.secret|tojson|forceescape }}, {{ proxy.status|tojson|forceescape }}, {{ proxy.username|tojson|forceescape }}, {{ proxy.password|tojson|forceescape }}, {{ proxy.proxy_ip|tojson|forceescape }}, {{ proxy.name|tojson|forceescape }})" title="ویرایش">
+                                    <button class="btn btn-action btn-action-primary" onclick="handleProxyEdit(this)" data-id="{{ proxy.id }}" data-port="{{ proxy.port }}" data-tag="{{ proxy.tag or '' }}" data-quota="{{ ((proxy.quota_bytes / (1024*1024*1024))|round(2) if proxy.quota_bytes else 0) }}" data-secret="{{ proxy.secret }}" data-status="{{ proxy.status }}" data-username="{{ proxy.username or '' }}" data-password="{{ proxy.password or '' }}" data-ip="{{ proxy.proxy_ip or '' }}" data-name="{{ proxy.name or '' }}" title="ویرایش">
                                         <i class="fas fa-cog"></i>
                                     </button>
                                     
@@ -1101,6 +1101,11 @@
     });
 
     // Modal Helpers
+    const handleProxyEdit = (btn) => {
+        const d = btn.dataset;
+        openProxyEdit(d.id, d.port, d.tag, d.quota, d.secret, d.status, d.username, d.password, d.ip, d.name);
+    };
+
     const openProxyEdit = (id, port, tag, quota, secret, status, user, pass, ip, name) => {
         const form = document.getElementById('editProxyForm'); form.action = `/proxy/update/${id}`;
         document.getElementById('editProxyPort').value = port;
@@ -1167,6 +1172,11 @@
 
     // Initial Load
     updateStats(); updateProxies(); updateTrafficHistory(); updateAlerts(); updateActivityLogs();
+
+    // Initialize Progress Bars
+    document.querySelectorAll('.init-width').forEach(el => {
+        setTimeout(() => { el.style.width = el.dataset.width; }, 100);
+    });
 
     // Quick Actions
     function restartService() {
