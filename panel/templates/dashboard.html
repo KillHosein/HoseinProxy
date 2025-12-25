@@ -60,14 +60,16 @@
 <div class="row mb-4">
     <div class="col-lg-6">
          <!-- System Monitor Chart -->
-         <div class="card card-custom h-100">
-            <div class="card-header bg-white py-3">
-                <h5 class="mb-0 text-secondary"><i class="fas fa-chart-line me-2"></i>منابع سیستم (زنده)</h5>
-            </div>
-            <div class="card-body">
-                <canvas id="systemChart" height="250"></canvas>
-            </div>
-        </div>
+        <div class="card card-custom h-100">
+           <div class="card-header bg-white py-3">
+               <h5 class="mb-0 text-secondary"><i class="fas fa-chart-line me-2"></i>منابع سیستم (زنده)</h5>
+           </div>
+           <div class="card-body">
+               <div style="position: relative; height: 250px; width: 100%;">
+                   <canvas id="systemChart"></canvas>
+               </div>
+           </div>
+       </div>
     </div>
     <div class="col-lg-6">
         <!-- Traffic History Chart -->
@@ -76,7 +78,9 @@
                <h5 class="mb-0 text-secondary"><i class="fas fa-chart-bar me-2"></i>ترافیک مصرفی (۷ روز اخیر)</h5>
            </div>
            <div class="card-body">
-               <canvas id="trafficChart" height="250"></canvas>
+               <div style="position: relative; height: 250px; width: 100%;">
+                   <canvas id="trafficChart"></canvas>
+               </div>
            </div>
        </div>
     </div>
@@ -257,8 +261,32 @@
     }
 
     function generateSecret() {
+        const type = document.getElementById('proxyType').value;
         const hex = [...Array(32)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
-        document.getElementById('newSecret').value = hex;
+        
+        let secret = hex;
+        if (type === 'dd') {
+            secret = 'dd' + hex;
+        } else if (type === 'tls') {
+            // Simplified TLS secret generation for UI (backend handles full generation with domain)
+            secret = 'ee' + hex + '...'; 
+            document.getElementById('newSecret').placeholder = "تولید خودکار توسط سیستم (پیشنهادی)";
+            document.getElementById('newSecret').value = "";
+            return;
+        }
+        
+        document.getElementById('newSecret').value = secret;
+    }
+
+    function toggleProxyFields() {
+        const type = document.getElementById('proxyType').value;
+        const tlsField = document.getElementById('tlsDomainField');
+        
+        if (type === 'tls') {
+            tlsField.classList.remove('d-none');
+        } else {
+            tlsField.classList.add('d-none');
+        }
     }
 
     function showLink(port, secret) {

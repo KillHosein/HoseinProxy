@@ -431,10 +431,28 @@ def add_proxy():
     workers = request.form.get('workers', type=int, default=1)
     tag = request.form.get('tag')
     secret = request.form.get('secret')
+    proxy_type = request.form.get('proxy_type', 'standard')
+    tls_domain = request.form.get('tls_domain', 'google.com')
     
+    # Advanced Secret Generation
     if not secret:
-        # Generate random hex if not provided
-        secret = secrets.token_hex(16)
+        base_hex = secrets.token_hex(16) # 32 chars
+        if proxy_type == 'dd':
+            secret = 'dd' + base_hex
+        elif proxy_type == 'tls':
+            # EE + Secret + Hex(Domain)
+            domain_hex = tls_domain.encode('utf-8').hex()
+            secret = 'ee' + base_hex + domain_hex
+        else:
+            secret = base_hex
+    else:
+        # Validate/Fix user provided secret based on type
+        if proxy_type == 'dd' and not secret.startswith('dd'):
+             secret = 'dd' + secret
+        elif proxy_type == 'tls' and not secret.startswith('ee'):
+             # If user provided a raw hex, upgrade it to TLS
+             domain_hex = tls_domain.encode('utf-8').hex()
+             secret = 'ee' + secret + domain_hex
 
     if not port:
          flash('شماره پورت الزامی است.', 'danger')
@@ -469,8 +487,8 @@ def add_proxy():
             )
             db.session.add(new_proxy)
             db.session.commit()
-            log_activity("Create Proxy", f"Created proxy on port {port}")
-            flash(f'پروکسی روی پورت {port} با موفقیت ساخته شد.', 'success')
+            log_activity("Create Proxy", f"Created {proxy_type} proxy on port {port}")
+            flash(f'پروکسی {proxy_type} روی پورت {port} با موفقیت ساخته شد.', 'success')
             
         except docker.errors.APIError as e:
              flash(f'خطای داکر: {e}', 'danger')
