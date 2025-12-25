@@ -592,9 +592,13 @@
                             <label class="text-secondary small mb-1">آی‌پی اتصال (Bind IP)</label>
                             <input type="text" name="proxy_ip" class="form-control font-monospace" placeholder="0.0.0.0 (پیش‌فرض)">
                         </div>
-                        <div class="col-12">
+                        <div class="col-md-6">
                             <label class="text-secondary small mb-1">نام نمایشی (اختیاری)</label>
                             <input type="text" name="name" class="form-control" placeholder="مثال: کاربر علی">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-secondary small mb-1">تگ گروه‌بندی</label>
+                            <input type="text" name="tag" class="form-control" placeholder="تگ تبلیغاتی از ربات گرفته شده">
                         </div>
                         <div class="col-12 d-none" id="tlsDomainField">
                             <label class="text-secondary small mb-1">دامنه Fake TLS</label>
@@ -606,10 +610,6 @@
                                 <input type="text" name="secret" id="newSecret" class="form-control font-monospace text-warning bg-dark border-secondary border-opacity-25" placeholder="تولید خودکار در صورت خالی بودن">
                                 <button class="btn btn-outline-secondary border-secondary border-opacity-25" type="button" onclick="generateSecret()"><i class="fas fa-dice"></i></button>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="text-secondary small mb-1">تگ گروه‌بندی</label>
-                            <input type="text" name="tag" class="form-control" placeholder="مثال: VIP">
                         </div>
                         <div class="col-md-6">
                             <label class="text-secondary small mb-1">تعداد Worker</label>
