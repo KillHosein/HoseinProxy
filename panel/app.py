@@ -192,6 +192,29 @@ def update_docker_stats():
                                 rx += data.get('rx_bytes', 0)
                                 tx += data.get('tx_bytes', 0)
                             
+                            # Method 2: Fallback to /proc/net/dev inside container if Docker stats fail or return 0
+                            if rx == 0 and tx == 0:
+                                try:
+                                    exit_code, output = container.exec_run("cat /proc/net/dev")
+                                    if exit_code == 0:
+                                        output_str = output.decode('utf-8')
+                                        for line in output_str.split('\n'):
+                                            if ':' in line:
+                                                parts = line.split(':')
+                                                iface_name = parts[0].strip()
+                                                # Skip loopback
+                                                if iface_name == 'lo':
+                                                    continue
+                                                
+                                                values = parts[1].split()
+                                                if len(values) >= 9:
+                                                    # In /proc/net/dev: 1st is Receive Bytes, 9th is Transmit Bytes
+                                                    rx += int(values[0])
+                                                    tx += int(values[8])
+                                except Exception as e2:
+                                    # print(f"Fallback Stats Error: {e2}")
+                                    pass
+
                             p.download = rx
                             p.upload = tx
                             
