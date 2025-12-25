@@ -332,13 +332,13 @@ def run_telegram_bot(app):
                     with app.app_context():
                         if docker_client:
                             container = docker_client.containers.run(
-                                'alexbers/mtprotoproxy',
+                                'telegrammessenger/proxy',
                                 detach=True,
                                 ports={'443/tcp': data['port']},
                                 environment={
                                     'SECRET': data['secret'],
-                                    'TAG': data['tag'] or '',
-                                    'WORKERS': '1'
+                                    'TAG': data['tag'],
+                                    'WORKERS': 1
                                 },
                                 restart_policy={"Name": "always"},
                                 name=f"mtproto_{data['port']}"

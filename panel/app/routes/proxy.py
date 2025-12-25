@@ -67,13 +67,13 @@ def add():
                 ports_config = {'443/tcp': (proxy_ip, port)}
 
             container = docker_client.containers.run(
-                'alexbers/mtprotoproxy',
+                'telegrammessenger/proxy',
                 detach=True,
                 ports=ports_config,
                 environment={
                     'SECRET': secret,
-                    'TAG': tag or '',
-                    'WORKERS': str(workers)
+                    'TAG': tag,
+                    'WORKERS': workers
                 },
                 restart_policy={"Name": "always"},
                 name=f"mtproto_{port}"
@@ -302,13 +302,13 @@ def update(id):
                          ports_config = {'443/tcp': (proxy.proxy_ip, proxy.port)}
 
                      container = docker_client.containers.run(
-                        'alexbers/mtprotoproxy',
+                        'telegrammessenger/proxy',
                         detach=True,
                         ports=ports_config,
                         environment={
                             'SECRET': proxy.secret,
-                            'TAG': proxy.tag or '',
-                            'WORKERS': str(proxy.workers)
+                            'TAG': proxy.tag,
+                            'WORKERS': proxy.workers
                         },
                         restart_policy={"Name": "always"},
                         name=f"mtproto_{proxy.port}"

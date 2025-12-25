@@ -859,18 +859,9 @@
     
     const generateSecret = () => {
         const type = document.getElementById('proxyType').value;
-        // Generate 32 chars hex
+        if(type==='tls') { document.getElementById('newSecret').value=''; return; }
         let sec = [...Array(32)].map(()=>Math.floor(Math.random()*16).toString(16)).join('');
-        
-        if (type === 'tls') {
-            const domain = document.querySelector('input[name="tls_domain"]').value || 'google.com';
-            const domainHex = Array.from(domain).map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
-            document.getElementById('newSecret').value = 'ee' + sec + domainHex;
-        } else if (type === 'dd') {
-            document.getElementById('newSecret').value = 'dd' + sec;
-        } else {
-            document.getElementById('newSecret').value = sec;
-        }
+        document.getElementById('newSecret').value = type==='dd' ? 'dd'+sec : sec;
     };
     const generateRandomHex = () => [...Array(32)].map(()=>Math.floor(Math.random()*16).toString(16)).join('');
     const toggleProxyFields = () => { document.getElementById('tlsDomainField').classList.toggle('d-none', document.getElementById('proxyType').value !== 'tls'); };
