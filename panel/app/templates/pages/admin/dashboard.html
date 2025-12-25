@@ -1137,5 +1137,49 @@
 
     // Initial Load
     updateStats(); updateProxies(); updateTrafficHistory(); updateAlerts(); updateActivityLogs();
+
+    // Quick Actions
+    function restartService() {
+        Swal.fire({
+            title: 'آیا مطمئن هستید؟',
+            text: "سرویس پنل و پروکسی‌ها ریستارت خواهند شد.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'بله، ریستارت شود',
+            cancelButtonText: 'لغو',
+            background: '#1e293b', color: '#fff'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch('/system/restart_service', {method: 'POST'})
+                    .then(r => r.json())
+                    .then(d => {
+                        if(d.status === 'success') Swal.fire({icon:'success', title:'دستور ارسال شد', text:'سرویس در حال ریستارت است...', background:'#1e293b', color:'#fff'});
+                        else Swal.fire({icon:'error', title:'خطا', text:d.message, background:'#1e293b', color:'#fff'});
+                    });
+            }
+        });
+    }
+
+    function backupSystem() {
+        Swal.fire({title:'در حال تهیه پشتیبان...', didOpen:()=>{Swal.showLoading()}, background:'#1e293b', color:'#fff', showConfirmButton:false});
+        fetch('/system/backup', {method: 'POST'})
+            .then(r => r.json())
+            .then(d => {
+                if(d.status === 'success') {
+                    Swal.fire({
+                        icon:'success', title:'موفق', text:d.message, 
+                        showCancelButton:true, confirmButtonText:'دانلود فایل', cancelButtonText:'بستن',
+                        background:'#1e293b', color:'#fff'
+                    }).then((r) => {
+                        if(r.isConfirmed) window.location.href = `/system/download_backup/${d.filename}`;
+                    });
+                } else {
+                    Swal.fire({icon:'error', title:'خطا', text:d.message, background:'#1e293b', color:'#fff'});
+                }
+            })
+            .catch(err => Swal.fire({icon:'error', title:'خطا', text:'خطا در ارتباط با سرور', background:'#1e293b', color:'#fff'}));
+    }
 </script>
 {% endblock %}

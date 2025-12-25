@@ -409,17 +409,28 @@ def restart(id):
 @login_required
 def reset_quota(id):
     proxy = Proxy.query.get_or_404(id)
-    try:
-        # Reset base counters to current usage so quota starts from 0 effectively relative to container stats
-        # Or better, just update quota_start to now and reset base
-        proxy.quota_start = datetime.utcnow()
-        proxy.quota_base_upload = int(proxy.upload or 0)
-        proxy.quota_base_download = int(proxy.download or 0)
-        
-        db.session.commit()
-        log_activity("Reset Quota", f"Reset quota for proxy {proxy.port}")
-        flash(f'مصرف حجم پروکسی {proxy.port} ریست شد.', 'success')
-    except Exception as e:
-        flash(f'خطا در ریست حجم: {e}', 'danger')
-        
+    proxy.quota_start = datetime.utcnow()
+    proxy.quota_base_upload = int(proxy.upload or 0)
+    proxy.quota_base_download = int(proxy.download or 0)
+    db.session.commit()
+    log_activity("Reset Quota", f"Reset quota for proxy on port {proxy.port}")
+    flash(f'حجم مصرفی پروکسی {proxy.port} ریست شد.', 'success')
     return redirect(url_for('main.dashboard'))
+
+@proxy_bp.route('/renew/<int:id>')
+@login_required
+def renew(id):
+    proxy = Proxy.query.get_or_404(id)
+    days = request.args.get('days', 30, type=int)
+    
+    if proxy.expiry_date and proxy.expiry_date > datetime.utcnow():
+        proxy.expiry_date = proxy.expiry_date + timedelta(days=days)
+    else:
+        proxy.expiry_date = datetime.utcnow() + timedelta(days=days)
+        
+    db.session.commit()
+    log_activity("Renew Proxy", f"Extended proxy {proxy.port} for {days} days")
+    flash(f'اعتبار پروکسی {proxy.port} به مدت {days} روز تمدید شد.', 'success')
+    return redirect(url_for('main.dashboard'))
+
+
