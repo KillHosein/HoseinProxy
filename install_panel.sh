@@ -57,13 +57,30 @@ run_apt_install() {
 }
 
 run_apt_update
-run_apt_install python3 python3-pip python3-venv docker.io curl
-
-
+run_apt_install python3 python3-pip python3-venv docker.io curl nginx
 
 echo "[*] Setting up Docker..."
 systemctl enable docker
 systemctl start docker
+
+# Configure Nginx
+echo "[*] Configuring Nginx Reverse Proxy..."
+rm -f /etc/nginx/sites-enabled/default
+cat > /etc/nginx/sites-available/hoseinproxy <<EOF
+server {
+    listen 80;
+    server_name _;
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+}
+EOF
+ln -sf /etc/nginx/sites-available/hoseinproxy /etc/nginx/sites-enabled/
+systemctl restart nginx
 
 # Create venv
 echo "[*] Setting up Python Environment..."
@@ -107,7 +124,7 @@ Requires=docker.service
 User=root
 WorkingDirectory=$SCRIPT_DIR/panel
 Environment="PATH=$SCRIPT_DIR/panel/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-ExecStart=$SCRIPT_DIR/panel/venv/bin/gunicorn -w 2 -b 0.0.0.0:80 app:app
+ExecStart=$SCRIPT_DIR/panel/venv/bin/gunicorn -w 2 -b 127.0.0.1:5000 app:app
 Restart=always
 
 [Install]
