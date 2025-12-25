@@ -107,6 +107,7 @@ class Proxy(db.Model):
     username = db.Column(db.String(100), nullable=True) # For SOCKS5 or future use
     password = db.Column(db.String(100), nullable=True) # For SOCKS5 or future use
     proxy_ip = db.Column(db.String(50), nullable=True) # Specific Bind IP for this proxy
+    name = db.Column(db.String(100), nullable=True) # User friendly name for the proxy
 
 
 
@@ -227,6 +228,7 @@ def _ensure_db_initialized():
                 ('username', 'ALTER TABLE proxy ADD COLUMN username VARCHAR(100)'),
                 ('password', 'ALTER TABLE proxy ADD COLUMN password VARCHAR(100)'),
                 ('proxy_ip', 'ALTER TABLE proxy ADD COLUMN proxy_ip VARCHAR(50)'),
+                ('name', 'ALTER TABLE proxy ADD COLUMN name VARCHAR(100)'),
                 ('created_at', 'ALTER TABLE proxy ADD COLUMN created_at DATETIME'),
             ]
             with db.engine.connect() as conn:
@@ -917,6 +919,7 @@ def bulk_create_proxies():
     start_port = request.form.get('start_port', type=int)
     count = request.form.get('count', type=int)
     tag = request.form.get('tag')
+    base_name = request.form.get('name_prefix') # Optional base name
     
     if not start_port or not count or count < 1:
         flash('اطلاعات نامعتبر است.', 'danger')
@@ -934,7 +937,7 @@ def bulk_create_proxies():
     # Pre-check ports
     existing_ports = {p.port for p in Proxy.query.all()}
     
-    for _ in range(count):
+    for i in range(count):
         while current_port in existing_ports:
             current_port += 1
             
@@ -953,10 +956,15 @@ def bulk_create_proxies():
                 name=f"mtproto_{current_port}"
             )
             
+            p_name = None
+            if base_name:
+                p_name = f"{base_name} #{i+1}"
+            
             p = Proxy(
                 port=current_port,
                 secret=secret,
                 tag=tag,
+                name=p_name,
                 workers=1,
                 container_id=container.id,
                 status="running"
@@ -1073,7 +1081,8 @@ def api_proxies():
             'download_rate_mbps': round((p.download_rate_bps * 8) / (1024*1024), 3),
             'quota_mb': round((p.quota_bytes or 0) / (1024*1024), 2),
             'quota_used_mb': round((quota_used or 0) / (1024*1024), 2) if quota_used is not None else None,
-            'quota_remaining_mb': round((quota_remaining or 0) / (1024*1024), 2) if quota_remaining is not None else None
+            'quota_remaining_mb': round((quota_remaining or 0) / (1024*1024), 2) if quota_remaining is not None else None,
+            'name': p.name or p.tag # Fallback to tag if name is empty, or just name
         })
     return jsonify(data)
 
@@ -1343,6 +1352,7 @@ def add_proxy():
     port = request.form.get('port', type=int)
     workers = request.form.get('workers', type=int, default=1)
     tag = request.form.get('tag')
+    name = request.form.get('name')
     secret = request.form.get('secret')
     proxy_type = request.form.get('proxy_type', 'standard')
     tls_domain = request.form.get('tls_domain', 'google.com')
@@ -1404,6 +1414,7 @@ def add_proxy():
                 port=port,
                 secret=secret,
                 tag=tag,
+                name=name,
                 workers=workers,
                 container_id=container.id,
                 status="running",
@@ -1434,6 +1445,7 @@ def update_proxy(id):
     
     # Collect form data
     tag = (request.form.get('tag') or '').strip() or None
+    name = (request.form.get('name') or '').strip() or None
     quota_gb = request.form.get('quota_gb', type=float)
     expiry_days = request.form.get('expiry_days', type=int)
     
@@ -1479,6 +1491,10 @@ def update_proxy(id):
         if tag != proxy.tag:
             proxy.tag = tag
             changes.append("Tag updated")
+            
+        if name != proxy.name:
+            proxy.name = name
+            changes.append("Name updated")
             
         if quota_bytes != proxy.quota_bytes:
             proxy.quota_bytes = quota_bytes

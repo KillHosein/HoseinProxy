@@ -114,6 +114,7 @@
                         <thead class="bg-light">
                             <tr>
                                 <th class="ps-4">پورت</th>
+                                <th>نام</th>
                                 <th>تگ</th>
                                 <th>وضعیت</th>
                                 <th>اتصالات</th>
@@ -127,6 +128,13 @@
                             {% for proxy in proxies %}
                             <tr>
                                 <td class="ps-4 fw-bold" data-proxy-port="{{ proxy.port }}">{{ proxy.port }}</td>
+                                <td>
+                                    {% if proxy.name %}
+                                    <span class="fw-bold text-dark">{{ proxy.name }}</span>
+                                    {% else %}
+                                    <span class="text-muted small">-</span>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     {% if proxy.tag %}
                                     <span class="badge bg-secondary" data-proxy-tag="{{ proxy.tag }}">{{ proxy.tag }}</span>
@@ -220,7 +228,8 @@
                                                 '{{ proxy.status }}',
                                                 '{{ proxy.username or '' }}',
                                                 '{{ proxy.password or '' }}',
-                                                '{{ proxy.proxy_ip or '' }}'
+                                                '{{ proxy.proxy_ip or '' }}',
+                                                '{{ proxy.name or '' }}'
                                             )">
                                             <i class="fas fa-pen"></i>
                                         </button>
@@ -317,7 +326,12 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">تگ (مشترک)</label>
-                        <input type="text" name="tag" class="form-control" placeholder="@MyChannel">
+                        <input type="text" name="tag" class="form-control" placeholder="تگ مناسب رو در اینجا قرار بدید یا خالی بزارید">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">پیشوند نام (اختیاری)</label>
+                        <input type="text" name="name_prefix" class="form-control" placeholder="مثلاً: کاربر">
+                        <div class="form-text">نام‌ها به صورت "پیشوند #۱"، "پیشوند #۲" و... ذخیره می‌شوند.</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -344,8 +358,8 @@
                         <input type="number" name="port" class="form-control" required placeholder="مثلاً 443">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">تگ تبلیغاتی (اختیاری)</label>
-                        <input type="text" name="tag" class="form-control" placeholder="@MyChannel">
+                        <label class="form-label">نام پروکسی (اختیاری)</label>
+                        <input type="text" name="name" class="form-control" placeholder="مثلاً: کاربر ۱">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">نوع پروکسی</label>
@@ -365,6 +379,10 @@
                             <input type="text" name="secret" id="newSecret" class="form-control" placeholder="تولید خودکار در صورت خالی بودن">
                             <button class="btn btn-outline-secondary" type="button" onclick="generateSecret()">تولید تصادفی</button>
                         </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">تگ تبلیغاتی (اختیاری)</label>
+                        <input type="text" name="tag" class="form-control" placeholder="تگ مناسب رو در اینجا قرار بدید یا خالی بزارید">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">تعداد Worker</label>
@@ -425,8 +443,12 @@
                         </div>
                         
                         <div class="col-md-6">
+                            <label class="form-label">نام پروکسی</label>
+                            <input type="text" name="name" id="editProxyName" class="form-control">
+                        </div>
+                        <div class="col-md-6">
                             <label class="form-label">تگ</label>
-                            <input type="text" name="tag" id="editProxyTag" class="form-control" placeholder="@MyChannel">
+                            <input type="text" name="tag" id="editProxyTag" class="form-control" placeholder="تگ مناسب رو در اینجا قرار بدید یا خالی بزارید">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">وضعیت</label>
@@ -694,11 +716,12 @@
         return [...Array(32)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
     }
 
-    function openProxyEdit(id, port, tag, quotaGb, secret, status, user, pass, ip) {
+    function openProxyEdit(id, port, tag, quotaGb, secret, status, user, pass, ip, name) {
         const form = document.getElementById('editProxyForm');
         form.action = `/proxy/update/${id}`;
         
         document.getElementById('editProxyPort').value = port;
+        document.getElementById('editProxyName').value = name || '';
         document.getElementById('editProxyTag').value = tag || '';
         document.getElementById('editProxyQuota').value = quotaGb && quotaGb > 0 ? quotaGb : '';
         document.getElementById('editProxySecret').value = secret || '';
