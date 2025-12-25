@@ -194,14 +194,18 @@ def restart_proxy(id):
 def create_admin(username, password):
     with app.app_context():
         db.create_all()
-        if not User.query.filter_by(username=username).first():
+        user = User.query.filter_by(username=username).first()
+        if not user:
             u = User(username=username)
             u.set_password(password)
             db.session.add(u)
             db.session.commit()
             print(f"User {username} created.")
         else:
-            print(f"User {username} already exists.")
+            # Update password if user exists
+            user.set_password(password)
+            db.session.commit()
+            print(f"User {username} updated.")
 
 if __name__ == '__main__':
     # Initialize DB
