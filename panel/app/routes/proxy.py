@@ -67,7 +67,7 @@ def add():
                 ports_config = {'443/tcp': (proxy_ip, port)}
 
             container = docker_client.containers.run(
-                'telegrammessenger/proxy',
+                'seriyps/mtproto-proxy',
                 detach=True,
                 ports=ports_config,
                 environment={
@@ -139,7 +139,7 @@ def bulk_create():
         try:
             secret = secrets.token_hex(16)
             container = docker_client.containers.run(
-                'telegrammessenger/proxy',
+                'seriyps/mtproto-proxy',
                 detach=True,
                 ports={'443/tcp': current_port},
                 environment={
@@ -302,7 +302,7 @@ def update(id):
                          ports_config = {'443/tcp': (proxy.proxy_ip, proxy.port)}
 
                      container = docker_client.containers.run(
-                        'telegrammessenger/proxy',
+                        'seriyps/mtproto-proxy',
                         detach=True,
                         ports=ports_config,
                         environment={
