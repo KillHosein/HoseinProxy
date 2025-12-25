@@ -73,7 +73,8 @@ def add():
                 environment={
                     'SECRET': secret,
                     'TAG': tag,
-                    'WORKERS': workers
+                    'WORKERS': workers,
+                    'PORT': port
                 },
                 restart_policy={"Name": "always"},
                 name=f"mtproto_{port}"
@@ -145,7 +146,8 @@ def bulk_create():
                 environment={
                     'SECRET': secret,
                     'TAG': tag,
-                    'WORKERS': 1
+                    'WORKERS': 1,
+                    'PORT': current_port
                 },
                 restart_policy={"Name": "always"},
                 name=f"mtproto_{current_port}"
@@ -308,7 +310,8 @@ def update(id):
                         environment={
                             'SECRET': proxy.secret,
                             'TAG': proxy.tag,
-                            'WORKERS': proxy.workers
+                            'WORKERS': proxy.workers,
+                            'PORT': proxy.port
                         },
                         restart_policy={"Name": "always"},
                         name=f"mtproto_{proxy.port}"
