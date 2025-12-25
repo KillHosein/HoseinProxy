@@ -131,6 +131,16 @@ def get_system_metrics():
 # --- Background Task for Stats ---
 def update_docker_stats():
     """Periodically updates proxy traffic stats from Docker"""
+    # Wait for tables to be created
+    while True:
+        try:
+            with app.app_context():
+                # Check if table exists
+                db.engine.inspect(db.engine).has_table("proxy")
+                break
+        except:
+            time.sleep(2)
+            
     while True:
         try:
             with app.app_context():
@@ -157,6 +167,9 @@ def update_docker_stats():
                             # Container might be stopped or deleted
                             continue
                     db.session.commit()
+        except OperationalError:
+             # Database might be locked or tables missing temporarily
+             print("DB Operational Error in Stats Thread. Retrying...")
         except Exception as e:
             print(f"Stats Loop Error: {e}")
         
@@ -165,6 +178,13 @@ def update_docker_stats():
 # Start background thread
 stats_thread = threading.Thread(target=update_docker_stats, daemon=True)
 stats_thread.start()
+
+# Ensure DB is created
+with app.app_context():
+    try:
+        db.create_all()
+    except:
+        pass
 
 # --- Routes ---
 
