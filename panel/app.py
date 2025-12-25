@@ -7,14 +7,18 @@ import threading
 import time
 import subprocess
 import tarfile
+import shutil
+import ipaddress
+from collections import defaultdict, deque
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import OperationalError
+from sqlalchemy import inspect, text, func
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Configuration Class
 class Config:
@@ -31,7 +35,7 @@ class Config:
         except:
             pass
             
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///panel.db'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('HOSEINPROXY_DATABASE_URI', 'sqlite:///panel.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 # App Initialization
@@ -91,6 +95,12 @@ class Proxy(db.Model):
     upload = db.Column(db.BigInteger, default=0) # bytes
     download = db.Column(db.BigInteger, default=0) # bytes
     active_connections = db.Column(db.Integer, default=0)
+    upload_rate_bps = db.Column(db.BigInteger, default=0)
+    download_rate_bps = db.Column(db.BigInteger, default=0)
+    quota_bytes = db.Column(db.BigInteger, default=0)
+    quota_start = db.Column(db.DateTime, nullable=True)
+    quota_base_upload = db.Column(db.BigInteger, default=0)
+    quota_base_download = db.Column(db.BigInteger, default=0)
 
 class ProxyStats(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -106,6 +116,31 @@ class ActivityLog(db.Model):
     details = db.Column(db.String(255), nullable=True)
     ip_address = db.Column(db.String(50), nullable=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Alert(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    proxy_id = db.Column(db.Integer, db.ForeignKey('proxy.id'), nullable=True)
+    severity = db.Column(db.String(20), default="warning")
+    message = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    resolved = db.Column(db.Boolean, default=False)
+
+_db_initialized = False
+_db_init_lock = threading.Lock()
+
+_live_connections_lock = threading.Lock()
+_conn_first_seen = {}
+_live_connections = defaultdict(list)
+
+_rate_lock = threading.Lock()
+_last_bytes = {}
+
+_geo_lock = threading.Lock()
+_geo_cache = {}
+_geo_cache_expiry = {}
+
+_alerts_lock = threading.Lock()
+_last_alert_by_key = {}
 
 # --- Helpers ---
 @login_manager.user_loader
@@ -153,6 +188,102 @@ def get_system_metrics():
     except Exception as e:
         return {"error": str(e)}
 
+def _ensure_db_initialized():
+    global _db_initialized
+    if _db_initialized:
+        return
+    with _db_init_lock:
+        if _db_initialized:
+            return
+        db.create_all()
+        inspector = inspect(db.engine)
+        if inspector.has_table('proxy'):
+            columns = {c['name'] for c in inspector.get_columns('proxy')}
+            migrations = [
+                ('active_connections', 'ALTER TABLE proxy ADD COLUMN active_connections INTEGER DEFAULT 0'),
+                ('upload_rate_bps', 'ALTER TABLE proxy ADD COLUMN upload_rate_bps BIGINT DEFAULT 0'),
+                ('download_rate_bps', 'ALTER TABLE proxy ADD COLUMN download_rate_bps BIGINT DEFAULT 0'),
+                ('quota_bytes', 'ALTER TABLE proxy ADD COLUMN quota_bytes BIGINT DEFAULT 0'),
+                ('quota_start', 'ALTER TABLE proxy ADD COLUMN quota_start DATETIME'),
+                ('quota_base_upload', 'ALTER TABLE proxy ADD COLUMN quota_base_upload BIGINT DEFAULT 0'),
+                ('quota_base_download', 'ALTER TABLE proxy ADD COLUMN quota_base_download BIGINT DEFAULT 0'),
+            ]
+            with db.engine.connect() as conn:
+                for col, stmt in migrations:
+                    if col not in columns:
+                        conn.execute(text(stmt))
+                conn.commit()
+        _db_initialized = True
+
+@app.before_request
+def _before_request():
+    try:
+        _ensure_db_initialized()
+    except Exception as e:
+        print(f"DB Init Error: {e}")
+
+def _is_private_ip(ip_str):
+    try:
+        ip_obj = ipaddress.ip_address(ip_str)
+        return ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local
+    except Exception:
+        return False
+
+def _lookup_country(ip_str):
+    if not ip_str or _is_private_ip(ip_str):
+        return "Local"
+    now = time.time()
+    with _geo_lock:
+        if ip_str in _geo_cache and _geo_cache_expiry.get(ip_str, 0) > now:
+            return _geo_cache[ip_str]
+    country = "Unknown"
+    try:
+        if sys.platform.startswith('linux') and shutil.which("geoiplookup"):
+            out = subprocess.check_output(["geoiplookup", ip_str], timeout=1).decode(errors='ignore').strip()
+            if ":" in out:
+                country = out.split(":", 1)[1].strip()
+    except Exception:
+        country = "Unknown"
+    with _geo_lock:
+        _geo_cache[ip_str] = country
+        _geo_cache_expiry[ip_str] = now + 86400
+    return country
+
+def _format_duration(seconds):
+    if seconds < 0:
+        seconds = 0
+    seconds = int(seconds)
+    h = seconds // 3600
+    m = (seconds % 3600) // 60
+    s = seconds % 60
+    if h > 0:
+        return f"{h:02}:{m:02}:{s:02}"
+    return f"{m:02}:{s:02}"
+
+def _quota_usage_bytes(proxy):
+    if not proxy.quota_start:
+        return None
+    used_upload = max(0, int(proxy.upload) - int(proxy.quota_base_upload or 0))
+    used_download = max(0, int(proxy.download) - int(proxy.quota_base_download or 0))
+    return used_upload + used_download
+
+def _maybe_emit_alert(proxy_id, severity, message, key, cooldown_seconds=60):
+    now = datetime.utcnow()
+    with _alerts_lock:
+        last = _last_alert_by_key.get(key)
+        if last and (now - last).total_seconds() < cooldown_seconds:
+            return
+        _last_alert_by_key[key] = now
+    try:
+        alert = Alert(proxy_id=proxy_id, severity=severity, message=message)
+        db.session.add(alert)
+        db.session.commit()
+    except Exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
 # --- Background Task for Stats ---
 def update_docker_stats():
     """Periodically updates proxy traffic stats from Docker"""
@@ -160,13 +291,14 @@ def update_docker_stats():
     while True:
         try:
             with app.app_context():
-                # Check if table exists
-                db.engine.inspect(db.engine).has_table("proxy")
-                break
+                _ensure_db_initialized()
+                inspector = inspect(db.engine)
+                if inspector.has_table("proxy"):
+                    break
         except:
             time.sleep(2)
             
-    last_history_update = datetime.utcnow() - datetime.timedelta(hours=1, minutes=1) # Force run on start
+    last_stats_sample = datetime.utcnow() - timedelta(minutes=2)
     
     while True:
         try:
@@ -273,6 +405,20 @@ def update_docker_stats():
 
                             p.download = rx
                             p.upload = tx
+                            with _rate_lock:
+                                prev = _last_bytes.get(p.id)
+                                _last_bytes[p.id] = (tx, rx, time.time())
+                            if prev:
+                                prev_tx, prev_rx, prev_time = prev
+                                dt = max(1e-3, time.time() - prev_time)
+                                p.upload_rate_bps = int(max(0, tx - prev_tx) / dt)
+                                p.download_rate_bps = int(max(0, rx - prev_rx) / dt)
+                            else:
+                                p.upload_rate_bps = 0
+                                p.download_rate_bps = 0
+                            if p.quota_start and (p.quota_base_upload == 0 and p.quota_base_download == 0):
+                                p.quota_base_upload = int(tx)
+                                p.quota_base_download = int(rx)
                             
                             # 2. Update Active Connections
                             # Method 1: psutil (Works if running on host or same net namespace)
@@ -334,17 +480,9 @@ def update_docker_stats():
                         db.session.commit()
                         # print("Stats updated successfully.")
                     
-                    # 3. Update Historical Stats (Every ~1 hour)
-                    # For demo purposes/testing, let's do it every minute if it's a new minute
-                    # or just rely on a time check.
                     now = datetime.utcnow()
-                    if (now - last_history_update).total_seconds() > 3600: # 1 hour
+                    if (now - last_stats_sample).total_seconds() >= 60:
                         for p in proxies:
-                            # Calculate delta since last snapshot? 
-                            # For simplicity in this chart, we just store current totals. 
-                            # The chart logic calculates differences or shows totals.
-                            # Actually, for "Usage History", we usually want daily usage.
-                            # Let's store the current snapshot.
                             stat = ProxyStats(
                                 proxy_id=p.id,
                                 upload=p.upload,
@@ -354,7 +492,54 @@ def update_docker_stats():
                             )
                             db.session.add(stat)
                         db.session.commit()
-                        last_history_update = now
+                        last_stats_sample = now
+                        cutoff = now - timedelta(days=30)
+                        ProxyStats.query.filter(ProxyStats.timestamp < cutoff).delete()
+                        Alert.query.filter(Alert.created_at < cutoff).delete()
+                        db.session.commit()
+
+                    now_epoch = time.time()
+                    new_live = defaultdict(list)
+                    ip_counts = defaultdict(int)
+                    current_conn_keys = set()
+                    for p in proxies:
+                        conns = [c for c in all_connections if c.laddr.port == p.port and c.status == 'ESTABLISHED']
+                        for c in conns:
+                            if not c.raddr:
+                                continue
+                            ip = getattr(c.raddr, "ip", None) or c.raddr[0]
+                            rport = getattr(c.raddr, "port", None) or c.raddr[1]
+                            conn_key = (p.id, ip, int(rport), int(p.port))
+                            current_conn_keys.add(conn_key)
+                            first_seen = _conn_first_seen.get(conn_key)
+                            if not first_seen:
+                                _conn_first_seen[conn_key] = now_epoch
+                                first_seen = now_epoch
+                            ip_counts[(p.id, ip)] += 1
+                            new_live[p.id].append({
+                                "ip": ip,
+                                "country": _lookup_country(ip),
+                                "connected_for": _format_duration(now_epoch - first_seen),
+                                "connected_for_seconds": int(now_epoch - first_seen),
+                                "remote_port": int(rport)
+                            })
+                    with _live_connections_lock:
+                        _live_connections.clear()
+                        _live_connections.update(new_live)
+                        to_del = [k for k in _conn_first_seen.keys() if k not in current_conn_keys]
+                        for k in to_del:
+                            _conn_first_seen.pop(k, None)
+
+                    alert_total_threshold = int(get_setting("alert_conn_threshold", "300") or 300)
+                    alert_per_ip_threshold = int(get_setting("alert_ip_conn_threshold", "20") or 20)
+                    for p in proxies:
+                        if p.active_connections >= alert_total_threshold:
+                            _maybe_emit_alert(p.id, "warning", f"اتصالات غیرعادی روی پورت {p.port}: {p.active_connections}", f"total:{p.id}")
+                        for (pid, ip), cnt in ip_counts.items():
+                            if pid != p.id:
+                                continue
+                            if cnt >= alert_per_ip_threshold:
+                                _maybe_emit_alert(p.id, "warning", f"اتصالات زیاد از یک IP روی پورت {p.port}: {ip} ({cnt})", f"ip:{p.id}:{ip}")
 
         except OperationalError:
              print("DB Operational Error in Stats Thread. Retrying...")
@@ -363,32 +548,9 @@ def update_docker_stats():
         
         time.sleep(3) # Run every 3 seconds for real-time feel
 
-# Start background thread
-stats_thread = threading.Thread(target=update_docker_stats, daemon=True)
-stats_thread.start()
-
-# Ensure DB is created and migrated
-with app.app_context():
-    try:
-        db.create_all()
-        
-        # Simple Migration: Check for active_connections column
-        from sqlalchemy import inspect, text
-        inspector = inspect(db.engine)
-        columns = [c['name'] for c in inspector.get_columns('proxy')]
-        if 'active_connections' not in columns:
-            print("Migrating DB: Adding active_connections column...")
-            with db.engine.connect() as conn:
-                conn.execute(text('ALTER TABLE proxy ADD COLUMN active_connections INTEGER DEFAULT 0'))
-                conn.commit()
-                
-        # Check for ProxyStats table (created by create_all, but just in case)
-        if not inspector.has_table('proxy_stats'):
-             # create_all should handle this, but explicit check doesn't hurt
-             pass
-             
-    except Exception as e:
-        print(f"DB Init Error: {e}")
+if os.environ.get("HOSEINPROXY_DISABLE_STATS_THREAD", "0") != "1":
+    stats_thread = threading.Thread(target=update_docker_stats, daemon=True)
+    stats_thread.start()
 
 # --- Routes ---
 
@@ -434,14 +596,22 @@ def dashboard():
 @login_required
 def settings():
     if request.method == 'POST':
-        set_setting('server_ip', request.form.get('server_ip'))
-        set_setting('server_domain', request.form.get('server_domain'))
+        if 'server_ip' in request.form:
+            set_setting('server_ip', request.form.get('server_ip'))
+        if 'server_domain' in request.form:
+            set_setting('server_domain', request.form.get('server_domain'))
+        if 'alert_conn_threshold' in request.form:
+            set_setting('alert_conn_threshold', request.form.get('alert_conn_threshold'))
+        if 'alert_ip_conn_threshold' in request.form:
+            set_setting('alert_ip_conn_threshold', request.form.get('alert_ip_conn_threshold'))
         flash('تنظیمات ذخیره شد.', 'success')
         return redirect(url_for('settings'))
         
     return render_template('settings.html', 
                            server_ip=get_setting('server_ip', ''),
-                           server_domain=get_setting('server_domain', ''))
+                           server_domain=get_setting('server_domain', ''),
+                           alert_conn_threshold=get_setting('alert_conn_threshold', '300'),
+                           alert_ip_conn_threshold=get_setting('alert_ip_conn_threshold', '20'))
 
 @app.route('/api/stats')
 @login_required
@@ -454,12 +624,116 @@ def api_proxies():
     proxies = Proxy.query.all()
     data = []
     for p in proxies:
+        quota_used = _quota_usage_bytes(p)
+        quota_remaining = None
+        if p.quota_bytes and p.quota_bytes > 0 and quota_used is not None:
+            quota_remaining = max(0, int(p.quota_bytes) - int(quota_used))
         data.append({
             'id': p.id,
             'status': p.status,
             'active_connections': p.active_connections,
             'upload': round(p.upload / (1024*1024), 2),
-            'download': round(p.download / (1024*1024), 2)
+            'download': round(p.download / (1024*1024), 2),
+            'upload_rate_mbps': round((p.upload_rate_bps * 8) / (1024*1024), 3),
+            'download_rate_mbps': round((p.download_rate_bps * 8) / (1024*1024), 3),
+            'quota_mb': round((p.quota_bytes or 0) / (1024*1024), 2),
+            'quota_used_mb': round((quota_used or 0) / (1024*1024), 2) if quota_used is not None else None,
+            'quota_remaining_mb': round((quota_remaining or 0) / (1024*1024), 2) if quota_remaining is not None else None
+        })
+    return jsonify(data)
+
+@app.route('/api/proxy/<int:proxy_id>/connections')
+@login_required
+def api_proxy_connections(proxy_id):
+    ip_filter = (request.args.get("ip") or "").strip()
+    country_filter = (request.args.get("country") or "").strip()
+    with _live_connections_lock:
+        items = list(_live_connections.get(proxy_id, []))
+    if ip_filter:
+        items = [it for it in items if ip_filter in (it.get("ip") or "")]
+    if country_filter:
+        items = [it for it in items if country_filter.lower() in (it.get("country") or "").lower()]
+    items.sort(key=lambda x: x.get("connected_for_seconds", 0), reverse=True)
+    return jsonify({
+        "proxy_id": proxy_id,
+        "active_connections": len(items),
+        "items": items[:500]
+    })
+
+@app.route('/api/proxy/<int:proxy_id>/connections_history')
+@login_required
+def api_proxy_connections_history(proxy_id):
+    minutes = request.args.get("minutes", default=60, type=int)
+    minutes = max(5, min(24 * 60, minutes))
+    end = datetime.utcnow()
+    start = end - timedelta(minutes=minutes)
+    rows = ProxyStats.query.filter(
+        ProxyStats.proxy_id == proxy_id,
+        ProxyStats.timestamp >= start,
+        ProxyStats.timestamp <= end
+    ).order_by(ProxyStats.timestamp.asc()).all()
+    labels = [r.timestamp.strftime('%H:%M') for r in rows]
+    values = [int(r.active_connections or 0) for r in rows]
+    return jsonify({"labels": labels, "values": values})
+
+def _compute_usage_series(rows, granularity):
+    if not rows:
+        return {"labels": [], "upload_mb": [], "download_mb": []}
+    rows = sorted(rows, key=lambda r: r.timestamp)
+    groups = defaultdict(list)
+    for r in rows:
+        if granularity == "hourly":
+            key = r.timestamp.strftime('%Y-%m-%d %H:00')
+        elif granularity == "monthly":
+            key = r.timestamp.strftime('%Y-%m')
+        else:
+            key = r.timestamp.strftime('%Y-%m-%d')
+        groups[key].append(r)
+    labels = []
+    upload_mb = []
+    download_mb = []
+    for k in sorted(groups.keys()):
+        items = groups[k]
+        first = items[0]
+        last = items[-1]
+        du = max(0, int(last.upload or 0) - int(first.upload or 0))
+        dd = max(0, int(last.download or 0) - int(first.download or 0))
+        labels.append(k)
+        upload_mb.append(round(du / (1024 * 1024), 2))
+        download_mb.append(round(dd / (1024 * 1024), 2))
+    return {"labels": labels, "upload_mb": upload_mb, "download_mb": download_mb}
+
+@app.route('/api/proxy/<int:proxy_id>/usage_history')
+@login_required
+def api_proxy_usage_history(proxy_id):
+    granularity = (request.args.get("granularity") or "daily").strip().lower()
+    if granularity not in ("hourly", "daily", "monthly"):
+        granularity = "daily"
+    days = request.args.get("days", default=7, type=int)
+    days = max(1, min(60, days))
+    end = datetime.utcnow()
+    start = end - timedelta(days=days)
+    rows = ProxyStats.query.filter(
+        ProxyStats.proxy_id == proxy_id,
+        ProxyStats.timestamp >= start,
+        ProxyStats.timestamp <= end
+    ).order_by(ProxyStats.timestamp.asc()).all()
+    return jsonify(_compute_usage_series(rows, granularity))
+
+@app.route('/api/alerts')
+@login_required
+def api_alerts():
+    since_id = request.args.get("since_id", default=0, type=int)
+    q = Alert.query.filter(Alert.id > since_id).order_by(Alert.id.asc()).limit(50).all()
+    data = []
+    for a in q:
+        data.append({
+            "id": a.id,
+            "proxy_id": a.proxy_id,
+            "severity": a.severity,
+            "message": a.message,
+            "created_at": a.created_at.isoformat() + "Z",
+            "resolved": bool(a.resolved)
         })
     return jsonify(data)
 
@@ -468,11 +742,8 @@ def api_proxies():
 def api_history():
     """Returns historical traffic data for charts"""
     try:
-        # Group by date for the last 7 days
-        from sqlalchemy import func
-        
         end_date = datetime.utcnow()
-        start_date = end_date - datetime.timedelta(days=7)
+        start_date = end_date - timedelta(days=7)
         
         # Check if we have any stats
         # If no stats yet, return empty data to prevent errors
@@ -500,7 +771,7 @@ def api_history():
         # If no data, provide last 7 days empty
         if not labels:
             for i in range(7):
-                d = start_date + datetime.timedelta(days=i)
+                d = start_date + timedelta(days=i)
                 labels.append(d.strftime('%Y-%m-%d'))
                 upload_data.append(0)
                 download_data.append(0)
@@ -640,6 +911,10 @@ def add_proxy():
     secret = request.form.get('secret')
     proxy_type = request.form.get('proxy_type', 'standard')
     tls_domain = request.form.get('tls_domain', 'google.com')
+    quota_gb = request.form.get('quota_gb', type=float)
+    quota_bytes = 0
+    if quota_gb is not None and quota_gb > 0:
+        quota_bytes = int(quota_gb * 1024 * 1024 * 1024)
     
     # Advanced Secret Generation
     if not secret:
@@ -690,7 +965,9 @@ def add_proxy():
                 tag=tag,
                 workers=workers,
                 container_id=container.id,
-                status="running"
+                status="running",
+                quota_bytes=quota_bytes,
+                quota_start=datetime.utcnow() if quota_bytes > 0 else None
             )
             db.session.add(new_proxy)
             db.session.commit()
@@ -707,6 +984,58 @@ def add_proxy():
         flash('ارتباط با داکر برقرار نیست.', 'danger')
 
     return redirect(url_for('dashboard'))
+
+@app.route('/proxy/update/<int:id>', methods=['POST'])
+@login_required
+def update_proxy(id):
+    proxy = Proxy.query.get_or_404(id)
+    tag = (request.form.get('tag') or '').strip() or None
+    quota_gb = request.form.get('quota_gb', type=float)
+    quota_bytes = 0
+    if quota_gb is not None and quota_gb > 0:
+        quota_bytes = int(quota_gb * 1024 * 1024 * 1024)
+    try:
+        proxy.tag = tag
+        proxy.quota_bytes = quota_bytes
+        if quota_bytes > 0 and not proxy.quota_start:
+            proxy.quota_start = datetime.utcnow()
+            proxy.quota_base_upload = int(proxy.upload or 0)
+            proxy.quota_base_download = int(proxy.download or 0)
+        if quota_bytes == 0:
+            proxy.quota_start = None
+            proxy.quota_base_upload = 0
+            proxy.quota_base_download = 0
+        db.session.commit()
+        log_activity("Update Proxy", f"Updated proxy on port {proxy.port}")
+        flash('تنظیمات پروکسی ذخیره شد.', 'success')
+    except Exception as e:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        flash(f'خطا در ذخیره تنظیمات: {e}', 'danger')
+    return redirect(url_for('dashboard'))
+
+@app.route('/api/activity')
+@login_required
+def api_activity():
+    action = (request.args.get("action") or "").strip()
+    ip = (request.args.get("ip") or "").strip()
+    limit = request.args.get("limit", default=50, type=int)
+    limit = max(1, min(200, limit))
+    q = ActivityLog.query
+    if action:
+        q = q.filter(ActivityLog.action.ilike(f"%{action}%"))
+    if ip:
+        q = q.filter(ActivityLog.ip_address.ilike(f"%{ip}%"))
+    logs = q.order_by(ActivityLog.timestamp.desc()).limit(limit).all()
+    return jsonify([{
+        "id": l.id,
+        "action": l.action,
+        "details": l.details,
+        "ip_address": l.ip_address,
+        "timestamp": l.timestamp.isoformat() + "Z"
+    } for l in logs])
 
 @app.route('/proxy/stop/<int:id>')
 @login_required

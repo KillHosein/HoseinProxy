@@ -38,10 +38,24 @@
     <div class="col-md-6">
         <div class="card card-custom h-100">
             <div class="card-header bg-gradient-info text-white">
-                <h5 class="mb-0"><i class="fas fa-shield-alt me-2"></i> امنیت (به زودی)</h5>
+                <h5 class="mb-0"><i class="fas fa-bell me-2"></i> هشدارها</h5>
             </div>
             <div class="card-body">
-                <p class="text-muted">تنظیمات امنیتی مانند محدودیت تلاش برای ورود و لیست سیاه IP در نسخه‌های آینده اضافه خواهد شد.</p>
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">آستانه هشدار تعداد اتصال</label>
+                        <input type="number" name="alert_conn_threshold" class="form-control" value="{{ alert_conn_threshold }}" min="1">
+                        <div class="form-text">اگر تعداد اتصال‌های فعال یک پورت از این مقدار بیشتر شود هشدار ثبت می‌شود.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">آستانه هشدار اتصال از یک IP</label>
+                        <input type="number" name="alert_ip_conn_threshold" class="form-control" value="{{ alert_ip_conn_threshold }}" min="1">
+                        <div class="form-text">اگر تعداد اتصال‌های یک IP برای یک پورت از این مقدار بیشتر شود هشدار ثبت می‌شود.</div>
+                    </div>
+                    <button type="submit" class="btn btn-info w-100 text-white">
+                        <i class="fas fa-save me-1"></i> ذخیره هشدارها
+                    </button>
+                </form>
             </div>
         </div>
     </div>

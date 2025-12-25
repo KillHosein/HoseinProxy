@@ -92,19 +92,30 @@
         <div class="card card-custom">
             <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
                 <h5 class="mb-0 text-primary"><i class="fas fa-list me-2"></i>لیست پروکسی‌ها</h5>
-                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addProxyModal">
-                    <i class="fas fa-plus"></i> افزودن جدید
-                </button>
+                <div class="d-flex gap-2 align-items-center">
+                    <input id="proxySearch" type="text" class="form-control form-control-sm" style="max-width: 220px;" placeholder="جستجو (پورت/تگ)">
+                    <select id="proxyStatusFilter" class="form-select form-select-sm" style="max-width: 140px;">
+                        <option value="">همه وضعیت‌ها</option>
+                        <option value="running">فعال</option>
+                        <option value="stopped">متوقف</option>
+                    </select>
+                    <input id="proxyMinConn" type="number" min="0" class="form-control form-control-sm" style="max-width: 120px;" placeholder="حداقل اتصال">
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addProxyModal">
+                        <i class="fas fa-plus"></i> افزودن جدید
+                    </button>
+                </div>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
+                    <table id="proxiesTable" class="table table-hover align-middle mb-0">
                         <thead class="bg-light">
                             <tr>
                                 <th class="ps-4">پورت</th>
                                 <th>تگ</th>
                                 <th>وضعیت</th>
-                                <th>ترافیک (دانلود/آپلود)</th>
+                                <th>اتصالات</th>
+                                <th>پهنای‌باند</th>
+                                <th>حجم</th>
                                 <th>سکرت</th>
                                 <th>عملیات</th>
                             </tr>
@@ -112,29 +123,55 @@
                         <tbody>
                             {% for proxy in proxies %}
                             <tr>
-                                <td class="ps-4 fw-bold">{{ proxy.port }}</td>
+                                <td class="ps-4 fw-bold" data-proxy-port="{{ proxy.port }}">{{ proxy.port }}</td>
                                 <td>
                                     {% if proxy.tag %}
-                                    <span class="badge bg-secondary">{{ proxy.tag }}</span>
+                                    <span class="badge bg-secondary" data-proxy-tag="{{ proxy.tag }}">{{ proxy.tag }}</span>
                                     {% else %}
                                     <span class="text-muted small">-</span>
                                     {% endif %}
                                 </td>
                                 <td>
                                     {% if proxy.status == 'running' %}
-                                    <span class="badge bg-success">فعال</span>
+                                    <span class="badge bg-success" data-proxy-status="running">فعال</span>
                                     {% elif proxy.status == 'stopped' %}
-                                    <span class="badge bg-danger">متوقف</span>
+                                    <span class="badge bg-danger" data-proxy-status="stopped">متوقف</span>
                                     {% else %}
-                                    <span class="badge bg-warning text-dark">{{ proxy.status }}</span>
+                                    <span class="badge bg-warning text-dark" data-proxy-status="{{ proxy.status }}">{{ proxy.status }}</span>
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <span class="badge bg-info text-dark"><i class="fas fa-users"></i> <span id="proxy-users-{{ proxy.id }}">{{ proxy.active_connections }}</span></span>
+                                    <div class="d-flex gap-2 align-items-center">
+                                        <span class="badge bg-info text-dark"><i class="fas fa-users"></i> <span id="proxy-users-{{ proxy.id }}" data-proxy-conn="{{ proxy.active_connections }}">{{ proxy.active_connections }}</span></span>
+                                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="openProxyDetails({{ proxy.id }}, {{ proxy.port }})">جزئیات</button>
+                                    </div>
                                 </td>
                                 <td class="small">
-                                    <i class="fas fa-arrow-down text-success"></i> <span id="proxy-download-{{ proxy.id }}">{{ (proxy.download / (1024*1024))|round(2) }}</span> MB <br>
-                                    <i class="fas fa-arrow-up text-primary"></i> <span id="proxy-upload-{{ proxy.id }}">{{ (proxy.upload / (1024*1024))|round(2) }}</span> MB
+                                    <div>
+                                        <span class="text-muted">دانلود</span>
+                                        <span class="fw-bold" id="proxy-download-rate-{{ proxy.id }}">0</span>
+                                        <span class="text-muted">Mbps</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-muted">آپلود</span>
+                                        <span class="fw-bold" id="proxy-upload-rate-{{ proxy.id }}">0</span>
+                                        <span class="text-muted">Mbps</span>
+                                    </div>
+                                    <div class="text-muted">
+                                        <span id="proxy-download-{{ proxy.id }}">{{ (proxy.download / (1024*1024))|round(2) }}</span> / <span id="proxy-upload-{{ proxy.id }}">{{ (proxy.upload / (1024*1024))|round(2) }}</span> MB
+                                    </div>
+                                </td>
+                                <td class="small" style="min-width: 160px;">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">باقی‌مانده</span>
+                                        <span class="fw-bold" id="proxy-quota-remaining-{{ proxy.id }}">-</span>
+                                    </div>
+                                    <div class="progress" style="height: 8px;">
+                                        <div id="proxy-quota-bar-{{ proxy.id }}" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                    <div class="text-muted mt-1">
+                                        <span id="proxy-quota-used-{{ proxy.id }}">-</span> / <span id="proxy-quota-total-{{ proxy.id }}">-</span> MB
+                                    </div>
                                 </td>
                                 <td>
                                     <div class="input-group input-group-sm" style="max-width: 150px;">
@@ -159,6 +196,9 @@
                                         <a href="{{ url_for('restart_proxy', id=proxy.id) }}" class="btn btn-outline-warning" title="ریستارت">
                                             <i class="fas fa-sync-alt"></i>
                                         </a>
+                                        <button type="button" class="btn btn-outline-secondary" onclick="openProxyEdit({{ proxy.id }}, {{ proxy.port }}, '{{ proxy.tag or '' }}')">
+                                            <i class="fas fa-pen"></i>
+                                        </button>
                                         <a href="{{ url_for('delete_proxy', id=proxy.id) }}" class="btn btn-outline-danger" title="حذف" onclick="return confirm('آیا مطمئن هستید؟')">
                                             <i class="fas fa-trash"></i>
                                         </a>
@@ -184,15 +224,34 @@
     </div>
 </div>
 
-<!-- Logs -->
 <div class="row">
-    <div class="col-12">
+    <div class="col-lg-5">
         <div class="card card-custom">
-            <div class="card-header bg-white py-3">
-                <h5 class="mb-0 text-secondary"><i class="fas fa-history me-2"></i>گزارش فعالیت‌ها</h5>
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 text-danger"><i class="fas fa-triangle-exclamation me-2"></i>هشدارها</h5>
+                <span class="badge bg-danger" id="alertsCount">0</span>
             </div>
             <div class="card-body p-0">
-                <ul class="list-group list-group-flush small">
+                <ul class="list-group list-group-flush small" id="alertsList">
+                    <li class="list-group-item text-muted">هشداری ثبت نشده است.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card card-custom">
+            <div class="card-header bg-white py-3">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h5 class="mb-0 text-secondary"><i class="fas fa-history me-2"></i>گزارش فعالیت‌ها</h5>
+                    <div class="d-flex gap-2">
+                        <input id="logActionFilter" type="text" class="form-control form-control-sm" style="max-width: 160px;" placeholder="فیلتر اکشن">
+                        <input id="logIpFilter" type="text" class="form-control form-control-sm" style="max-width: 160px;" placeholder="فیلتر IP">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="updateActivityLogs()">به‌روزرسانی</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush small" id="activityList">
                     {% for log in logs %}
                     <li class="list-group-item d-flex justify-content-between align-items-start">
                         <div class="ms-2 me-auto">
@@ -227,6 +286,18 @@
                         <input type="text" name="tag" class="form-control" placeholder="@MyChannel">
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">نوع پروکسی</label>
+                        <select name="proxy_type" id="proxyType" class="form-select" onchange="toggleProxyFields()">
+                            <option value="standard">استاندارد</option>
+                            <option value="dd">DD</option>
+                            <option value="tls">TLS</option>
+                        </select>
+                    </div>
+                    <div class="mb-3 d-none" id="tlsDomainField">
+                        <label class="form-label">دامنه TLS</label>
+                        <input type="text" name="tls_domain" class="form-control" value="google.com">
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">سکرت (Secret)</label>
                         <div class="input-group">
                             <input type="text" name="secret" id="newSecret" class="form-control" placeholder="تولید خودکار در صورت خالی بودن">
@@ -237,12 +308,112 @@
                         <label class="form-label">تعداد Worker</label>
                         <input type="number" name="workers" class="form-control" value="1" min="1" max="4">
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label">سقف حجم (GB)</label>
+                        <input type="number" name="quota_gb" class="form-control" min="0" step="0.1" placeholder="۰ = نامحدود">
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
                     <button type="submit" class="btn btn-primary">ایجاد پروکسی</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editProxyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">ویرایش پروکسی</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editProxyForm" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">تگ</label>
+                        <input type="text" name="tag" id="editProxyTag" class="form-control" placeholder="@MyChannel">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">سقف حجم (GB)</label>
+                        <input type="number" name="quota_gb" id="editProxyQuota" class="form-control" min="0" step="0.1" placeholder="۰ = نامحدود">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                    <button type="submit" class="btn btn-primary">ذخیره</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="proxyDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">جزئیات پروکسی: <span id="detailsPort"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-lg-5">
+                        <div class="card card-custom">
+                            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0 text-secondary"><i class="fas fa-users me-2"></i>کاربران متصل</h6>
+                                <input id="connIpFilter" class="form-control form-control-sm" style="max-width: 200px;" placeholder="فیلتر IP/کشور">
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-sm mb-0">
+                                        <thead class="bg-light">
+                                            <tr>
+                                                <th>IP</th>
+                                                <th>کشور</th>
+                                                <th>مدت اتصال</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="connectionsTable">
+                                            <tr><td colspan="3" class="text-center text-muted py-3">در حال دریافت...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-7">
+                        <div class="card card-custom">
+                            <div class="card-header bg-white py-3">
+                                <h6 class="mb-0 text-secondary"><i class="fas fa-chart-line me-2"></i>نمودار تعداد اتصال‌ها (۱ ساعت اخیر)</h6>
+                            </div>
+                            <div class="card-body">
+                                <div style="position: relative; height: 250px; width: 100%;">
+                                    <canvas id="connectionsChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card card-custom">
+                            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0 text-secondary"><i class="fas fa-chart-bar me-2"></i>تاریخچه مصرف حجم</h6>
+                                <select id="usageGranularity" class="form-select form-select-sm" style="max-width: 150px;">
+                                    <option value="hourly">ساعتی</option>
+                                    <option value="daily" selected>روزانه</option>
+                                    <option value="monthly">ماهانه</option>
+                                </select>
+                            </div>
+                            <div class="card-body">
+                                <div style="position: relative; height: 250px; width: 100%;">
+                                    <canvas id="usageChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+            </div>
         </div>
     </div>
 </div>
@@ -271,8 +442,6 @@
         if (type === 'dd') {
             secret = 'dd' + hex;
         } else if (type === 'tls') {
-            // Simplified TLS secret generation for UI (backend handles full generation with domain)
-            secret = 'ee' + hex + '...'; 
             document.getElementById('newSecret').placeholder = "تولید خودکار توسط سیستم (پیشنهادی)";
             document.getElementById('newSecret').value = "";
             return;
@@ -387,6 +556,64 @@
         }
     });
 
+    let currentProxyId = null;
+    let currentProxyPort = null;
+    let connectionsChart = null;
+    let usageChart = null;
+    let lastAlertId = 0;
+    let proxyDetailsModal = null;
+    let editProxyModal = null;
+
+    function openProxyEdit(proxyId, port, tag) {
+        const form = document.getElementById('editProxyForm');
+        form.action = `/proxy/update/${proxyId}`;
+        document.getElementById('editProxyTag').value = tag || '';
+        document.getElementById('editProxyQuota').value = '';
+        if (!editProxyModal) {
+            editProxyModal = new bootstrap.Modal(document.getElementById('editProxyModal'));
+        }
+        editProxyModal.show();
+    }
+
+    function openProxyDetails(proxyId, port) {
+        currentProxyId = proxyId;
+        currentProxyPort = port;
+        document.getElementById('detailsPort').innerText = port;
+        if (!proxyDetailsModal) {
+            proxyDetailsModal = new bootstrap.Modal(document.getElementById('proxyDetailsModal'));
+            document.getElementById('usageGranularity').addEventListener('change', () => {
+                if (currentProxyId) updateUsageHistory(currentProxyId);
+            });
+            document.getElementById('connIpFilter').addEventListener('input', () => {
+                if (currentProxyId) updateLiveConnections(currentProxyId);
+            });
+        }
+        proxyDetailsModal.show();
+        ensureDetailsCharts();
+        updateLiveConnections(proxyId);
+        updateConnectionsHistory(proxyId);
+        updateUsageHistory(proxyId);
+    }
+
+    function ensureDetailsCharts() {
+        if (!connectionsChart) {
+            const ctx = document.getElementById('connectionsChart').getContext('2d');
+            connectionsChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'اتصال فعال', data: [], borderColor: 'rgba(220, 53, 69, 1)', backgroundColor: 'rgba(220, 53, 69, 0.1)', tension: 0.35, fill: true }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true } }, elements: { point: { radius: 0 } }, animation: false }
+            });
+        }
+        if (!usageChart) {
+            const ctx = document.getElementById('usageChart').getContext('2d');
+            usageChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: [], datasets: [{ label: 'دانلود (MB)', data: [], backgroundColor: 'rgba(40, 167, 69, 0.7)' }, { label: 'آپلود (MB)', data: [], backgroundColor: 'rgba(0, 123, 255, 0.7)' }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true } }, scales: { y: { beginAtZero: true } } }
+            });
+        }
+    }
+
     // Fetch Real-time Stats
     function updateSystemStats() {
         fetch('/api/stats')
@@ -414,11 +641,40 @@
                     const usersEl = document.getElementById(`proxy-users-${proxy.id}`);
                     const downloadEl = document.getElementById(`proxy-download-${proxy.id}`);
                     const uploadEl = document.getElementById(`proxy-upload-${proxy.id}`);
+                    const downloadRateEl = document.getElementById(`proxy-download-rate-${proxy.id}`);
+                    const uploadRateEl = document.getElementById(`proxy-upload-rate-${proxy.id}`);
+                    const quotaUsedEl = document.getElementById(`proxy-quota-used-${proxy.id}`);
+                    const quotaTotalEl = document.getElementById(`proxy-quota-total-${proxy.id}`);
+                    const quotaRemainingEl = document.getElementById(`proxy-quota-remaining-${proxy.id}`);
+                    const quotaBarEl = document.getElementById(`proxy-quota-bar-${proxy.id}`);
                     
                     if (usersEl) usersEl.innerText = proxy.active_connections;
+                    if (usersEl) usersEl.setAttribute('data-proxy-conn', proxy.active_connections);
                     if (downloadEl) downloadEl.innerText = proxy.download;
                     if (uploadEl) uploadEl.innerText = proxy.upload;
+                    if (downloadRateEl) downloadRateEl.innerText = proxy.download_rate_mbps ?? 0;
+                    if (uploadRateEl) uploadRateEl.innerText = proxy.upload_rate_mbps ?? 0;
+
+                    if (proxy.quota_mb && proxy.quota_mb > 0 && proxy.quota_used_mb != null) {
+                        if (quotaUsedEl) quotaUsedEl.innerText = proxy.quota_used_mb;
+                        if (quotaTotalEl) quotaTotalEl.innerText = proxy.quota_mb;
+                        if (quotaRemainingEl) quotaRemainingEl.innerText = proxy.quota_remaining_mb ?? 0;
+                        if (quotaBarEl) {
+                            const pct = Math.max(0, Math.min(100, (proxy.quota_used_mb / proxy.quota_mb) * 100));
+                            quotaBarEl.style.width = `${pct}%`;
+                            quotaBarEl.className = 'progress-bar ' + (pct >= 90 ? 'bg-danger' : pct >= 75 ? 'bg-warning' : 'bg-success');
+                        }
+                    } else {
+                        if (quotaUsedEl) quotaUsedEl.innerText = '-';
+                        if (quotaTotalEl) quotaTotalEl.innerText = '-';
+                        if (quotaRemainingEl) quotaRemainingEl.innerText = '-';
+                        if (quotaBarEl) {
+                            quotaBarEl.style.width = `0%`;
+                            quotaBarEl.className = 'progress-bar';
+                        }
+                    }
                 });
+                applyProxyFilters();
             });
     }
 
@@ -434,12 +690,147 @@
             });
     }
 
+    function applyProxyFilters() {
+        const search = (document.getElementById('proxySearch')?.value || '').trim().toLowerCase();
+        const status = (document.getElementById('proxyStatusFilter')?.value || '').trim().toLowerCase();
+        const minConn = parseInt(document.getElementById('proxyMinConn')?.value || '0', 10);
+        document.querySelectorAll('#proxiesTable tbody tr').forEach(tr => {
+            const portEl = tr.querySelector('[data-proxy-port]');
+            if (!portEl) return;
+            const port = (portEl.getAttribute('data-proxy-port') || '').toLowerCase();
+            const tagEl = tr.querySelector('[data-proxy-tag]');
+            const tag = (tagEl?.getAttribute('data-proxy-tag') || '').toLowerCase();
+            const statusEl = tr.querySelector('[data-proxy-status]');
+            const rowStatus = (statusEl?.getAttribute('data-proxy-status') || '').toLowerCase();
+            const connEl = tr.querySelector('[data-proxy-conn]');
+            const conn = parseInt(connEl?.getAttribute('data-proxy-conn') || '0', 10);
+            let visible = true;
+            if (search && !(port.includes(search) || tag.includes(search))) visible = false;
+            if (status && rowStatus !== status) visible = false;
+            if (!isNaN(minConn) && conn < minConn) visible = false;
+            tr.style.display = visible ? '' : 'none';
+        });
+    }
+
+    function updateLiveConnections(proxyId) {
+        const f = (document.getElementById('connIpFilter')?.value || '').trim();
+        const url = f ? `/api/proxy/${proxyId}/connections?ip=${encodeURIComponent(f)}&country=${encodeURIComponent(f)}` : `/api/proxy/${proxyId}/connections`;
+        fetch(url)
+            .then(r => r.json())
+            .then(data => {
+                const tbody = document.getElementById('connectionsTable');
+                if (!tbody) return;
+                if (!data.items || data.items.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted py-3">اتصالی وجود ندارد.</td></tr>`;
+                    return;
+                }
+                tbody.innerHTML = data.items.map(it => `
+                    <tr>
+                        <td class="text-nowrap">${it.ip}</td>
+                        <td class="text-nowrap">${it.country || '-'}</td>
+                        <td class="text-nowrap">${it.connected_for || '-'}</td>
+                    </tr>
+                `).join('');
+            });
+    }
+
+    function updateConnectionsHistory(proxyId) {
+        fetch(`/api/proxy/${proxyId}/connections_history?minutes=60`)
+            .then(r => r.json())
+            .then(data => {
+                if (!connectionsChart) return;
+                connectionsChart.data.labels = data.labels || [];
+                connectionsChart.data.datasets[0].data = data.values || [];
+                connectionsChart.update();
+            });
+    }
+
+    function updateUsageHistory(proxyId) {
+        const g = document.getElementById('usageGranularity')?.value || 'daily';
+        fetch(`/api/proxy/${proxyId}/usage_history?granularity=${encodeURIComponent(g)}&days=30`)
+            .then(r => r.json())
+            .then(data => {
+                if (!usageChart) return;
+                usageChart.data.labels = data.labels || [];
+                usageChart.data.datasets[0].data = data.download_mb || [];
+                usageChart.data.datasets[1].data = data.upload_mb || [];
+                usageChart.update();
+            });
+    }
+
+    function updateAlerts() {
+        fetch(`/api/alerts?since_id=${lastAlertId}`)
+            .then(r => r.json())
+            .then(items => {
+                if (!items || items.length === 0) return;
+                const list = document.getElementById('alertsList');
+                items.forEach(a => {
+                    lastAlertId = Math.max(lastAlertId, a.id);
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item d-flex justify-content-between align-items-start';
+                    li.innerHTML = `
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">${a.message}</div>
+                            <span class="text-muted">#${a.id}</span>
+                        </div>
+                        <span class="badge bg-danger rounded-pill">${a.severity}</span>
+                    `;
+                    if (list && list.firstElementChild && list.firstElementChild.classList.contains('text-muted')) {
+                        list.innerHTML = '';
+                    }
+                    list.prepend(li);
+                    Swal.fire({ toast: true, position: 'top-end', icon: 'warning', title: a.message, showConfirmButton: false, timer: 2500 });
+                });
+                const countEl = document.getElementById('alertsCount');
+                if (countEl && list) countEl.innerText = list.children.length;
+            });
+    }
+
+    function updateActivityLogs() {
+        const action = (document.getElementById('logActionFilter')?.value || '').trim();
+        const ip = (document.getElementById('logIpFilter')?.value || '').trim();
+        const url = `/api/activity?limit=50&action=${encodeURIComponent(action)}&ip=${encodeURIComponent(ip)}`;
+        fetch(url)
+            .then(r => r.json())
+            .then(items => {
+                const list = document.getElementById('activityList');
+                if (!list) return;
+                if (!items || items.length === 0) {
+                    list.innerHTML = `<li class="list-group-item text-muted">موردی یافت نشد.</li>`;
+                    return;
+                }
+                list.innerHTML = items.map(it => `
+                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">${it.action}</div>
+                            <span class="text-muted">${it.details || ''}</span>
+                        </div>
+                        <span class="badge bg-light text-dark rounded-pill">${new Date(it.timestamp).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}</span>
+                    </li>
+                `).join('');
+            });
+    }
+
     // Init
-    setInterval(updateSystemStats, 2000);
-    setInterval(updateProxyStats, 2000);
+    document.getElementById('proxySearch')?.addEventListener('input', applyProxyFilters);
+    document.getElementById('proxyStatusFilter')?.addEventListener('change', applyProxyFilters);
+    document.getElementById('proxyMinConn')?.addEventListener('input', applyProxyFilters);
+
+    setInterval(updateSystemStats, 5000);
+    setInterval(updateProxyStats, 5000);
+    setInterval(updateAlerts, 5000);
+    setInterval(updateTrafficHistory, 60000);
+    setInterval(() => {
+        if (currentProxyId && proxyDetailsModal && document.getElementById('proxyDetailsModal')?.classList.contains('show')) {
+            updateLiveConnections(currentProxyId);
+            updateConnectionsHistory(currentProxyId);
+        }
+    }, 5000);
     updateSystemStats();
     updateProxyStats();
     updateTrafficHistory(); // Call once on load
+    updateAlerts();
+    applyProxyFilters();
 
 </script>
 {% endblock %}
