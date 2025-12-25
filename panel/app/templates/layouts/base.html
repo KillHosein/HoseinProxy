@@ -14,11 +14,11 @@
     
     <style>
         :root {
-            /* متغیرهای رنگی اصلی */
             --bg-body: #0f172a;
             --text-main: #f8fafc;
             --glass-border: rgba(255, 255, 255, 0.08);
             --loader-bg: #0f172a;
+            --sidebar-width: 280px;
         }
 
         body {
@@ -28,11 +28,77 @@
             overflow-x: hidden;
             scroll-behavior: smooth;
             min-height: 100vh;
+        }
+
+        /* Sidebar Styles - Fixed Position */
+        #sidebar-wrapper {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: var(--sidebar-width);
+            height: 100vh;
+            z-index: 1040;
+            transition: transform 0.3s ease-in-out;
+            background-color: #0f172a;
+            border-left: 1px solid var(--glass-border);
+            overflow-y: auto;
+        }
+
+        /* Content Wrapper */
+        #page-content-wrapper {
+            width: 100%;
+            min-height: 100vh;
+            transition: margin-right 0.3s ease-in-out;
             display: flex;
             flex-direction: column;
         }
 
-        /* لودر صفحه */
+        /* Layout Logic */
+        /* Desktop: Sidebar Visible, Content Pushed */
+        @media (min-width: 992px) {
+            body.has-sidebar #page-content-wrapper {
+                margin-right: var(--sidebar-width);
+            }
+            body.has-sidebar #sidebar-wrapper {
+                transform: translateX(0);
+            }
+            
+            /* Toggled: Hide Sidebar */
+            body.has-sidebar.toggled #page-content-wrapper {
+                margin-right: 0;
+            }
+            body.has-sidebar.toggled #sidebar-wrapper {
+                transform: translateX(100%);
+            }
+        }
+
+        /* Mobile: Sidebar Hidden */
+        @media (max-width: 991px) {
+            body.has-sidebar #page-content-wrapper {
+                margin-right: 0;
+            }
+            body.has-sidebar #sidebar-wrapper {
+                transform: translateX(100%); /* Hidden */
+            }
+            
+            /* Toggled: Show Sidebar (Overlay) */
+            body.has-sidebar.toggled #sidebar-wrapper {
+                transform: translateX(0);
+                box-shadow: -5px 0 20px rgba(0,0,0,0.5);
+            }
+            
+            /* Overlay Backdrop */
+            body.has-sidebar.toggled::before {
+                content: '';
+                position: fixed;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 1030;
+                backdrop-filter: blur(2px);
+            }
+        }
+
+        /* Loader */
         #loader {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -45,61 +111,36 @@
             transition: opacity 0.5s ease-out, visibility 0.5s;
         }
         
-        .loader-content {
-            text-align: center;
-        }
-        
+        .loader-content { text-align: center; }
         .custom-spinner {
-            width: 50px;
-            height: 50px;
+            width: 50px; height: 50px;
             border: 3px solid rgba(139, 92, 246, 0.3);
             border-radius: 50%;
             border-top-color: #8b5cf6;
             animation: spin 1s ease-in-out infinite;
             margin-bottom: 1rem;
         }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* استایل اسکرول بار */
+        /* Scrollbar */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #64748b; }
 
-        /* اصلاحات بوت‌استرپ برای تم تاریک */
-        .alert {
-            background: rgba(30, 41, 59, 0.8);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--glass-border);
-            color: #fff;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-        
+        /* Bootstrap Dark Theme Overrides */
+        .alert { background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(10px); border: 1px solid var(--glass-border); color: #fff; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
         .alert-success { border-right: 4px solid #10b981; }
         .alert-danger { border-right: 4px solid #ef4444; }
         .alert-warning { border-right: 4px solid #f59e0b; }
         .alert-info { border-right: 4px solid #3b82f6; }
-
-        .btn-close {
-            filter: invert(1) grayscale(100%) brightness(200%);
-        }
-
-        /* انیمیشن محتوا */
-        #main-content {
-            flex: 1;
-            animation: fadeIn 0.5s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        .btn-close { filter: invert(1) grayscale(100%) brightness(200%); }
+        
+        #main-content { flex: 1; animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body>
+<body class="{% if current_user.is_authenticated %}has-sidebar{% endif %}">
     
     <!-- Loader -->
     <div id="loader">
@@ -109,19 +150,19 @@
         </div>
     </div>
 
-    <!-- ساختار جدید: چیدمان عمودی -->
-    <div class="d-flex flex-column min-vh-100">
-        
-        <!-- Navbar (پروفایل و تم) -->
-        {% include "components/navbar.html" %}
+    <!-- Sidebar -->
+    {% include "components/sidebar.html" %}
 
-        <!-- Sidebar (اکنون به عنوان منوی چسبان بالا عمل می‌کند) -->
-        {% include "components/sidebar.html" %}
+    <!-- Page Content -->
+    <div id="page-content-wrapper">
         
-        <!-- محتوای اصلی -->
-        <div id="main-content" class="container-fluid p-0">
-            <!-- فضای خالی برای پیام‌ها -->
-            <div class="container-fluid px-lg-5 mt-3">
+        <!-- Navbar -->
+        {% include "components/navbar.html" %}
+        
+        <!-- Main Content Block -->
+        <div id="main-content">
+            <!-- Flash Messages -->
+            <div class="container-fluid px-4 mt-3">
                 {% with messages = get_flashed_messages(with_categories=true) %}
                   {% if messages %}
                     {% for category, message in messages %}
@@ -134,15 +175,14 @@
                 {% endwith %}
             </div>
 
-            <!-- بلوک محتوای صفحات -->
+            <!-- Page Content -->
             {% block content %}{% endblock %}
         </div>
 
-        <!-- فوتر (اختیاری - برای فاصله پایین صفحه) -->
-        <footer class="mt-auto py-3 text-center text-muted small opacity-50">
+        <!-- Footer -->
+        <footer class="mt-auto py-3 text-center text-muted small opacity-50 border-top border-secondary border-opacity-10 mt-4">
             &copy; 2024 HoseinProxy Panel
         </footer>
-
     </div>
 
     <!-- Scripts -->
@@ -151,39 +191,51 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <script>
-        // مدیریت لودر
+        // Loader
         window.addEventListener('load', function() {
             const loader = document.getElementById('loader');
-            setTimeout(() => {
-                loader.style.opacity = '0';
-                loader.style.visibility = 'hidden';
-            }, 600);
+            setTimeout(() => { loader.style.opacity = '0'; loader.style.visibility = 'hidden'; }, 600);
         });
 
-        // مدیریت تم (اگر نیاز به تغییر دستی باشد، هرچند پیش‌فرض دارک است)
-        // این کد با دکمه موجود در navbar.html هماهنگ است
+        // Sidebar Toggle Logic
+        const toggleButton = document.getElementById("menu-toggle");
+        if (toggleButton) {
+            toggleButton.onclick = function (e) {
+                e.preventDefault();
+                document.body.classList.toggle("toggled");
+            };
+        }
+        
+        // Close sidebar when clicking overlay on mobile
+        document.body.addEventListener('click', function(e) {
+            if (document.body.classList.contains('toggled') && window.innerWidth < 992) {
+                // If clicking outside sidebar and not on toggle button
+                if (!e.target.closest('#sidebar-wrapper') && !e.target.closest('#menu-toggle')) {
+                    document.body.classList.remove('toggled');
+                }
+            }
+        });
+
+        // Theme Toggle
         const themeToggle = document.getElementById('themeToggle');
         if (themeToggle) {
             themeToggle.addEventListener('click', () => {
                 const html = document.documentElement;
-                const currentTheme = html.getAttribute('data-bs-theme');
-                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                const newTheme = html.getAttribute('data-bs-theme') === 'light' ? 'dark' : 'light';
                 html.setAttribute('data-bs-theme', newTheme);
                 localStorage.setItem('theme', newTheme);
-                
-                // تغییر آیکون
                 const icon = themeToggle.querySelector('i');
-                if (newTheme === 'dark') {
-                    icon.classList.replace('fa-sun', 'fa-moon');
-                } else {
-                    icon.classList.replace('fa-moon', 'fa-sun');
-                }
+                icon.className = newTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
             });
         }
         
-        // اعمال تم ذخیره شده
+        // Load Saved Theme
         const savedTheme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-bs-theme', savedTheme);
+        if(themeToggle) {
+             const icon = themeToggle.querySelector('i');
+             icon.className = savedTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
+        }
     </script>
 
     {% block scripts %}{% endblock %}
