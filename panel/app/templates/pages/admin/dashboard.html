@@ -260,6 +260,11 @@
                     <div class="text-secondary" style="font-size: 0.65rem; letter-spacing: 1px;">LOAD</div>
                     <div id="load-avg-display" class="fw-bold text-info small font-monospace">...</div>
                 </div>
+                <div class="vr bg-white opacity-10"></div>
+                <div class="text-center px-2">
+                    <div class="text-secondary" style="font-size: 0.65rem; letter-spacing: 1px;">PING</div>
+                    <div id="latency-display" class="fw-bold text-warning small font-monospace">--</div>
+                </div>
             </div>
         </div>
     </div>
@@ -340,8 +345,23 @@
                         <span class="status-badge running" style="padding: 0.25em 0.5em;">Running</span>
                         <span class="ms-auto text-success fw-bold">{{ ((proxies|selectattr('status', 'equalto', 'running')|list|length / proxies|length * 100) if proxies|length > 0 else 0)|round|int }}%</span>
                     </div>
-                    <div class="progress bg-dark bg-opacity-50 mt-2" style="height: 4px;">
-                        <div class="progress-bar bg-warning init-width" style="width: 0%" data-width="{{ ((proxies|selectattr('status', 'equalto', 'running')|list|length / proxies|length * 100) if proxies|length > 0 else 0) }}%"></div>
+                    <div class="progress bg-dark bg-opacity-50 mt-2" style="height: 6px; border-radius: 3px; overflow: hidden;">
+                        {% set running_count = proxies|selectattr('status', 'equalto', 'running')|list|length %}
+                        {% set stopped_count = proxies|selectattr('status', 'equalto', 'stopped')|list|length %}
+                        {% set total_count = proxies|length %}
+                        {% if total_count > 0 %}
+                            {% set running_pct = (running_count / total_count * 100)|round(1) %}
+                            {% set stopped_pct = (stopped_count / total_count * 100)|round(1) %}
+                        {% else %}
+                            {% set running_pct = 0 %}
+                            {% set stopped_pct = 0 %}
+                        {% endif %}
+                        <div class="progress-bar bg-success init-width" role="progressbar" style="width: 0%" data-width="{{ running_pct }}%" title="Running: {{ running_count }}" data-bs-toggle="tooltip"></div>
+                        <div class="progress-bar bg-danger init-width" role="progressbar" style="width: 0%" data-width="{{ stopped_pct }}%" title="Stopped: {{ stopped_count }}" data-bs-toggle="tooltip"></div>
+                    </div>
+                    <div class="d-flex justify-content-between small text-secondary mt-1" style="font-size: 0.7rem;">
+                         <span><i class="fas fa-circle text-success me-1" style="font-size: 6px;"></i>Active</span>
+                         <span><i class="fas fa-circle text-danger me-1" style="font-size: 6px;"></i>Stopped</span>
                     </div>
                 </div>
             </div>
@@ -966,6 +986,17 @@
     // --- Data Update Logic ---
     let currentProxyId, connChart, usageChart, lastAlertId = 0, lastNetSent=null, lastNetRecv=null, lastTime=Date.now();
     
+    const updateLatency = () => fetch('/api/latency').then(r=>r.json()).then(d => {
+        const el = document.getElementById('latency-display');
+        if(d.status === 'success') {
+            el.innerText = d.latency + 'ms';
+            el.className = `fw-bold small font-monospace ${d.latency < 100 ? 'text-success' : (d.latency < 300 ? 'text-warning' : 'text-danger')}`;
+        } else {
+            el.innerText = 'Err';
+            el.className = 'fw-bold text-danger small font-monospace';
+        }
+    });
+
     const updateStats = () => fetch('/api/stats').then(r=>r.json()).then(d => {
         document.getElementById('cpu-usage').innerText = d.cpu; 
         document.getElementById('ram-usage').innerText = d.mem_percent;
@@ -1166,12 +1197,13 @@
 
     setInterval(updateStats, 2000); 
     setInterval(updateProxies, 5000);
+    setInterval(updateLatency, 10000);
     setInterval(updateAlerts, 6000); // Slightly slower
     setInterval(updateTrafficHistory, 60000);
     setInterval(() => { if(currentProxyId && document.getElementById('proxyDetailsModal').classList.contains('show')) updateConnections(currentProxyId); }, 5000);
 
     // Initial Load
-    updateStats(); updateProxies(); updateTrafficHistory(); updateAlerts(); updateActivityLogs();
+    updateStats(); updateProxies(); updateLatency(); updateTrafficHistory(); updateAlerts(); updateActivityLogs();
 
     // Initialize Progress Bars
     document.querySelectorAll('.init-width').forEach(el => {
