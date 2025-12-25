@@ -1,99 +1,96 @@
 {% if current_user.is_authenticated %}
 <style>
-    /* Visual Styles Only - Layout is handled by base.html */
+    /* Top Navigation Styles */
     #sidebar-wrapper {
-        background: #0f172a !important; /* Force override base */
-        border-left: 1px solid rgba(255, 255, 255, 0.05);
+        background: #0f172a !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         display: flex;
-        flex-direction: column;
-        box-shadow: 4px 0 24px rgba(0,0,0,0.2);
+        flex-direction: row; /* Horizontal layout */
+        align-items: center;
+        padding: 0.5rem 1rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        width: 100%;
+        justify-content: space-between;
     }
 
     #sidebar-wrapper .sidebar-heading {
-        padding: 1.5rem;
-        font-size: 1.4rem;
+        padding: 0.5rem 1rem;
+        font-size: 1.2rem;
         font-weight: 800;
         color: #fff;
-        text-align: center;
-        letter-spacing: -0.5px;
-        background: linear-gradient(180deg, rgba(30, 41, 59, 0.5) 0%, transparent 100%);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        margin-bottom: 1rem;
+        background: transparent;
+        border: none;
+        margin: 0;
+        white-space: nowrap;
+    }
+
+    #sidebar-wrapper .list-group {
+        display: flex;
+        flex-direction: row; /* Horizontal list */
+        margin: 0;
+        padding: 0;
+        flex-wrap: wrap;
+        justify-content: center;
+        flex-grow: 1;
     }
 
     .list-group-item {
         background-color: transparent !important;
-        color: #94a3b8 !important; /* text-secondary */
+        color: #94a3b8 !important;
         border: none !important;
-        padding: 0.9rem 1.5rem;
+        padding: 0.6rem 1rem;
         font-weight: 500;
         transition: all 0.2s ease;
-        border-right: 3px solid transparent !important;
-        margin: 4px 12px;
-        border-radius: 12px;
+        border-radius: 8px;
         display: flex;
         align-items: center;
+        margin: 0 4px;
+        border-right: none !important; /* Remove vertical border style */
+        border-bottom: 2px solid transparent !important; /* Add horizontal active indicator */
     }
 
     .list-group-item:hover {
         background-color: rgba(255, 255, 255, 0.03) !important;
         color: #f1f5f9 !important;
-        transform: translateX(-5px);
+        transform: translateY(-2px);
     }
 
     .list-group-item.active {
-        background: linear-gradient(90deg, rgba(139, 92, 246, 0.15), rgba(59, 130, 246, 0.05)) !important;
+        background: rgba(255, 255, 255, 0.05) !important;
         color: #fff !important;
-        border-right-color: #8b5cf6 !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        border-bottom-color: #8b5cf6 !important;
+        box-shadow: none;
     }
 
     .list-group-item i {
-        width: 24px;
-        font-size: 1.1rem;
-        transition: transform 0.3s;
-        opacity: 0.8;
+        width: 20px;
+        font-size: 1rem;
+        margin-left: 8px !important; /* Adjust icon spacing for RTL */
+        margin-right: 0 !important;
     }
-
-    .list-group-item:hover i, .list-group-item.active i {
-        transform: scale(1.15);
-        opacity: 1;
-        color: #a78bfa; /* رنگ آیکون در حالت فعال */
-    }
-
+    
     .sidebar-footer {
-        margin-top: auto;
-        padding: 1.5rem;
-        border-top: 1px solid rgba(255, 255, 255, 0.05);
-        text-align: center;
-        background: linear-gradient(0deg, rgba(30, 41, 59, 0.5) 0%, transparent 100%);
+        display: none; /* Hide footer in top nav mode to save space */
     }
-
-    .telegram-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        padding: 10px;
-        background: rgba(56, 189, 248, 0.1);
-        color: #38bdf8;
-        border: 1px solid rgba(56, 189, 248, 0.2);
-        border-radius: 12px;
-        text-decoration: none;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        font-weight: 600;
-        font-size: 0.9rem;
+    
+    /* Responsive Adjustments */
+    @media (max-width: 991px) {
+        #sidebar-wrapper {
+            flex-direction: column;
+            padding: 1rem;
+        }
+        #sidebar-wrapper .list-group {
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+        }
+        .list-group-item {
+            font-size: 0.9rem;
+            padding: 0.5rem 0.8rem;
+        }
+        .sidebar-heading { margin-bottom: 0.5rem !important; }
     }
-
-    .telegram-btn:hover {
-        background: rgba(56, 189, 248, 0.2);
-        color: #fff;
-        box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
-        transform: translateY(-2px);
-        border-color: rgba(56, 189, 248, 0.4);
-    }
-
-    /* تنظیم برای حالت ریسپانسیو - handled by base.html */
 </style>
 
 <div id="sidebar-wrapper">
@@ -101,43 +98,32 @@
         <i class="fas fa-rocket me-2 text-primary"></i> HoseinProxy
     </div>
     
-    <div class="list-group list-group-flush mt-2">
+    <div class="list-group">
         <a href="{{ url_for('main.dashboard') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'main.dashboard' %}active{% endif %}">
-            <i class="fas fa-tachometer-alt me-3"></i> داشبورد
+            <i class="fas fa-tachometer-alt"></i> داشبورد
         </a>
         <a href="{{ url_for('reports.index') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'reports.index' %}active{% endif %}">
-            <i class="fas fa-chart-pie me-3"></i> گزارشات
+            <i class="fas fa-chart-pie"></i> گزارشات
         </a>
         <a href="{{ url_for('users.list') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'users.list' %}active{% endif %}">
-            <i class="fas fa-users-cog me-3"></i> مدیران
+            <i class="fas fa-users-cog"></i> مدیران
         </a>
         <a href="{{ url_for('firewall.index') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'firewall.index' %}active{% endif %}">
-            <i class="fas fa-shield-alt me-3"></i> فایروال
+            <i class="fas fa-shield-alt"></i> فایروال
         </a>
         <a href="{{ url_for('system.page') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'system.page' %}active{% endif %}">
-            <i class="fas fa-server me-3"></i> سیستم
+            <i class="fas fa-server"></i> سیستم
         </a>
         <a href="{{ url_for('tools.index') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'tools.index' %}active{% endif %}">
-            <i class="fas fa-network-wired me-3"></i> ابزارها
+            <i class="fas fa-network-wired"></i> ابزارها
         </a>
         <a href="{{ url_for('settings.index') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'settings.index' %}active{% endif %}">
-            <i class="fas fa-cogs me-3"></i> تنظیمات
+            <i class="fas fa-cogs"></i> تنظیمات
         </a>
         
-        <div class="my-2 border-top border-secondary border-opacity-10 mx-4"></div>
-        
-        <a href="{{ url_for('auth.logout') }}" class="list-group-item list-group-item-action text-danger" style="color: #ef4444 !important;">
-            <i class="fas fa-sign-out-alt me-3"></i> خروج
+        <a href="{{ url_for('auth.logout') }}" class="list-group-item list-group-item-action text-danger ms-lg-auto" style="color: #ef4444 !important;">
+            <i class="fas fa-sign-out-alt"></i> خروج
         </a>
-    </div>
-
-    <div class="sidebar-footer">
-        <a href="https://t.me/HoseinProxy" target="_blank" class="telegram-btn mb-3">
-            <i class="fab fa-telegram-plane me-2 fa-lg"></i> پشتیبانی تلگرام
-        </a>
-        <div class="text-secondary small opacity-50 font-monospace" style="font-size: 0.75rem;">
-            Version 3.1.0
-        </div>
     </div>
 </div>
 {% endif %}

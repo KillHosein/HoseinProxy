@@ -30,72 +30,45 @@
             min-height: 100vh;
         }
 
-        /* Sidebar Styles - Fixed Position */
+        /* Sidebar Styles - Top Navigation */
         #sidebar-wrapper {
-            position: fixed;
-            top: 0;
-            right: 0;
-            width: var(--sidebar-width);
-            height: 100vh;
+            position: relative;
+            width: 100%;
+            height: auto;
             z-index: 1040;
-            transition: transform 0.3s ease-in-out;
             background-color: #0f172a;
-            border-left: 1px solid var(--glass-border);
-            overflow-y: auto;
+            border-bottom: 1px solid var(--glass-border);
+            border-left: none;
+            overflow-y: visible;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            padding: 0 1rem;
         }
 
         /* Content Wrapper */
         #page-content-wrapper {
             width: 100%;
-            min-height: 100vh;
-            transition: margin-right 0.3s ease-in-out;
+            min-height: calc(100vh - 80px); /* Adjust based on navbar/sidebar height */
             display: flex;
             flex-direction: column;
+            margin-right: 0 !important; /* No margin needed for top nav */
         }
 
-        /* Layout Logic */
-        /* Desktop: Sidebar Visible, Content Pushed */
+        /* Layout Logic - Reset for Top Nav */
         @media (min-width: 992px) {
-            body.has-sidebar #page-content-wrapper {
-                margin-right: var(--sidebar-width);
-            }
-            body.has-sidebar #sidebar-wrapper {
-                transform: translateX(0);
-            }
-            
-            /* Toggled: Hide Sidebar */
-            body.has-sidebar.toggled #page-content-wrapper {
-                margin-right: 0;
-            }
-            body.has-sidebar.toggled #sidebar-wrapper {
-                transform: translateX(100%);
-            }
+            body.has-sidebar #page-content-wrapper { margin-right: 0; }
+            body.has-sidebar #sidebar-wrapper { transform: none; }
+            body.has-sidebar.toggled #sidebar-wrapper { transform: none; }
         }
-
-        /* Mobile: Sidebar Hidden */
+        
         @media (max-width: 991px) {
-            body.has-sidebar #page-content-wrapper {
-                margin-right: 0;
-            }
-            body.has-sidebar #sidebar-wrapper {
-                transform: translateX(100%); /* Hidden */
-            }
-            
-            /* Toggled: Show Sidebar (Overlay) */
-            body.has-sidebar.toggled #sidebar-wrapper {
-                transform: translateX(0);
-                box-shadow: -5px 0 20px rgba(0,0,0,0.5);
-            }
-            
-            /* Overlay Backdrop */
-            body.has-sidebar.toggled::before {
-                content: '';
-                position: fixed;
-                top: 0; left: 0; right: 0; bottom: 0;
-                background: rgba(0,0,0,0.5);
-                z-index: 1030;
-                backdrop-filter: blur(2px);
-            }
+             #sidebar-wrapper {
+                flex-direction: column;
+                height: auto;
+                position: relative;
+                transform: none;
+             }
         }
 
         /* Loader */
@@ -150,16 +123,19 @@
         </div>
     </div>
 
-    <!-- Sidebar -->
-    {% include "components/sidebar.html" %}
-
-    <!-- Page Content -->
-    <div id="page-content-wrapper">
+    <!-- Main Container -->
+    <div class="d-flex flex-column min-vh-100">
         
-        <!-- Navbar -->
-        {% include "components/navbar.html" %}
+        <!-- Sidebar / Top Navigation -->
+        {% include "components/sidebar.html" %}
         
-        <!-- Main Content Block -->
+        <!-- Content Wrapper -->
+        <div id="page-content-wrapper">
+            
+            <!-- Navbar (Secondary info like profile) -->
+            {% include "components/navbar.html" %}
+            
+            <!-- Main Content -->
         <div id="main-content">
             <!-- Flash Messages -->
             <div class="container-fluid px-4 mt-3">
