@@ -79,13 +79,19 @@
 
     /* سوئیچ */
     .form-switch .form-check-input {
-        background-color: rgba(255, 255, 255, 0.1);
-        border-color: rgba(255, 255, 255, 0.2);
-        width: 3em; 
-        height: 1.5em;
+        background-color: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.3);
+        width: 3.5em; 
+        height: 1.75em;
+        cursor: pointer;
     }
     .form-switch .form-check-input:checked {
         background-color: #10b981;
+        border-color: #10b981;
+        box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+    }
+    .form-switch .form-check-input:focus {
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
         border-color: #10b981;
     }
 
