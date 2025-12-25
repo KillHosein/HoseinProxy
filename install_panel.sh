@@ -73,7 +73,7 @@ fi
 
 cat > /etc/nginx/sites-available/hoseinproxy <<EOF
 server {
-    listen 80 default_server;
+    listen 1111 default_server;
     server_name _;
 
     location / {
@@ -150,5 +150,5 @@ systemctl restart hoseinproxy
 
 echo "========================================="
 echo "   Installation Complete!                "
-echo "   Panel is running at http://$(curl -s ifconfig.me):80 "
+echo "   Panel is running at http://$(curl -s -4 ifconfig.me):1111 "
 echo "========================================="

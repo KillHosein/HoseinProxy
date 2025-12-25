@@ -137,7 +137,7 @@ install_panel() {
         info "Configuring Nginx..."
         cat > /etc/nginx/sites-available/hoseinproxy <<EOF
 server {
-    listen 80 default_server;
+    listen 1111 default_server;
     server_name _;
     
     location / {
@@ -179,8 +179,8 @@ EOF
         # Final Check
         sleep 2
         if systemctl is-active --quiet $SERVICE_NAME; then
-            IP=$(curl -s ifconfig.me)
-            whiptail --title "Success" --msgbox "Installation Complete!\n\nPanel URL: http://$IP\nUsername: $ADMIN_USER" 12 60
+            IP=$(curl -s -4 ifconfig.me)
+            whiptail --title "Success" --msgbox "Installation Complete!\n\nPanel URL: http://$IP:1111\nUsername: $ADMIN_USER" 12 60
             success "Installation Completed Successfully."
         else
             error "Service failed to start. Check logs."
