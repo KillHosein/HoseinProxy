@@ -2,544 +2,261 @@
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <!-- تنظیمات ویوپورت برای موبایل: جلوگیری از زوم ناخواسته و تنظیم مقیاس -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>درگاه امنیتی فوق پیشرفته | HoseinProxy Elite</title>
-    <!-- Bootstrap 5 RTL -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
-    <!-- Google Fonts -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ورود به پنل مدیریت</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vazirmatn Font -->
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
-    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        :root {
-            --bg-void: #030508;
-            --panel-bg: rgba(10, 14, 23, 0.9); /* کمی تیره‌تر برای موبایل */
-            --border-neon: rgba(0, 242, 254, 0.4);
-            --primary: #00f2fe; 
-            --secondary: #4facfe;
-            --text-main: #e2e8f0;
-            --text-dim: #64748b;
-            --dev-color: #ff0055;
-        }
-
-        * {
-            box-sizing: border-box;
-            outline: none;
-        }
-
         body {
             font-family: 'Vazirmatn', sans-serif;
-            background-color: var(--bg-void);
-            margin: 0;
-            padding: 0;
-            /* استفاده از dvh برای موبایل‌های جدید */
-            height: 100vh;
-            height: 100dvh; 
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden; /* جلوگیری از اسکرول اضافه */
-            position: relative;
-            color: var(--text-main);
+            overflow-x: hidden;
+            background-color: #020617; /* Slate 950 */
         }
 
-        /* --- پس‌زمینه شبکه ثابت (Fixed) --- */
-        #matrix-canvas {
+        /* Starfield Canvas styling */
+        #starfield {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 0;
-            background: radial-gradient(circle at 50% 50%, #0f1521 0%, #000000 100%);
+            z-index: -1;
+            background: linear-gradient(to bottom, #020617 0%, #1e1b4b 100%);
         }
 
-        .global-scan-line {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 3px;
-            background: linear-gradient(90deg, transparent, rgba(0, 242, 254, 0.5), transparent);
-            animation: globalScan 8s linear infinite;
-            z-index: 1;
-            opacity: 0.3;
-            pointer-events: none;
-        }
-        @keyframes globalScan { 0% { top: -10%; } 100% { top: 110%; } }
-
-        /* --- کانتینر اصلی --- */
-        .login-wrapper {
-            position: relative;
-            z-index: 10;
-            width: 100%;
-            padding: 15px;
-            display: flex;
-            justify-content: center;
+        /* Glassmorphism Card */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            transition: all 0.4s ease;
         }
 
-        .login-card {
-            background: var(--panel-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--border-neon);
-            /* کلیپ پث فقط در دسکتاپ اعمال شود تا در موبایل فضای زیاد نگیرد */
-            clip-path: polygon(
-                20px 0, 100% 0, 
-                100% calc(100% - 20px), calc(100% - 20px) 100%, 
-                0 100%, 0 20px
-            );
-            padding: 2px;
-            box-shadow: 0 0 60px rgba(0, 242, 254, 0.1);
-            position: relative;
-            width: 100%;
-            max-width: 450px;
-            transition: transform 0.3s ease;
+        .glass-card:hover {
+            border-color: rgba(167, 139, 250, 0.2);
+            box-shadow: 0 0 30px rgba(124, 58, 237, 0.15);
         }
 
-        .card-inner {
-            background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.5));
-            clip-path: polygon(
-                20px 0, 100% 0, 
-                100% calc(100% - 20px), calc(100% - 20px) 100%, 
-                0 100%, 0 20px
-            );
-            padding: 30px 25px; /* پدینگ بهینه شده */
+        /* Text Glow Animation */
+        .text-glow {
+            text-shadow: 0 0 10px rgba(139, 92, 246, 0.5), 0 0 20px rgba(139, 92, 246, 0.3);
+            animation: pulse-glow 3s infinite alternate;
         }
 
-        /* ریسپانسیو برای موبایل */
-        @media (max-width: 576px) {
-            .login-card, .card-inner {
-                clip-path: none; /* حذف گوشه‌های بریده در موبایل برای فضای بیشتر */
-                border-radius: 15px;
-            }
-            .card-inner {
-                padding: 25px 20px;
-            }
-            .brand-title {
-                font-size: 1.5rem !important;
-            }
-            .logo-display {
-                width: 60px !important;
-                height: 60px !important;
-            }
-            .logo-icon {
-                font-size: 2rem !important;
-            }
+        @keyframes pulse-glow {
+            0% { text-shadow: 0 0 10px rgba(139, 92, 246, 0.5); }
+            100% { text-shadow: 0 0 25px rgba(56, 189, 248, 0.8), 0 0 10px rgba(255, 255, 255, 0.5); }
         }
 
-        /* تزئینات */
-        .corner-decor {
-            position: absolute;
-            width: 10px;
-            height: 10px;
-            background: var(--primary);
-            z-index: 12;
-            box-shadow: 0 0 10px var(--primary);
-        }
-        .tl { top: 0; left: 0; }
-        .br { bottom: 0; right: 0; }
-
-        /* هدر */
-        .brand-section { text-align: center; margin-bottom: 25px; }
-        
-        .logo-display {
-            width: 80px; height: 80px;
-            margin: 0 auto 10px;
-            position: relative;
-            display: flex; align-items: center; justify-content: center;
+        /* Floating Animation */
+        .float-anim {
+            animation: float 6s ease-in-out infinite;
         }
 
-        .logo-circle {
-            position: absolute; width: 100%; height: 100%;
-            border: 2px dashed var(--border-neon);
-            border-radius: 50%;
-            animation: spinSlow 20s linear infinite;
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-15px); }
+            100% { transform: translateY(0px); }
         }
 
-        .logo-icon {
-            font-size: 2.5rem; color: var(--primary);
-            text-shadow: 0 0 15px var(--primary);
-            z-index: 2;
+        /* Input Styling */
+        .custom-input {
+            background: rgba(15, 23, 42, 0.6);
+            transition: all 0.3s ease;
         }
-        @keyframes spinSlow { to { transform: rotate(360deg); } }
-
-        .brand-title {
-            font-family: 'Share Tech Mono', 'Vazirmatn', monospace;
-            font-size: 1.8rem;
-            letter-spacing: 1px;
-            margin: 0;
-            background: linear-gradient(to right, #fff, var(--primary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-transform: uppercase;
+        .custom-input:focus {
+            background: rgba(15, 23, 42, 0.8);
+            transform: translateY(-2px);
         }
 
-        .brand-subtitle {
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 0.75rem; color: var(--text-dim);
-            letter-spacing: 2px; margin-top: 5px;
+        /* Scrollbar */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
         }
-
-        /* ترمینال */
-        .ai-terminal {
-            background: rgba(0, 0, 0, 0.6);
-            border-left: 2px solid var(--primary);
-            padding: 8px 12px;
-            margin-bottom: 20px;
-            font-family: 'Vazirmatn', monospace;
-            font-size: 0.8rem;
-            display: flex; align-items: center; justify-content: space-between;
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #0f172a; 
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #4c1d95; 
             border-radius: 4px;
         }
-        .terminal-text { color: #10b981; text-shadow: 0 0 5px rgba(16, 185, 129, 0.4); }
-        .ai-refresh {
-            background: none; border: 1px solid rgba(255,255,255,0.1);
-            color: var(--text-dim); padding: 4px 10px;
-            cursor: pointer; transition: 0.3s; font-size: 0.7rem;
-            border-radius: 4px;
-        }
-        .ai-refresh:hover { color: var(--primary); border-color: var(--primary); }
-
-        /* فرم‌ها */
-        .cyber-input-group { position: relative; margin-bottom: 15px; }
-        
-        .cyber-label {
-            display: block; font-size: 0.75rem; color: var(--primary);
-            margin-bottom: 4px; font-family: 'Share Tech Mono', 'Vazirmatn';
-            letter-spacing: 1px; text-transform: uppercase;
-        }
-
-        .cyber-input {
-            width: 100%;
-            background: rgba(5, 10, 20, 0.6);
-            border: 1px solid rgba(255,255,255,0.1);
-            color: #fff;
-            padding: 12px 15px;
-            padding-left: 40px;
-            font-family: 'Share Tech Mono', sans-serif;
-            transition: 0.3s;
-            border-radius: 6px;
-            font-size: 1rem; /* سایز مناسب برای موبایل (جلوگیری از زوم) */
-        }
-
-        .cyber-input:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
-            background: rgba(0, 242, 254, 0.05);
-        }
-
-        .input-icon {
-            position: absolute; left: 12px; bottom: 12px;
-            color: var(--text-dim); transition: 0.3s;
-        }
-        .cyber-input:focus ~ .input-icon { color: var(--primary); }
-
-        /* دکمه */
-        .btn-cyber-submit {
-            position: relative; width: 100%; padding: 14px;
-            background: rgba(0, 242, 254, 0.05);
-            border: 1px solid var(--primary);
-            color: var(--primary);
-            font-family: 'Share Tech Mono', 'Vazirmatn';
-            font-size: 1.1rem; font-weight: bold;
-            cursor: pointer; overflow: hidden;
-            transition: 0.3s; margin-top: 10px;
-            text-transform: uppercase; letter-spacing: 2px;
-            border-radius: 6px;
-        }
-        .btn-cyber-submit::before {
-            content: ''; position: absolute; top: 0; left: -100%;
-            width: 100%; height: 100%; background: var(--primary);
-            transition: 0.4s; z-index: -1;
-        }
-        .btn-cyber-submit:hover { color: #000; box-shadow: 0 0 20px var(--primary); }
-        .btn-cyber-submit:hover::before { left: 0; }
-        /* استایل تاچ برای موبایل */
-        .btn-cyber-submit:active { transform: scale(0.98); }
-
-        /* فوتر */
-        .cyber-footer {
-            margin-top: 25px; padding-top: 15px;
-            border-top: 1px dashed rgba(255,255,255,0.1);
-            display: flex; flex-direction: column;
-            gap: 15px; align-items: center;
-        }
-
-        .dev-badge {
-            background: rgba(0, 0, 0, 0.6);
-            border: 1px solid rgba(255, 0, 85, 0.3);
-            padding: 8px 25px; /* فضای لمس بیشتر */
-            border-radius: 6px;
-            text-decoration: none;
-            display: flex; align-items: center; gap: 10px;
-            transition: 0.3s; position: relative; overflow: hidden;
-        }
-        .dev-badge:hover, .dev-badge:active {
-            border-color: var(--dev-color);
-            box-shadow: 0 0 15px rgba(255, 0, 85, 0.3);
-        }
-
-        .dev-role {
-            font-size: 0.65rem; color: var(--text-dim);
-            text-transform: uppercase; letter-spacing: 1px;
-            display: block; margin-bottom: 2px;
-        }
-        .dev-name {
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 1rem; color: var(--dev-color);
-            font-weight: bold; text-shadow: 0 0 5px rgba(255, 0, 85, 0.5);
-        }
-
-        .system-info {
-            width: 100%; display: flex; justify-content: space-between;
-            font-size: 0.7rem; color: var(--text-dim); font-family: monospace;
-        }
-
-        /* هشدارها */
-        .alert {
-            background: rgba(255, 50, 50, 0.1);
-            border-left: 3px solid #ff3232;
-            color: #ff8080; font-size: 0.8rem;
-            margin-bottom: 15px; padding: 10px;
-            border-radius: 4px;
-        }
-
-        /* مخفی کردن کیبورد وقتی روی بوم کلیک میشه */
-        canvas { touch-action: none; }
     </style>
 </head>
-<body>
+<body class="text-gray-100 custom-scroll min-h-screen flex flex-col justify-between">
 
-    <canvas id="matrix-canvas"></canvas>
-    <div class="global-scan-line"></div>
-
-    <div class="login-wrapper">
-        <div class="corner-decor tl d-none d-sm-block"></div>
-        <div class="corner-decor br d-none d-sm-block"></div>
-
-        <div class="login-card">
-            <div class="card-inner">
-                
-                <div class="brand-section">
-                    <div class="logo-display">
-                        <div class="logo-circle"></div>
-                        <i class="fas fa-fingerprint logo-icon"></i>
-                    </div>
-                    <h1 class="brand-title">HoseinProxy</h1>
-                    <div class="brand-subtitle">SECURE ACCESS TERMINAL</div>
-                </div>
-
-                <div class="ai-terminal">
-                    <div>
-                        <span style="color:var(--primary); margin-right:5px;">></span>
-                        <span id="ai-response" class="terminal-text">System Init... OK</span>
-                    </div>
-                    <button id="ai-btn" class="ai-refresh">SCAN</button>
-                </div>
-
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                  {% if messages %}
-                    {% for category, message in messages %}
-                      <div class="alert alert-{{ category }}">
-                        {{ message }}
-                      </div>
-                    {% endfor %}
-                  {% endif %}
-                {% endwith %}
-
-                <form method="POST">
-                    <div class="cyber-input-group">
-                        <label class="cyber-label">User Identifier</label>
-                        <input type="text" name="username" class="cyber-input" required autocomplete="off">
-                        <i class="fas fa-user-shield input-icon"></i>
-                    </div>
-
-                    <div class="cyber-input-group">
-                        <label class="cyber-label">Access Token</label>
-                        <input type="password" name="password" class="cyber-input" required>
-                        <i class="fas fa-key input-icon"></i>
-                    </div>
-
-                    <button type="submit" class="btn-cyber-submit">
-                        <i class="fas fa-unlock-alt me-2"></i> Authenticate
-                    </button>
-                </form>
-
-                <div class="cyber-footer">
-                    <a href="https://t.me/KillHosein" target="_blank" class="dev-badge">
-                        <i class="fas fa-code" style="color:var(--text-dim)"></i>
-                        <div>
-                            <span class="dev-role">System Architect</span>
-                            <span class="dev-name">@KillHosein</span>
-                        </div>
-                    </a>
-
-                    <div class="system-info">
-                        <span id="clock">00:00:00 Z</span>
-                        <span>Ver: 3.1.0-M</span>
-                    </div>
-                </div>
-
-            </div>
-        </div>
+    <!-- Canvas for Stars -->
+    <canvas id="starfield"></canvas>
+    
+    <!-- Shooting Stars Layer -->
+    <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <!-- Stars will be handled by JS, but we can keep CSS shooting stars if needed, or rely on canvas -->
     </div>
 
-    <script type="module">
-        import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+    <!-- Header -->
+    <header class="relative z-10 w-full py-8 flex justify-center items-center">
+        <div class="text-4xl md:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-500 text-glow tracking-tight">
+            پنل مدیریت پروکسی
+        </div>
+    </header>
 
-        function updateClock() {
-            const now = new Date();
-            document.getElementById('clock').innerText = now.toISOString().split('T')[1].split('.')[0] + ' Z';
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
-
-        const aiBtn = document.getElementById('ai-btn');
-        const aiResponse = document.getElementById('ai-response');
+    <!-- Main Login Section -->
+    <main class="flex-grow relative z-10 w-full px-4 flex flex-col items-center justify-center">
         
-        function typeText(element, text, speed = 30) {
-            element.innerHTML = "";
-            let i = 0;
-            function type() {
-                if (i < text.length) {
-                    element.innerHTML += text.charAt(i);
-                    i++;
-                    setTimeout(type, speed);
-                }
-            }
-            type();
-        }
+        <div class="glass-card w-full max-w-[400px] p-8 md:p-10 rounded-3xl relative overflow-hidden float-anim">
+            
+            <!-- Background Glow Effects -->
+            <div class="absolute -top-10 -right-10 w-40 h-40 bg-purple-600/20 rounded-full blur-[60px] pointer-events-none animate-pulse"></div>
+            <div class="absolute -bottom-10 -left-10 w-40 h-40 bg-cyan-600/20 rounded-full blur-[60px] pointer-events-none animate-pulse" style="animation-delay: 1.5s;"></div>
 
-        aiBtn.addEventListener('click', async () => {
-            const apiKey = ""; 
-            aiResponse.innerText = "Scanning...";
-            aiResponse.style.color = "#64748b";
-            aiBtn.disabled = true;
-            try {
-                const genAI = new GoogleGenerativeAI(apiKey);
-                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-09-2025" });
-                const prompt = "Generate a short terminal status: 'ROOT ACCESS: GRANTED'. Max 4 words.";
-                const result = await model.generateContent(prompt);
-                const text = result.response.text();
-                aiResponse.style.color = "#10b981"; 
-                typeText(aiResponse, text);
-            } catch (error) {
-                console.error(error);
-                aiResponse.innerText = "LINK ERROR";
-                aiResponse.style.color = "#ff3232";
-            } finally {
-                aiBtn.disabled = false;
-            }
-        });
-    </script>
+            <!-- Title -->
+            <div class="relative z-10 text-center mb-10">
+                <h1 class="text-2xl font-bold text-white mb-2">
+                    خوش آمدید
+                </h1>
+                <p class="text-slate-400 text-xs md:text-sm font-light">لطفا وارد حساب کاربری خود شوید</p>
+            </div>
 
+            <!-- Login Form -->
+            <form class="space-y-5 relative z-10 text-right">
+                
+                <!-- Email Field -->
+                <div class="group">
+                    <label class="block text-slate-400 text-xs font-medium mb-2 pr-1 transition-colors group-focus-within:text-cyan-400">نام کاربری</label>
+                    <div class="relative">
+                        <input type="text" class="custom-input w-full border border-slate-700/50 text-slate-100 text-sm rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 block p-3.5 pl-10 focus:shadow-[0_0_20px_rgba(168,85,247,0.2)] outline-none" placeholder="username" dir="ltr">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3.5 top-3.5 h-5 w-5 text-slate-500 transition-colors group-focus-within:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Password Field -->
+                <div class="group">
+                    <label class="block text-slate-400 text-xs font-medium mb-2 pr-1 transition-colors group-focus-within:text-cyan-400">رمز عبور</label>
+                    <div class="relative">
+                        <input type="password" class="custom-input w-full border border-slate-700/50 text-slate-100 text-sm rounded-xl focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 block p-3.5 pl-10 focus:shadow-[0_0_20px_rgba(6,182,212,0.2)] outline-none" placeholder="••••••••" dir="ltr">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3.5 top-3.5 h-5 w-5 text-slate-500 transition-colors group-focus-within:text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Login Button -->
+                <button type="button" class="w-full mt-4 py-3.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-sm shadow-[0_4px_20px_rgba(99,102,241,0.4)] hover:shadow-[0_6px_25px_rgba(99,102,241,0.6)] transform active:scale-95 hover:-translate-y-0.5 transition-all duration-300">
+                    ورود به پنل
+                </button>
+
+            </form>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="relative z-10 w-full py-6 pb-8 flex flex-col items-center justify-center gap-4 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent">
+        
+        <!-- Creator Text -->
+        <div class="text-slate-400 text-sm font-medium tracking-wide">
+            ساخته شده توسط <span class="text-purple-400 font-bold drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]">
+                @KillHosein</span>
+        </div>
+
+        <!-- Telegram Support Button -->
+        <a href="https://t.me/KillHosein" target="_blank" class="group flex items-center gap-3 px-5 py-2.5 rounded-full bg-slate-800/40 hover:bg-[#229ED9]/20 border border-slate-700 hover:border-[#229ED9]/50 transition-all duration-300 backdrop-blur-sm shadow-lg">
+            <div class="relative w-6 h-6 flex items-center justify-center">
+                <!-- Telegram Icon SVG -->
+                <svg viewBox="0 0 24 24" class="w-6 h-6 text-slate-400 group-hover:text-[#229ED9] transition-colors fill-current" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.62 0zm4.91 5.646c.79 5.271 2.978 17.506 2.978 17.506s.76 2.552-2.124 2.552c-2.176 0-7.394-4.814-8.632-5.83-1.896-1.554-.627-2.678.718-4.048 3.522-3.586 7.42-8.344 3.737-11.97-5.26-5.18-19.38 6.533-20.24 8.794-.96 2.516.89 3.09 3.23 3.09 3.966 0 9.778-2.618 13.91-4.254 5.67-2.246 6.423-5.84 6.423-5.84z"/>
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.4-1.08.39-.35-.01-1.03-.2-1.54-.35-.62-.18-1.12-.28-1.08-.58.02-.16.24-.32.65-.49 2.56-1.11 4.27-1.84 5.13-2.2 2.44-1.02 2.95-1.2 3.28-1.2.07 0 .24.02.34.1.09.07.12.16.13.25 0 .1-.01.25-.01.3z" fill-rule="evenodd"/> 
+                </svg>
+            </div>
+            <span class="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">ارتباط و پشتیبانی</span>
+        </a>
+    </footer>
+
+    <!-- Scripts -->
     <script>
-        const canvas = document.getElementById('matrix-canvas');
+        // Starfield Animation Logic
+        const canvas = document.getElementById('starfield');
         const ctx = canvas.getContext('2d');
-        
+
         let width, height;
-        let particles = [];
-        // اضافه کردن پوزیشن تاچ برای موبایل
-        let mouse = { x: null, y: null };
+        let stars = [];
+        const numStars = 150; // Adjusted for performance on mobile
 
-        const config = {
-            count: 60,
-            color: '#00f2fe',
-            lineColor: 'rgba(0, 242, 254, 0.1)',
-            radius: 1.5,
-            speed: 0.3,
-            dist: 130
-        };
-
-        // هندل کردن تاچ و موس
-        ['mousemove', 'touchmove'].forEach(evt => 
-            window.addEventListener(evt, e => {
-                if(e.touches) {
-                    mouse.x = e.touches[0].clientX;
-                    mouse.y = e.touches[0].clientY;
-                } else {
-                    mouse.x = e.clientX;
-                    mouse.y = e.clientY;
-                }
-            }, {passive: true})
-        );
-        
-        ['mouseleave', 'touchend'].forEach(evt => 
-            window.addEventListener(evt, () => { mouse.x = null; mouse.y = null; })
-        );
-
+        // Resize canvas to fill window
         function resize() {
-            width = canvas.width = window.innerWidth;
-            height = canvas.height = window.innerHeight;
-            // کاهش تعداد ذرات در موبایل برای عملکرد بهتر
-            config.count = width < 768 ? 35 : 60;
-            config.dist = width < 768 ? 100 : 130;
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
         }
 
-        class Particle {
+        // Star Class
+        class Star {
             constructor() {
+                this.reset();
+            }
+
+            reset() {
                 this.x = Math.random() * width;
                 this.y = Math.random() * height;
-                this.vx = (Math.random() - 0.5) * config.speed;
-                this.vy = (Math.random() - 0.5) * config.speed;
+                this.size = Math.random() * 2 + 0.1;
+                this.speed = Math.random() * 0.3 + 0.1; // Slightly slower for calmer feel
+                this.opacity = Math.random();
+                this.fadeDirection = Math.random() > 0.5 ? 0.01 : -0.01;
             }
-            update() {
-                this.x += this.vx;
-                this.y += this.vy;
-                if(this.x < 0 || this.x > width) this.vx *= -1;
-                if(this.y < 0 || this.y > height) this.vy *= -1;
 
-                if (mouse.x != null) {
-                    let dx = mouse.x - this.x;
-                    let dy = mouse.y - this.y;
-                    let distance = Math.sqrt(dx*dx + dy*dy);
-                    if (distance < 200) {
-                        this.x -= dx * 0.02; // کاهش سرعت واکنش برای نرمی بیشتر
-                        this.y -= dy * 0.02;
-                    }
+            update() {
+                this.y -= this.speed; 
+                
+                this.opacity += this.fadeDirection;
+                if (this.opacity >= 1 || this.opacity <= 0.1) {
+                    this.fadeDirection = -this.fadeDirection;
+                }
+
+                if (this.y < 0) {
+                    this.y = height;
+                    this.x = Math.random() * width;
                 }
             }
+
             draw() {
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, config.radius, 0, Math.PI * 2);
-                ctx.fillStyle = config.color;
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
                 ctx.fill();
             }
         }
 
-        function init() {
-            particles = [];
-            for(let i=0; i<config.count; i++) particles.push(new Particle());
+        function initStars() {
+            stars = [];
+            for (let i = 0; i < numStars; i++) {
+                stars.push(new Star());
+            }
         }
 
         function animate() {
             ctx.clearRect(0, 0, width, height);
-            particles.forEach((p, i) => {
-                p.update();
-                p.draw();
-                for(let j=i+1; j<particles.length; j++){
-                    let p2 = particles[j];
-                    let dx = p.x - p2.x;
-                    let dy = p.y - p2.y;
-                    let d = Math.sqrt(dx*dx + dy*dy);
-                    if(d < config.dist){
-                        ctx.beginPath();
-                        ctx.strokeStyle = `rgba(0, 242, 254, ${1 - d/config.dist})`;
-                        ctx.lineWidth = 0.5;
-                        ctx.moveTo(p.x, p.y);
-                        ctx.lineTo(p2.x, p2.y);
-                        ctx.stroke();
-                    }
-                }
+            stars.forEach(star => {
+                star.update();
+                star.draw();
             });
             requestAnimationFrame(animate);
         }
 
-        window.addEventListener('resize', () => { resize(); init(); });
+        window.addEventListener('resize', () => {
+            resize();
+            initStars();
+        });
+
         resize();
-        init();
+        initStars();
         animate();
+
     </script>
 </body>
 </html>
