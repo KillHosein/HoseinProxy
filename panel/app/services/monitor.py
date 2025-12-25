@@ -136,23 +136,30 @@ def update_docker_stats(app):
                                                         
                                                         if dst == container_ip:
                                                             ipt_total_rx += b
-                                                            if f"dpt:{p.port}" in line:
-                                                                ipt_client_upload += b
+                                                            # if f"dpt:{p.port}" in line:
+                                                            #     ipt_client_upload += b
                                                         elif src == container_ip:
                                                             ipt_total_tx += b
                                                     except:
                                                         pass
                                         
                                         if ipt_total_rx > 0 or ipt_total_tx > 0:
-                                            if ipt_client_upload == 0:
-                                                rx = ipt_total_rx
-                                                tx = ipt_total_tx
-                                            else:
-                                                p_upload = ipt_client_upload
-                                                p_download = max(0, ipt_total_tx - ipt_client_upload)
-                                                rx = p_download 
-                                                tx = p_upload   
-                                                iptables_success = True
+                                            # MTProto Proxy traffic logic:
+                                            # RX (Docker perspective) = Client Upload + TG Server Download
+                                            # TX (Docker perspective) = Client Download + TG Server Upload
+                                            
+                                            # Since it's a proxy, almost all traffic is forwarded.
+                                            # Client Download ~= TG Server Download
+                                            # Client Upload ~= TG Server Upload
+                                            
+                                            # Total Traffic passing through interface = Client Upload + Client Download + TG Upload + TG Download
+                                            # ~= 2 * (Client Upload + Client Download)
+                                            
+                                            # So we should divide by 2 to get approximate user usage.
+                                            
+                                            rx = int(ipt_total_rx / 2)
+                                            tx = int(ipt_total_tx / 2)
+                                            iptables_success = True
                                 except Exception:
                                     pass
 
@@ -166,8 +173,9 @@ def update_docker_stats(app):
                                     raw_rx += data.get('rx_bytes', 0)
                                     raw_tx += data.get('tx_bytes', 0)
                                 
-                                rx = raw_rx
-                                tx = raw_tx
+                                # Apply same logic for Docker stats
+                                rx = int(raw_rx / 2)
+                                tx = int(raw_tx / 2)
                             
                             p.download = rx
                             p.upload = tx
