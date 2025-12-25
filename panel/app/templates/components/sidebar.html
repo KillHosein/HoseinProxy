@@ -1,119 +1,172 @@
 {% if current_user.is_authenticated %}
 <style>
-    /* Top Navigation Styles */
+    /* Top Navigation Styles - Modern & Glassmorphic */
     #sidebar-wrapper {
-        background: #0f172a !important;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        background: rgba(15, 23, 42, 0.8) !important; /* Semi-transparent background */
+        backdrop-filter: blur(12px); /* Glass effect */
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         display: flex;
-        flex-direction: row; /* Horizontal layout */
+        flex-direction: row;
         align-items: center;
-        padding: 0.5rem 1rem;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        padding: 0.75rem 1.5rem;
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
         width: 100%;
         justify-content: space-between;
+        position: sticky; /* Keep at top */
+        top: 0;
     }
 
     #sidebar-wrapper .sidebar-heading {
-        padding: 0.5rem 1rem;
-        font-size: 1.2rem;
+        padding: 0;
+        font-size: 1.3rem;
         font-weight: 800;
         color: #fff;
         background: transparent;
         border: none;
-        margin: 0;
+        margin-right: 2rem;
         white-space: nowrap;
-    }
-
-    #sidebar-wrapper .list-group {
-        display: flex;
-        flex-direction: row; /* Horizontal list */
-        margin: 0;
-        padding: 0;
-        flex-wrap: wrap;
-        justify-content: center;
-        flex-grow: 1;
-    }
-
-    .list-group-item {
-        background-color: transparent !important;
-        color: #94a3b8 !important;
-        border: none !important;
-        padding: 0.6rem 1rem;
-        font-weight: 500;
-        transition: all 0.2s ease;
-        border-radius: 8px;
+        text-shadow: 0 0 20px rgba(139, 92, 246, 0.5); /* Glowing text */
         display: flex;
         align-items: center;
-        margin: 0 4px;
-        border-right: none !important; /* Remove vertical border style */
-        border-bottom: 2px solid transparent !important; /* Add horizontal active indicator */
+        gap: 0.5rem;
     }
 
-    .list-group-item:hover {
-        background-color: rgba(255, 255, 255, 0.03) !important;
-        color: #f1f5f9 !important;
-        transform: translateY(-2px);
+    #sidebar-wrapper .nav-menu {
+        display: flex;
+        flex-direction: row;
+        margin: 0;
+        padding: 0;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 0.5rem; /* Space between items */
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    #sidebar-wrapper .nav-menu::-webkit-scrollbar { display: none; }
+
+    .nav-link-custom {
+        text-decoration: none;
+        background-color: transparent !important;
+        color: #cbd5e1 !important; /* Lighter secondary text */
+        border: 1px solid transparent !important; /* For hover border */
+        padding: 0.6rem 1rem;
+        font-weight: 500;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 12px; /* Softer corners */
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+        position: relative;
+        overflow: hidden;
     }
 
-    .list-group-item.active {
-        background: rgba(255, 255, 255, 0.05) !important;
+    /* Hover Effect */
+    .nav-link-custom:hover {
+        background-color: rgba(255, 255, 255, 0.05) !important;
         color: #fff !important;
-        border-bottom-color: #8b5cf6 !important;
-        box-shadow: none;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        border-color: rgba(255, 255, 255, 0.1) !important;
     }
 
-    .list-group-item i {
+    /* Active State - Glowing Pill */
+    .nav-link-custom.active {
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.1)) !important;
+        color: #fff !important;
+        border: 1px solid rgba(139, 92, 246, 0.3) !important;
+        box-shadow: 0 0 15px rgba(139, 92, 246, 0.2), inset 0 0 10px rgba(139, 92, 246, 0.1);
+    }
+    
+    /* Active indicator dot */
+    .nav-link-custom.active::after {
+        content: '';
+        position: absolute;
+        bottom: 6px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 4px;
+        height: 4px;
+        background-color: #a78bfa;
+        border-radius: 50%;
+        box-shadow: 0 0 5px #a78bfa;
+    }
+
+    .nav-link-custom i {
         width: 20px;
-        font-size: 1rem;
-        margin-left: 8px !important; /* Adjust icon spacing for RTL */
+        font-size: 1.1rem;
+        margin-left: 8px !important;
         margin-right: 0 !important;
+        transition: transform 0.3s ease;
+    }
+    
+    .nav-link-custom:hover i {
+        transform: scale(1.1);
+        color: #a78bfa;
     }
 
     /* Navbar Profile Styles */
     .user-pill {
-        background: rgba(30, 41, 59, 0.6);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
+        background: rgba(15, 23, 42, 0.6);
         border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 50rem;
-        padding: 0.4rem 1rem;
+        border-radius: 12px;
+        padding: 0.5rem 1rem;
         color: #e2e8f0;
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 0.8rem;
         transition: all 0.3s ease;
-        white-space: nowrap;
+        height: 42px;
     }
 
     .user-pill:hover {
         background: rgba(30, 41, 59, 0.8);
-        border-color: rgba(139, 92, 246, 0.3);
+        border-color: rgba(139, 92, 246, 0.4);
         color: #fff;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 0 15px rgba(139, 92, 246, 0.15);
     }
 
     .theme-toggle-btn {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.03);
         border: 1px solid rgba(255, 255, 255, 0.1);
         color: #94a3b8;
         transition: all 0.3s ease;
-        margin-left: 1rem;
-        text-decoration: none;
+        margin-left: 0.5rem;
         cursor: pointer;
     }
 
     .theme-toggle-btn:hover {
-        background: rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.08);
         color: #fbbf24;
-        transform: rotate(15deg);
-        box-shadow: 0 0 15px rgba(251, 191, 36, 0.2);
+        border-color: rgba(251, 191, 36, 0.3);
+        box-shadow: 0 0 15px rgba(251, 191, 36, 0.15);
+        transform: translateY(-1px);
+    }
+    
+    .logout-btn {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        background: rgba(239, 68, 68, 0.1);
+        color: #fca5a5;
+        transition: all 0.3s ease;
+    }
+    
+    .logout-btn:hover {
+        background: rgba(239, 68, 68, 0.2);
+        color: #fff;
+        box-shadow: 0 0 15px rgba(239, 68, 68, 0.25);
+        transform: translateY(-1px);
     }
     
     .sidebar-footer { display: none; }
@@ -124,6 +177,13 @@
             flex-direction: column;
             padding: 1rem;
             height: auto;
+            position: relative; /* Not sticky on mobile */
+        }
+        #sidebar-wrapper .sidebar-heading {
+            margin-right: 0;
+            margin-bottom: 1rem;
+            width: 100%;
+            justify-content: center;
         }
         #sidebar-wrapper .nav-menu {
             flex-direction: row;
@@ -131,12 +191,14 @@
             justify-content: center;
             width: 100%;
             margin-bottom: 1rem;
+            gap: 0.5rem;
         }
         .nav-link-custom {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             padding: 0.5rem 0.8rem;
+            flex-grow: 1;
+            justify-content: center;
         }
-        .sidebar-heading { margin-bottom: 0.5rem !important; }
         .nav-controls {
             width: 100%;
             justify-content: center;
@@ -147,7 +209,10 @@
 
 <div id="sidebar-wrapper">
     <div class="sidebar-heading">
-        <i class="fas fa-rocket me-2 text-primary"></i> HoseinProxy
+        <div class="bg-primary bg-opacity-20 p-2 rounded-3 text-primary d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+            <i class="fas fa-rocket"></i>
+        </div>
+        <span>HoseinProxy</span>
     </div>
     
     <div class="nav-menu">
@@ -181,11 +246,13 @@
         </button>
 
         <div class="user-pill">
-            <i class="fas fa-user-circle fa-lg text-primary"></i>
+            <div class="bg-white bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 24px; height: 24px;">
+                <i class="fas fa-user text-white" style="font-size: 0.8rem;"></i>
+            </div>
             <span class="font-weight-bold small">{{ current_user.username }}</span>
         </div>
 
-        <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-danger ms-2 d-flex align-items-center" title="خروج">
+        <a href="{{ url_for('auth.logout') }}" class="logout-btn ms-2" title="خروج">
             <i class="fas fa-sign-out-alt"></i>
         </a>
     </div>
