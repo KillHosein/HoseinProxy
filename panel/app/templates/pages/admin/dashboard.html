@@ -676,6 +676,14 @@
                             <label class="small text-secondary mb-1">تگ</label>
                             <input type="text" name="tag" id="editProxyTag" class="form-control">
                         </div>
+                        
+                        <!-- Edit TLS Domain -->
+                        <div class="col-12 d-none" id="editProxyTlsField">
+                            <label class="small text-secondary mb-1">دامنه Fake TLS</label>
+                            <input type="text" id="editProxyDomain" class="form-control font-monospace" placeholder="google.com">
+                            <div class="form-text text-secondary x-small">تغییر دامنه باعث تغییر خودکار سکرت می‌شود.</div>
+                        </div>
+
                         <div class="col-md-6">
                             <label class="small text-secondary mb-1">وضعیت سرویس</label>
                             <select name="status" id="editProxyStatus" class="form-select">
@@ -865,9 +873,21 @@
     const generateRandomHex = () => [...Array(32)].map(()=>Math.floor(Math.random()*16).toString(16)).join('');
     
     const setRandomSecretForEdit = () => {
-        const secret = generateRandomHex();
-        const el = document.getElementById('editProxySecret');
-        if(el) el.value = secret;
+        const secretInput = document.getElementById('editProxySecret');
+        const currentSecret = secretInput.value;
+        const tlsField = document.getElementById('editProxyTlsField');
+        const isTls = (currentSecret && currentSecret.startsWith('ee')) || !tlsField.classList.contains('d-none');
+        
+        const rand = generateRandomHex();
+        
+        if (isTls) {
+            const domain = document.getElementById('editProxyDomain').value || 'google.com';
+            const domainHex = domain.split('').map(c => c.charCodeAt(0).toString(16)).join('');
+            secretInput.value = 'ee' + rand + domainHex;
+            tlsField.classList.remove('d-none'); // Ensure it stays visible
+        } else {
+            secretInput.value = rand;
+        }
     };
 
     const copyProxyLink = (port, secret, proxyIp) => {
@@ -1112,8 +1132,70 @@
         document.getElementById('editProxyUser').value = user||'';
         document.getElementById('editProxyPass').value = pass||'';
         document.getElementById('editProxyIP').value = ip||'';
+        
+        // Handle TLS Domain Logic
+        const isTls = secret && secret.startsWith('ee');
+        const tlsField = document.getElementById('editProxyTlsField');
+        const domainInput = document.getElementById('editProxyDomain');
+        
+        if (isTls) {
+            tlsField.classList.remove('d-none');
+            // Try to extract domain: ee + 32chars + hex(domain)
+            if (secret.length > 34) {
+                try {
+                    const domainHex = secret.substring(34);
+                    let domain = '';
+                    for (let i = 0; i < domainHex.length; i += 2) {
+                        domain += String.fromCharCode(parseInt(domainHex.substr(i, 2), 16));
+                    }
+                    domainInput.value = domain;
+                } catch(e) { domainInput.value = 'google.com'; }
+            } else {
+                domainInput.value = 'google.com';
+            }
+        } else {
+            tlsField.classList.add('d-none');
+            domainInput.value = '';
+        }
+        
         new bootstrap.Modal(document.getElementById('editProxyModal')).show();
     };
+
+    const setRandomSecretForEdit = () => {
+        const secretInput = document.getElementById('editProxySecret');
+        const currentSecret = secretInput.value;
+        const tlsField = document.getElementById('editProxyTlsField');
+        const isTls = (currentSecret && currentSecret.startsWith('ee')) || !tlsField.classList.contains('d-none');
+        
+        const rand = generateRandomHex();
+        
+        if (isTls) {
+            const domain = document.getElementById('editProxyDomain').value || 'google.com';
+            const domainHex = domain.split('').map(c => c.charCodeAt(0).toString(16)).join('');
+            secretInput.value = 'ee' + rand + domainHex;
+            tlsField.classList.remove('d-none'); // Ensure it stays visible
+        } else {
+            secretInput.value = rand;
+        }
+    };
+    
+    // Listen for Domain changes in Edit Modal
+    document.getElementById('editProxyDomain')?.addEventListener('input', (e) => {
+         const domain = e.target.value;
+         const secretInput = document.getElementById('editProxySecret');
+         let secret = secretInput.value;
+         
+         if (secret.startsWith('ee')) {
+             // Preserve the random part (chars 2 to 34)
+             // If secret is too short (broken), generate new random
+             let base = 'ee' + generateRandomHex();
+             if (secret.length >= 34) {
+                 base = secret.substring(0, 34);
+             }
+             const domainHex = domain.split('').map(c => c.charCodeAt(0).toString(16)).join('');
+             secretInput.value = base + domainHex;
+         }
+    });
 
     const openProxyDetails = (id, port) => {
         currentProxyId = id; 
