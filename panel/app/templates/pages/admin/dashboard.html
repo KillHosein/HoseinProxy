@@ -208,7 +208,7 @@
                 <div class="d-flex gap-2 align-items-center flex-wrap">
                     <div class="input-group input-group-sm" style="width: 200px;">
                         <span class="input-group-text bg-body-tertiary border-end-0"><i class="fas fa-search text-muted"></i></span>
-                        <input id="proxySearch" type="text" class="form-control bg-body-tertiary border-start-0" placeholder="جستجو (پورت/تگ)">
+                        <input id="proxySearch" type="text" class="form-control bg-body-tertiary border-start-0" placeholder="جستجو (پورت/تگ/نام)">
                     </div>
                     
                     <select id="proxyStatusFilter" class="form-select form-select-sm bg-body-tertiary" style="width: 130px;">
@@ -1023,8 +1023,12 @@
                     if (uploadRateEl) uploadRateEl.innerText = proxy.upload_rate_mbps != null ? proxy.upload_rate_mbps : 0;
 
                     if (proxy.quota_mb && proxy.quota_mb > 0 && proxy.quota_used_mb != null) {
-                        if (quotaUsedEl) quotaUsedEl.innerText = proxy.quota_used_mb;
-                        if (quotaTotalEl) quotaTotalEl.innerText = proxy.quota_mb;
+                        // Convert to GB for display
+                        const quotaGb = (proxy.quota_mb / 1024).toFixed(2);
+                        const usedGb = (proxy.quota_used_mb / 1024).toFixed(2);
+
+                        if (quotaUsedEl) quotaUsedEl.innerText = usedGb;
+                        if (quotaTotalEl) quotaTotalEl.innerText = quotaGb;
                         if (quotaBarEl) {
                             const pct = Math.max(0, Math.min(100, (proxy.quota_used_mb / proxy.quota_mb) * 100));
                             quotaBarEl.style.width = `${pct}%`;
