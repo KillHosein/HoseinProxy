@@ -6,20 +6,21 @@
     <title>ورود به پنل مدیریت | HoseinProxy</title>
     <!-- Bootstrap 5 RTL -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
-    <!-- Google Fonts (Vazirmatn) -->
+    <!-- Google Fonts (Vazirmatn & Orbitron) -->
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
         :root {
-            --primary: #00f2fe;
-            --secondary: #4facfe;
-            --accent: #ff0099;
-            --bg-dark: #09090b;
-            --card-bg: rgba(20, 20, 28, 0.7);
-            --border-color: rgba(255, 255, 255, 0.1);
-            --telegram: #229ED9;
+            --primary: #00f2fe;     /* آبی نئونی */
+            --secondary: #4facfe;   /* آبی آسمانی */
+            --accent: #ff0055;      /* قرمز هشدار */
+            --bg-dark: #020205;     /* سیاه عمیق */
+            --glass: rgba(10, 15, 30, 0.65);
+            --border: rgba(0, 242, 254, 0.3);
+            --telegram: #2AABEE;
         }
 
         body {
@@ -33,166 +34,159 @@
             justify-content: center;
             height: 100vh;
             color: #fff;
-            perspective: 1000px; /* برای افکت سه بعدی */
         }
 
-        /* پس زمینه */
-        #networkCanvas {
-            position: absolute;
+        /* --- پس زمینه کهکشانی --- */
+        #starfield {
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             z-index: 0;
-            background: radial-gradient(circle at 50% 50%, #1a1a2e 0%, #000000 100%);
+            background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
         }
 
-        /* نگهدارنده کارت برای چرخش سه بعدی */
-        .tilt-card-wrap {
+        /* --- کارت اصلی (HUD Container) --- */
+        .hud-container {
             position: relative;
             z-index: 10;
             width: 100%;
             max-width: 420px;
             padding: 20px;
-            transform-style: preserve-3d;
-            transform: perspective(1000px);
         }
 
         .login-card {
             position: relative;
-            background: var(--card-bg);
+            background: var(--glass);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--border-color);
-            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 4px; /* گوشه‌های تیزتر برای حس رباتیک */
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
             overflow: hidden;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-            transition: transform 0.1s ease; /* حرکت نرم موس */
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
-        /* افکت نور دنبال‌کننده موس (Spotlight) */
-        .login-card::before {
-            content: '';
+        /* اسکنر امنیتی (خط لیزری متحرک) */
+        .scanner-line {
             position: absolute;
-            height: 100%;
-            width: 100%;
             top: 0;
             left: 0;
-            background: radial-gradient(
-                800px circle at var(--mouse-x) var(--mouse-y),
-                rgba(255, 255, 255, 0.06),
-                transparent 40%
-            );
-            z-index: 3;
-            pointer-events: none; /* تاثیری روی کلیک‌ها نداشته باشد */
-            opacity: 0;
-            transition: opacity 0.5s;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            box-shadow: 0 0 15px var(--primary);
+            animation: scan 4s ease-in-out infinite;
+            z-index: 5;
+            opacity: 0.7;
+        }
+
+        @keyframes scan {
+            0% { top: -10%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 110%; opacity: 0; }
+        }
+
+        /* گوشه‌های HUD (تزئینات سایبری) */
+        .hud-corner {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border: 2px solid var(--primary);
+            transition: all 0.3s ease;
+            z-index: 20;
+            pointer-events: none;
         }
         
-        .login-card:hover::before {
-            opacity: 1;
+        .top-left { top: 0; left: 0; border-right: none; border-bottom: none; border-radius: 4px 0 0 0; }
+        .top-right { top: 0; right: 0; border-left: none; border-bottom: none; border-radius: 0 4px 0 0; }
+        .bottom-left { bottom: 0; left: 0; border-right: none; border-top: none; border-radius: 0 0 0 4px; }
+        .bottom-right { bottom: 0; right: 0; border-left: none; border-top: none; border-radius: 0 0 4px 0; }
+
+        .login-card:hover .hud-corner {
+            width: 40px;
+            height: 40px;
+            box-shadow: 0 0 15px var(--primary);
         }
 
         .card-body {
-            padding: 3rem 2.5rem;
+            padding: 3rem 2rem;
             position: relative;
-            z-index: 4;
+            z-index: 6;
         }
 
-        /* افکت گلیچ متن */
-        .glitch-wrapper {
+        /* --- لوگو و تیتر --- */
+        .logo-area {
+            text-align: center;
+            margin-bottom: 2.5rem;
             position: relative;
-            display: inline-block;
-            margin-bottom: 0.5rem;
         }
 
-        .glitch {
-            font-size: 2.5rem;
+        .logo-icon {
+            font-size: 3rem;
+            background: linear-gradient(135deg, #fff 0%, var(--primary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1rem;
+            filter: drop-shadow(0 0 10px rgba(0, 242, 254, 0.5));
+            animation: pulse-glow 3s infinite alternate;
+        }
+
+        @keyframes pulse-glow {
+            from { filter: drop-shadow(0 0 5px rgba(0, 242, 254, 0.3)); transform: scale(1); }
+            to { filter: drop-shadow(0 0 20px rgba(0, 242, 254, 0.8)); transform: scale(1.05); }
+        }
+
+        .brand-title {
+            font-family: 'Orbitron', sans-serif; /* فونت انگلیسی فضایی */
             font-weight: 900;
-            text-transform: uppercase;
-            position: relative;
+            font-size: 1.8rem;
             color: #fff;
             letter-spacing: 2px;
-        }
-
-        .glitch::before,
-        .glitch::after {
-            content: attr(data-text);
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-
-        .glitch::before {
-            left: 2px;
-            text-shadow: -1px 0 var(--accent);
-            clip: rect(44px, 450px, 56px, 0);
-            animation: glitch-anim-1 5s infinite linear alternate-reverse;
-        }
-
-        .glitch::after {
-            left: -2px;
-            text-shadow: -1px 0 var(--primary);
-            clip: rect(44px, 450px, 56px, 0);
-            animation: glitch-anim-2 5s infinite linear alternate-reverse;
-        }
-
-        @keyframes glitch-anim-1 {
-            0% { clip: rect(20px, 9999px, 10px, 0); }
-            20% { clip: rect(60px, 9999px, 80px, 0); }
-            40% { clip: rect(10px, 9999px, 50px, 0); }
-            60% { clip: rect(80px, 9999px, 20px, 0); }
-            80% { clip: rect(30px, 9999px, 70px, 0); }
-            100% { clip: rect(50px, 9999px, 90px, 0); }
-        }
-        @keyframes glitch-anim-2 {
-            0% { clip: rect(60px, 9999px, 10px, 0); }
-            20% { clip: rect(10px, 9999px, 80px, 0); }
-            40% { clip: rect(80px, 9999px, 10px, 0); }
-            60% { clip: rect(30px, 9999px, 70px, 0); }
-            80% { clip: rect(90px, 9999px, 20px, 0); }
-            100% { clip: rect(10px, 9999px, 50px, 0); }
-        }
-
-        .subtitle {
-            color: rgba(255,255,255,0.5);
-            font-size: 0.85rem;
-            letter-spacing: 3px;
-            font-family: 'Courier New', monospace;
-            display: block;
-            margin-bottom: 2.5rem;
+            margin: 0;
             text-transform: uppercase;
         }
+        
+        .brand-desc {
+            font-size: 0.8rem;
+            color: var(--secondary);
+            opacity: 0.8;
+            letter-spacing: 4px;
+            margin-top: 5px;
+            font-weight: 300;
+        }
 
-        /* ورودی‌های مدرن */
-        .cyber-input-group {
+        /* --- ورودی‌های مدرن --- */
+        .input-group-hud {
             position: relative;
             margin-bottom: 2rem;
         }
 
-        .cyber-input {
+        .input-hud {
             width: 100%;
-            background: rgba(255, 255, 255, 0.03);
+            background: rgba(0, 0, 0, 0.3);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 15px 45px 15px 15px;
-            border-radius: 12px;
+            border-left: 3px solid rgba(255, 255, 255, 0.1);
+            padding: 15px 15px 15px 45px; /* فضای آیکون سمت چپ */
             color: #fff;
             font-size: 1rem;
             transition: all 0.3s ease;
             outline: none;
+            border-radius: 4px;
         }
 
-        .cyber-input:focus {
-            background: rgba(255, 255, 255, 0.07);
-            border-color: var(--primary);
-            box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
+        .input-hud:focus {
+            background: rgba(0, 242, 254, 0.05);
+            border-color: rgba(0, 242, 254, 0.5);
+            border-left-color: var(--primary);
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.1);
         }
 
         .input-icon {
             position: absolute;
-            right: 15px;
+            left: 15px;
             top: 50%;
             transform: translateY(-50%);
             color: rgba(255, 255, 255, 0.4);
@@ -200,151 +194,164 @@
             transition: 0.3s;
         }
 
-        .cyber-input:focus + .input-icon {
+        .input-hud:focus ~ .input-icon {
             color: var(--primary);
+            filter: drop-shadow(0 0 5px var(--primary));
         }
 
-        .floating-label {
+        .input-label {
             position: absolute;
-            right: 45px;
+            right: 15px;
             top: 50%;
             transform: translateY(-50%);
-            color: rgba(255, 255, 255, 0.4);
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.9rem;
             pointer-events: none;
-            transition: 0.3s ease all;
+            transition: 0.3s ease;
             background: transparent;
-            padding: 0 5px;
-            font-size: 0.95rem;
         }
 
-        .cyber-input:focus ~ .floating-label,
-        .cyber-input:not(:placeholder-shown) ~ .floating-label {
-            top: 0;
-            right: 15px;
+        .input-hud:focus ~ .input-label,
+        .input-hud:not(:placeholder-shown) ~ .input-label {
+            top: -10px;
+            right: 0;
             font-size: 0.75rem;
             color: var(--primary);
-            background: var(--bg-dark); /* برای خوانایی روی خط */
-            /* در واقع چون بک گراند شفاف نیست باید با رنگ کارت یکی باشه یا بیخیال بک گراند شد */
-            background: transparent; 
-            transform: translateY(-120%);
+            letter-spacing: 1px;
         }
 
-        /* دکمه پیشرفته */
-        .btn-cyber {
+        /* --- دکمه ورود --- */
+        .btn-entry {
             width: 100%;
             padding: 16px;
-            border: none;
-            border-radius: 12px;
-            background: linear-gradient(90deg, var(--secondary), var(--primary));
-            color: #000;
-            font-weight: 800;
+            background: rgba(0, 242, 254, 0.1);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            font-weight: 700;
             font-size: 1.1rem;
             cursor: pointer;
             position: relative;
             overflow: hidden;
-            transition: transform 0.2s;
-            z-index: 1;
+            transition: 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            clip-path: polygon(0 0, 100% 0, 100% 70%, 95% 100%, 0 100%); /* گوشه بریده شده */
         }
 
-        .btn-cyber::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
-            z-index: -1;
-            transition: opacity 0.3s;
-            opacity: 0;
+        .btn-entry:hover {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 0 30px rgba(0, 242, 254, 0.4);
         }
 
-        .btn-cyber:hover::before {
-            opacity: 1;
+        .btn-entry span {
+            position: relative;
+            z-index: 2;
         }
 
-        .btn-cyber:active {
-            transform: scale(0.98);
-        }
-
-        /* فوتر */
-        .footer-cyber {
+        /* --- فوتر --- */
+        .footer-hud {
             margin-top: 2.5rem;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 15px;
+            border-top: 1px dashed rgba(255, 255, 255, 0.1);
+            padding-top: 1.5rem;
+            text-align: center;
         }
 
-        .contact-btn {
-            color: var(--telegram);
-            text-decoration: none;
-            font-size: 0.9rem;
-            display: flex;
+        .telegram-link {
+            display: inline-flex;
             align-items: center;
-            gap: 8px;
-            opacity: 0.8;
-            transition: 0.3s;
-            padding: 8px 16px;
+            gap: 10px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            padding: 8px 20px;
             border-radius: 50px;
-            background: rgba(34, 158, 217, 0.05);
-            border: 1px solid rgba(34, 158, 217, 0.2);
-        }
-
-        .contact-btn:hover {
-            opacity: 1;
-            background: rgba(34, 158, 217, 0.15);
-            transform: translateY(-2px);
-        }
-
-        .creator-link {
-            font-family: 'Courier New', monospace;
-            color: #fff;
-            text-decoration: none;
-            font-size: 0.8rem;
-            opacity: 0.4;
+            background: rgba(255, 255, 255, 0.05);
             transition: 0.3s;
-            border-bottom: 1px dashed rgba(255,255,255,0.2);
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+
+        .telegram-link:hover {
+            background: var(--telegram);
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(42, 171, 238, 0.3);
+        }
+
+        .dev-sign {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.3);
+            margin-top: 10px;
+            display: block;
         }
         
-        .creator-link:hover {
+        .dev-sign a {
+            color: var(--secondary);
+            text-decoration: none;
+            position: relative;
+            padding: 2px 5px;
+        }
+        
+        .dev-sign a::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            border: 1px solid var(--secondary);
+            opacity: 0;
+            transform: scale(1.2);
+            transition: 0.3s;
+        }
+        
+        .dev-sign a:hover::before {
             opacity: 1;
-            color: var(--primary);
-            border-color: var(--primary);
+            transform: scale(1);
+        }
+        
+        .dev-sign a:hover {
+            color: #fff;
+            text-shadow: 0 0 8px var(--primary);
         }
 
-        /* Alerts */
+        /* هشدارها */
         .alert {
-            background: rgba(255, 50, 50, 0.1);
-            border: 1px solid rgba(255, 50, 50, 0.2);
-            color: #ff8080;
+            background: rgba(255, 50, 80, 0.1);
+            border-left: 4px solid var(--accent);
+            color: #ff80ab;
+            border-radius: 0 4px 4px 0;
             font-size: 0.85rem;
-            margin-bottom: 1.5rem;
         }
-
     </style>
 </head>
 <body>
 
-    <canvas id="networkCanvas"></canvas>
+    <!-- بوم پس‌زمینه ستاره‌ای -->
+    <canvas id="starfield"></canvas>
 
-    <div class="tilt-card-wrap" id="tiltCard">
+    <div class="hud-container">
         <div class="login-card">
-            <div class="card-body text-center">
-                
-                <div class="mb-2">
-                    <div class="glitch-wrapper">
-                        <div class="glitch" data-text="HoseinProxy">HoseinProxy</div>
-                    </div>
-                </div>
-                <span class="subtitle">&lt; SYSTEM ACCESS /&gt;</span>
+            
+            <!-- المان‌های تزئینی HUD -->
+            <div class="scanner-line"></div>
+            <div class="hud-corner top-left"></div>
+            <div class="hud-corner top-right"></div>
+            <div class="hud-corner bottom-left"></div>
+            <div class="hud-corner bottom-right"></div>
 
-                <!-- فلش مسیج ها -->
+            <div class="card-body">
+                
+                <div class="logo-area">
+                    <i class="fas fa-fingerprint logo-icon"></i>
+                    <h1 class="brand-title">HOSEIN<span style="color:var(--primary)">PROXY</span></h1>
+                    <p class="brand-desc">SECURE ADMIN PANEL v2.0</p>
+                </div>
+
+                <!-- پیام‌های سیستم -->
                 {% with messages = get_flashed_messages(with_categories=true) %}
                   {% if messages %}
                     {% for category, message in messages %}
                       <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        <i class="fas fa-exclamation-triangle me-2"></i> {{ message }}
+                        <i class="fas fa-shield-virus me-2"></i> {{ message }}
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
                       </div>
                     {% endfor %}
@@ -352,32 +359,32 @@
                 {% endwith %}
 
                 <form method="POST">
-                    <div class="cyber-input-group">
-                        <input type="text" name="username" class="cyber-input" id="userInput" placeholder=" " required autocomplete="off">
-                        <label for="userInput" class="floating-label">نام کاربری</label>
-                        <i class="fas fa-user-astronaut input-icon"></i>
+                    <div class="input-group-hud">
+                        <input type="text" name="username" class="input-hud" id="user" placeholder=" " required autocomplete="off">
+                        <label for="user" class="input-label">شناسه کاربری</label>
+                        <i class="fas fa-user-secret input-icon"></i>
                     </div>
 
-                    <div class="cyber-input-group">
-                        <input type="password" name="password" class="cyber-input" id="passInput" placeholder=" " required>
-                        <label for="passInput" class="floating-label">رمز عبور</label>
-                        <i class="fas fa-shield-alt input-icon"></i>
+                    <div class="input-group-hud">
+                        <input type="password" name="password" class="input-hud" id="pass" placeholder=" " required>
+                        <label for="pass" class="input-label">کد دسترسی</label>
+                        <i class="fas fa-key input-icon"></i>
                     </div>
 
-                    <button type="submit" class="btn-cyber">
-                        <i class="fas fa-bolt me-2"></i> ورود به سیستم
+                    <button type="submit" class="btn-entry">
+                        <span><i class="fas fa-unlock-alt me-2"></i> احراز هویت و ورود</span>
                     </button>
                 </form>
 
-                <div class="footer-cyber">
-                    <a href="https://t.me/KillHosein" target="_blank" class="contact-btn">
-                        <i class="fab fa-telegram"></i>
-                        پشتیبانی و خرید
+                <div class="footer-hud">
+                    <a href="https://t.me/KillHosein" target="_blank" class="telegram-link">
+                        <i class="fab fa-telegram-plane"></i>
+                        پشتیبانی تلگرام
                     </a>
                     
-                    <a href="https://t.me/KillHosein" target="_blank" class="creator-link">
-                        Designed by @KillHosein
-                    </a>
+                    <span class="dev-sign">
+                        SYSTEM ARCHITECT: <a href="https://t.me/KillHosein" target="_blank">@KillHosein</a>
+                    </span>
                 </div>
 
             </div>
@@ -386,137 +393,97 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
+    <!-- اسکریپت پس‌زمینه ستاره‌ای متصل -->
     <script>
-        // --- 1. تنظیمات افکت تیلت (3D Tilt) و نور موس ---
-        const cardWrap = document.getElementById('tiltCard');
-        const card = cardWrap.querySelector('.login-card');
-
-        document.addEventListener('mousemove', (e) => {
-            const x = e.clientX;
-            const y = e.clientY;
-            
-            // محاسبات چرخش سه بعدی
-            const rect = cardWrap.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            
-            const rotateX = ((y - centerY) / (window.innerHeight / 2)) * -10; // درجه چرخش عمودی
-            const rotateY = ((x - centerX) / (window.innerWidth / 2)) * 10;   // درجه چرخش افقی
-
-            cardWrap.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
-
-            // تنظیم موقعیت نور موس روی کارت
-            // مختصات موس نسبت به خود کارت
-            const xRelative = x - rect.left;
-            const yRelative = y - rect.top;
-            
-            card.style.setProperty('--mouse-x', `${xRelative}px`);
-            card.style.setProperty('--mouse-y', `${yRelative}px`);
-        });
-        
-        // بازگشت به حالت اولیه وقتی موس خارج میشه
-        document.addEventListener('mouseleave', () => {
-            cardWrap.style.transform = 'perspective(1000px) rotateX(0) rotateY(0)';
-        });
-
-
-        // --- 2. انیمیشن پیشرفته پس‌زمینه (Particles) ---
-        const canvas = document.getElementById('networkCanvas');
+        const canvas = document.getElementById('starfield');
         const ctx = canvas.getContext('2d');
         
         let width, height;
-        let particles = [];
+        let stars = [];
         
-        const properties = {
-            particleColor: 'rgba(0, 242, 254, 0.8)',
+        const config = {
+            starCount: 90,
+            starColor: 'rgba(0, 242, 254, 0.8)',
             lineColor: 'rgba(0, 242, 254, ',
-            particleCount: 70,
-            connectionDistance: 140,
-            baseSpeed: 0.3
-        }
+            maxDist: 130,
+            speed: 0.4
+        };
 
         function resize() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
-            if(width < 768) properties.particleCount = 40;
-            else properties.particleCount = 70;
+            config.starCount = width < 768 ? 50 : 90;
         }
 
-        class Particle {
+        class Star {
             constructor() {
                 this.x = Math.random() * width;
                 this.y = Math.random() * height;
-                this.vx = (Math.random() - 0.5) * properties.baseSpeed;
-                this.vy = (Math.random() - 0.5) * properties.baseSpeed;
-                this.size = Math.random() * 2 + 0.5;
-                this.pulsing = Math.random() > 0.5; // برخی ذرات چشمک میزنن
+                this.vx = (Math.random() - 0.5) * config.speed;
+                this.vy = (Math.random() - 0.5) * config.speed;
+                this.radius = Math.random() * 1.5 + 0.5;
             }
 
-            update() {
+            move() {
                 this.x += this.vx;
                 this.y += this.vy;
 
-                if(this.x < 0 || this.x > width) this.vx = -this.vx;
-                if(this.y < 0 || this.y > height) this.vy = -this.vy;
-                
-                // افکت چشمک زدن سایز
-                if(this.pulsing) {
-                    this.size += Math.random() * 0.05 - 0.025;
-                    if(this.size < 0.5) this.size = 0.5;
-                    if(this.size > 2.5) this.size = 2.5;
-                }
+                // بازگشت از لبه‌ها (Infinite Loop)
+                if(this.x < 0) this.x = width;
+                if(this.x > width) this.x = 0;
+                if(this.y < 0) this.y = height;
+                if(this.y > height) this.y = 0;
             }
 
             draw() {
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fillStyle = properties.particleColor;
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = config.starColor;
                 ctx.fill();
             }
         }
 
-        function initParticles() {
-            particles = [];
-            for(let i=0; i<properties.particleCount; i++){
-                particles.push(new Particle());
+        function initStars() {
+            stars = [];
+            for(let i=0; i<config.starCount; i++){
+                stars.push(new Star());
             }
         }
 
-        function animateParticles() {
+        function animate() {
             ctx.clearRect(0, 0, width, height);
             
-            for(let i=0; i<particles.length; i++){
-                particles[i].update();
-                particles[i].draw();
+            for(let i=0; i<stars.length; i++){
+                stars[i].move();
+                stars[i].draw();
                 
-                for(let j=i; j<particles.length; j++){
-                    let dx = particles[i].x - particles[j].x;
-                    let dy = particles[i].y - particles[j].y;
-                    let distance = Math.sqrt(dx*dx + dy*dy);
+                // رسم خطوط اتصال
+                for(let j=i; j<stars.length; j++){
+                    let dx = stars[i].x - stars[j].x;
+                    let dy = stars[i].y - stars[j].y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
 
-                    if(distance < properties.connectionDistance){
-                        let opacity = 1 - (distance / properties.connectionDistance);
+                    if(dist < config.maxDist){
                         ctx.beginPath();
-                        ctx.strokeStyle = properties.lineColor + (opacity * 0.4) + ')'; // خطوط کمرنگ‌تر
+                        ctx.strokeStyle = config.lineColor + (1 - dist/config.maxDist) * 0.3 + ')';
                         ctx.lineWidth = 0.5;
-                        ctx.moveTo(particles[i].x, particles[i].y);
-                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.moveTo(stars[i].x, stars[i].y);
+                        ctx.lineTo(stars[j].x, stars[j].y);
                         ctx.stroke();
                     }
                 }
             }
-            requestAnimationFrame(animateParticles);
+            requestAnimationFrame(animate);
         }
 
         window.addEventListener('resize', () => {
             resize();
-            initParticles();
+            initStars();
         });
 
         resize();
-        initParticles();
-        animateParticles();
-
+        initStars();
+        animate();
     </script>
 </body>
 </html>
