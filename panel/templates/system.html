@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}مدیریت سیستم - HoseinProxy{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">مدیریت سیستم</h1>
+</div>
+
+<div class="row">
+    <!-- Version Info -->
+    <div class="col-md-6 mb-4">
+        <div class="card card-custom h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-code-branch me-2"></i> وضعیت نسخه</h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="mb-3">
+                    <span class="text-muted">نسخه فعلی (Commit ID):</span>
+                    <h3 class="mt-2 text-primary">{{ current_version }}</h3>
+                </div>
+                
+                <div id="updateStatus" class="alert alert-info d-none">
+                    در حال بررسی...
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" id="checkUpdateBtn" onclick="checkUpdate()">
+                        <i class="fas fa-sync me-1"></i> بررسی به‌روزرسانی
+                    </button>
+                    <button class="btn btn-success d-none" id="doUpdateBtn" onclick="doUpdate()">
+                        <i class="fas fa-cloud-download-alt me-1"></i> دریافت و نصب نسخه جدید
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- System Actions -->
+    <div class="col-md-6 mb-4">
+        <div class="card card-custom h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-power-off me-2"></i> عملیات سرویس</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">مدیریت وضعیت سرویس و تهیه نسخه پشتیبان.</p>
+                <button class="btn btn-warning w-100 mb-2" onclick="restartService()">
+                    <i class="fas fa-redo me-1"></i> ریستارت پنل (Service Restart)
+                </button>
+                <button class="btn btn-secondary w-100 mb-3" onclick="createBackup()">
+                    <i class="fas fa-save me-1"></i> تهیه نسخه پشتیبان (Backup)
+                </button>
+                
+                <div class="alert alert-warning small">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    توجه: با ریستارت کردن سرویس، دسترسی به پنل برای چند لحظه قطع خواهد شد.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Logs Section -->
+<div class="row">
+    <div class="col-12">
+        <div class="card card-custom">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-clipboard-list me-2"></i> لاگ‌های سیستم (Manager Logs)</h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="loadLogs()">
+                    <i class="fas fa-sync"></i>
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <pre class="bg-dark text-white p-3 m-0" id="logViewer" style="height: 300px; overflow-y: scroll; font-size: 0.85rem;">در حال بارگذاری...</pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function checkUpdate() {
+        const btn = document.getElementById('checkUpdateBtn');
+        const status = document.getElementById('updateStatus');
+        const updateBtn = document.getElementById('doUpdateBtn');
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> در حال بررسی...';
+        status.classList.remove('d-none');
+        status.className = 'alert alert-info';
+        status.innerText = 'در حال ارتباط با سرور گیت...';
+        
+        fetch('{{ url_for("check_update") }}', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sync me-1"></i> بررسی مجدد';
+                
+                if (data.status === 'update_available') {
+                    status.className = 'alert alert-warning';
+                    status.innerText = 'نسخه جدید موجود است!';
+                    updateBtn.classList.remove('d-none');
+                } else if (data.status === 'up_to_date') {
+                    status.className = 'alert alert-success';
+                    status.innerText = 'سیستم شما به‌روز است.';
+                    updateBtn.classList.add('d-none');
+                } else {
+                    status.className = 'alert alert-danger';
+                    status.innerText = 'خطا: ' + data.message;
+                }
+            })
+            .catch(err => {
+                btn.disabled = false;
+                status.className = 'alert alert-danger';
+                status.innerText = 'خطای ارتباط با سرور';
+            });
+    }
+
+    function doUpdate() {
+        if(!confirm('آیا مطمئن هستید؟ سرویس ریستارت خواهد شد.')) return;
+        
+        const btn = document.getElementById('doUpdateBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> در حال آپدیت...';
+        
+        fetch('{{ url_for("do_update") }}', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    Swal.fire('موفق', 'به‌روزرسانی انجام شد. صفحه رفرش می‌شود.', 'success')
+                    .then(() => location.reload());
+                } else {
+                    Swal.fire('خطا', data.message, 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-cloud-download-alt me-1"></i> دریافت و نصب نسخه جدید';
+                }
+            });
+    }
+
+    function restartService() {
+        if(!confirm('آیا مطمئن هستید؟')) return;
+        
+        fetch('{{ url_for("restart_service") }}', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    Swal.fire('موفق', 'دستور ریستارت ارسال شد.', 'success');
+                } else {
+                    Swal.fire('خطا', data.message, 'error');
+                }
+            });
+    }
+
+    function createBackup() {
+        if(!confirm('آیا از تهیه نسخه پشتیبان اطمینان دارید؟')) return;
+        
+        Swal.fire({
+            title: 'در حال تهیه پشتیبان...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        fetch('{{ url_for("create_backup") }}', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    Swal.fire('موفق', 'نسخه پشتیبان ایجاد شد:\n' + data.path, 'success');
+                } else {
+                    Swal.fire('خطا', data.message, 'error');
+                }
+            });
+    }
+
+    function loadLogs() {
+        fetch('{{ url_for("system_logs") }}')
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('logViewer').innerText = data.content;
+            });
+    }
+    
+    // Load logs on start
+    loadLogs();
+</script>
+{% endblock %}
