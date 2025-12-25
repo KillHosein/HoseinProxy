@@ -3,7 +3,7 @@ import tarfile
 import subprocess
 import requests
 from datetime import datetime
-from flask import Blueprint, render_template, request, jsonify, flash
+from flask import Blueprint, render_template, request, jsonify, flash, send_from_directory, redirect, url_for
 from flask_login import login_required
 from app.utils.helpers import get_setting
 
@@ -127,9 +127,20 @@ def backup():
         if sent_to_telegram:
             msg += ' و به تلگرام ارسال شد.'
             
-        return jsonify({'status': 'success', 'path': backup_file, 'message': msg})
+        return jsonify({'status': 'success', 'path': backup_file, 'filename': filename, 'message': msg})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
+
+@system_bp.route('/download_backup/<filename>')
+@login_required
+def download_backup(filename):
+    try:
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        backup_dir = os.path.join(base_dir, 'backups')
+        return send_from_directory(backup_dir, filename, as_attachment=True)
+    except Exception as e:
+        flash(f'خطا در دانلود فایل: {e}', 'danger')
+        return redirect(url_for('system.page'))
 
 @system_bp.route('/restore', methods=['POST'])
 @login_required

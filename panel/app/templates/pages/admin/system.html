@@ -183,8 +183,15 @@
                 if (data.status === 'success') {
                     Swal.fire({
                         title: 'بکاپ آماده شد!',
-                        text: data.message + '\nمسیر فایل: ' + data.path,
-                        icon: 'success'
+                        text: data.message,
+                        icon: 'success',
+                        showCancelButton: true,
+                        confirmButtonText: 'دانلود فایل',
+                        cancelButtonText: 'بستن'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = '/system/download_backup/' + data.filename;
+                        }
                     });
                 } else {
                     Swal.fire('خطا', data.message, 'error');
