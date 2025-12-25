@@ -122,13 +122,13 @@
             </div>
 
             <!-- Login Form -->
-            <form class="space-y-5 relative z-10 text-right">
+            <form action="{{ url_for('auth.login') }}" method="POST" class="space-y-5 relative z-10 text-right">
                 
                 <!-- Email Field -->
                 <div class="group">
                     <label class="block text-slate-400 text-xs font-medium mb-2 pr-1 transition-colors group-focus-within:text-cyan-400">نام کاربری</label>
                     <div class="relative">
-                        <input type="text" class="custom-input w-full border border-slate-700/50 text-slate-100 text-sm rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 block p-3.5 pl-10 focus:shadow-[0_0_20px_rgba(168,85,247,0.2)] outline-none" placeholder="username" dir="ltr">
+                        <input type="text" name="username" class="custom-input w-full border border-slate-700/50 text-slate-100 text-sm rounded-xl focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 block p-3.5 pl-10 focus:shadow-[0_0_20px_rgba(168,85,247,0.2)] outline-none" placeholder="username" dir="ltr" required>
                         <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3.5 top-3.5 h-5 w-5 text-slate-500 transition-colors group-focus-within:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
                         </svg>
@@ -139,7 +139,7 @@
                 <div class="group">
                     <label class="block text-slate-400 text-xs font-medium mb-2 pr-1 transition-colors group-focus-within:text-cyan-400">رمز عبور</label>
                     <div class="relative">
-                        <input type="password" class="custom-input w-full border border-slate-700/50 text-slate-100 text-sm rounded-xl focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 block p-3.5 pl-10 focus:shadow-[0_0_20px_rgba(6,182,212,0.2)] outline-none" placeholder="••••••••" dir="ltr">
+                        <input type="password" name="password" class="custom-input w-full border border-slate-700/50 text-slate-100 text-sm rounded-xl focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 block p-3.5 pl-10 focus:shadow-[0_0_20px_rgba(6,182,212,0.2)] outline-none" placeholder="••••••••" dir="ltr" required>
                         <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3.5 top-3.5 h-5 w-5 text-slate-500 transition-colors group-focus-within:text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
@@ -147,7 +147,7 @@
                 </div>
 
                 <!-- Login Button -->
-                <button type="button" class="w-full mt-4 py-3.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-sm shadow-[0_4px_20px_rgba(99,102,241,0.4)] hover:shadow-[0_6px_25px_rgba(99,102,241,0.6)] transform active:scale-95 hover:-translate-y-0.5 transition-all duration-300">
+                <button type="submit" class="w-full mt-4 py-3.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-sm shadow-[0_4px_20px_rgba(99,102,241,0.4)] hover:shadow-[0_6px_25px_rgba(99,102,241,0.6)] transform active:scale-95 hover:-translate-y-0.5 transition-all duration-300">
                     ورود به پنل
                 </button>
 
