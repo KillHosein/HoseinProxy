@@ -332,7 +332,7 @@ def run_telegram_bot(app):
                     with app.app_context():
                         if docker_client:
                             container = docker_client.containers.run(
-                                'telegrammessenger/proxy',
+                                'alexbers/mtprotoproxy',
                                 detach=True,
                                 ports={'443/tcp': data['port']},
                                 environment={

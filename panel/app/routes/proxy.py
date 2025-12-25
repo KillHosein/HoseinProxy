@@ -67,7 +67,7 @@ def add():
                 ports_config = {'443/tcp': (proxy_ip, port)}
 
             container = docker_client.containers.run(
-                'telegrammessenger/proxy',
+                'alexbers/mtprotoproxy',
                 detach=True,
                 ports=ports_config,
                 environment={
@@ -302,7 +302,7 @@ def update(id):
                          ports_config = {'443/tcp': (proxy.proxy_ip, proxy.port)}
 
                      container = docker_client.containers.run(
-                        'telegrammessenger/proxy',
+                        'alexbers/mtprotoproxy',
                         detach=True,
                         ports=ports_config,
                         environment={
