@@ -75,6 +75,31 @@ def _check_proxy_limits(proxies):
             except Exception as e:
                 print(f"Error auto-stopping proxy {p.port}: {e}")
 
+def _check_system_health():
+    """Checks system resources and emits alerts if thresholds are exceeded."""
+    try:
+        # CPU Check
+        cpu_percent = psutil.cpu_percent(interval=None)
+        if cpu_percent > 90:
+            _maybe_emit_alert(None, "critical", f"مصرف پردازنده بسیار بالاست: {cpu_percent}%", "sys_cpu_high", cooldown_seconds=300)
+        elif cpu_percent > 80:
+            _maybe_emit_alert(None, "warning", f"مصرف پردازنده بالاست: {cpu_percent}%", "sys_cpu_high", cooldown_seconds=900)
+
+        # RAM Check
+        mem = psutil.virtual_memory()
+        if mem.percent > 90:
+            _maybe_emit_alert(None, "critical", f"حافظه رم در حال اتمام است: {mem.percent}%", "sys_mem_high", cooldown_seconds=300)
+        elif mem.percent > 80:
+             _maybe_emit_alert(None, "warning", f"مصرف رم بالاست: {mem.percent}%", "sys_mem_high", cooldown_seconds=900)
+
+        # Disk Check
+        disk = psutil.disk_usage('/')
+        if disk.percent > 90:
+             _maybe_emit_alert(None, "critical", f"فضای دیسک پر شده است: {disk.percent}%", "sys_disk_high", cooldown_seconds=3600)
+             
+    except Exception as e:
+        print(f"Health Check Error: {e}")
+
 def update_docker_stats(app):
     """Periodically updates proxy traffic stats from Docker"""
     # Wait for tables to be created
@@ -88,10 +113,16 @@ def update_docker_stats(app):
             time.sleep(2)
             
     last_stats_sample = datetime.datetime.utcnow() - datetime.timedelta(minutes=2)
+    last_health_check = datetime.datetime.utcnow()
     
     while True:
         try:
             with app.app_context():
+                # Run Health Check every 30 seconds
+                if (datetime.datetime.utcnow() - last_health_check).total_seconds() > 30:
+                    _check_system_health()
+                    last_health_check = datetime.datetime.utcnow()
+
                 if docker_client:
                     proxies = Proxy.query.filter(Proxy.container_id != None).all()
                     
