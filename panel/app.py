@@ -69,6 +69,7 @@ def generate_mtproto_secret():
 def dashboard():
     stats = get_system_stats()
     proxies = Proxy.query.all()
+    logs = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).limit(10).all()
     
     # Sync status with Docker
     if docker_client:
@@ -88,7 +89,7 @@ def dashboard():
                      p.status = "stopped"
         db.session.commit()
 
-    return render_template('dashboard.html', stats=stats, proxies=proxies)
+    return render_template('dashboard.html', stats=stats, proxies=proxies, logs=logs)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
