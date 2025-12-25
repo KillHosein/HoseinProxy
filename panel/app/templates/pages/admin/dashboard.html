@@ -324,7 +324,7 @@
                                             <li><hr class="dropdown-divider"></li>
                                             <li><button class="dropdown-item" onclick="openProxyEdit({{ proxy.id|tojson }}, {{ proxy.port|tojson }}, {{ proxy.tag|tojson|forceescape }}, {{ ((proxy.quota_bytes / (1024*1024*1024))|round(2) if proxy.quota_bytes else 0)|tojson }}, {{ proxy.secret|tojson|forceescape }}, {{ proxy.status|tojson|forceescape }}, {{ proxy.username|tojson|forceescape }}, {{ proxy.password|tojson|forceescape }}, {{ proxy.proxy_ip|tojson|forceescape }}, {{ proxy.name|tojson|forceescape }})"><i class="fas fa-pen me-2 w-20"></i>ویرایش</button></li>
 
-                                            <li><button class="dropdown-item" onclick="showLink('{{ proxy.port }}', {{ proxy.secret|tojson|forceescape }})"><i class="fas fa-link me-2 w-20"></i>لینک اتصال</button></li>
+                                            <li><button class="dropdown-item" onclick="showLink('{{ proxy.port }}', {{ proxy.secret|tojson|forceescape }}, {{ proxy.proxy_ip|tojson|forceescape }})"><i class="fas fa-link me-2 w-20"></i>لینک اتصال</button></li>
                                             <li><hr class="dropdown-divider"></li>
                                             <li><a class="dropdown-item text-danger" href="{{ url_for('proxy.delete', id=proxy.id) }}" onclick="return confirm('آیا مطمئن هستید؟')"><i class="fas fa-trash me-2 w-20"></i>حذف</a></li>
                                         </ul>
@@ -456,6 +456,10 @@
                     <div class="mb-3">
                         <label class="form-label">شماره پورت</label>
                         <input type="number" name="port" class="form-control" required placeholder="مثلاً 443">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">آی‌پی اتصال (Bind IP)</label>
+                        <input type="text" name="proxy_ip" class="form-control" placeholder="0.0.0.0 (پیش‌فرض)">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">نام پروکسی (اختیاری)</label>
@@ -710,8 +714,8 @@
         }
     }
 
-    function showLink(port, secret) {
-        const serverIp = '{{ server_ip }}' || window.location.hostname;
+    function showLink(port, secret, proxyIp) {
+        const serverIp = proxyIp || '{{ server_ip }}' || window.location.hostname;
         const serverDomain = '{{ server_domain }}';
         
         let ipLink = `tg://proxy?server=${serverIp}&port=${port}&secret=${secret}`;
@@ -721,6 +725,7 @@
             <label class="form-label">اتصال با IP:</label>
             <div class="input-group mb-3">
                 <input type="text" class="form-control text-center font-monospace" value="${ipLink}" readonly>
+                <button class="btn btn-outline-secondary" onclick="copyToClipboard('${ipLink}')"><i class="far fa-copy"></i></button>
                 <a href="${ipLink}" class="btn btn-primary"><i class="fas fa-paper-plane"></i></a>
             </div>
         `;
@@ -731,6 +736,7 @@
                 <label class="form-label">اتصال با دامنه:</label>
                 <div class="input-group mb-3">
                     <input type="text" class="form-control text-center font-monospace" value="${domainLink}" readonly>
+                    <button class="btn btn-outline-secondary" onclick="copyToClipboard('${domainLink}')"><i class="far fa-copy"></i></button>
                     <a href="${domainLink}" class="btn btn-success"><i class="fas fa-paper-plane"></i></a>
                 </div>
             `;

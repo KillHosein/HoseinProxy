@@ -22,6 +22,7 @@ def add():
     tls_domain = request.form.get('tls_domain', 'google.com')
     quota_gb = request.form.get('quota_gb', type=float)
     expiry_days = request.form.get('expiry_days', type=int)
+    proxy_ip = (request.form.get('proxy_ip') or '').strip() or None
     
     quota_bytes = 0
     if quota_gb is not None and quota_gb > 0:
@@ -61,10 +62,14 @@ def add():
 
     if docker_client:
         try:
+            ports_config = {'443/tcp': port}
+            if proxy_ip:
+                ports_config = {'443/tcp': (proxy_ip, port)}
+
             container = docker_client.containers.run(
                 'telegrammessenger/proxy',
                 detach=True,
-                ports={'443/tcp': port},
+                ports=ports_config,
                 environment={
                     'SECRET': secret,
                     'TAG': tag,
@@ -84,7 +89,8 @@ def add():
                 status="running",
                 quota_bytes=quota_bytes,
                 quota_start=datetime.utcnow() if quota_bytes > 0 else None,
-                expiry_date=expiry_date
+                expiry_date=expiry_date,
+                proxy_ip=proxy_ip
             )
             db.session.add(new_proxy)
             db.session.commit()
