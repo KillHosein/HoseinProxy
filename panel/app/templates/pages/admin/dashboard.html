@@ -409,7 +409,7 @@
                 <h5 class="modal-title">ساخت گروهی پروکسی</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form action="{{ url_for('bulk_create_proxies') }}" method="POST">
+            <form action="{{ url_for('proxy.bulk_create') }}" method="POST">
                 <div class="modal-body">
                     <div class="alert alert-info small border-0 bg-info bg-opacity-10 text-info">
                         <i class="fas fa-info-circle me-1"></i>
@@ -451,7 +451,7 @@
                 <h5 class="modal-title">افزودن پروکسی جدید</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form action="{{ url_for('add_proxy') }}" method="POST">
+            <form action="{{ url_for('proxy.add') }}" method="POST">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">شماره پورت</label>
