@@ -180,6 +180,9 @@
                 <a href="{{ url_for('system_page') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'system_page' %}active{% endif %}">
                     <i class="fas fa-server me-2"></i> مدیریت سیستم
                 </a>
+                <a href="{{ url_for('users_list') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'users_list' %}active{% endif %}">
+                    <i class="fas fa-users-cog me-2"></i> مدیران
+                </a>
                 <a href="{{ url_for('network_tools') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'network_tools' %}active{% endif %}">
                     <i class="fas fa-network-wired me-2"></i> ابزارهای شبکه
                 </a>

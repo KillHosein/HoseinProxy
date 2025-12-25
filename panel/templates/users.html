@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}مدیریت کاربران - HoseinProxy{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">مدیریت مدیران (Admins)</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+        <i class="fas fa-user-plus me-2"></i> افزودن مدیر جدید
+    </button>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card card-custom">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-4">شناسه</th>
+                                <th>نام کاربری</th>
+                                <th>تاریخ ایجاد</th>
+                                <th>عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td class="ps-4">{{ user.id }}</td>
+                                <td class="fw-bold">{{ user.username }}</td>
+                                <td class="text-muted small">
+                                    {% if user.created_at %}
+                                    {{ user.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-warning" onclick="openChangePassModal({{ user.id }}, '{{ user.username }}')">
+                                        <i class="fas fa-key"></i>
+                                    </button>
+                                    
+                                    {% if user.id != current_user.id %}
+                                    <a href="{{ url_for('user_delete', id=user.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('آیا از حذف این کاربر مطمئن هستید؟')">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                    {% else %}
+                                    <span class="badge bg-success text-white">شما</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">افزودن مدیر جدید</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('user_add') }}" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">نام کاربری</label>
+                        <input type="text" name="username" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">رمز عبور</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                    <button type="submit" class="btn btn-primary">افزودن</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Change Password Modal -->
+<div class="modal fade" id="changePassModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تغییر رمز عبور: <span id="cpUsername"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="changePassForm" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">رمز عبور جدید</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                    <button type="submit" class="btn btn-warning">تغییر رمز</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let cpModal = null;
+    
+    function openChangePassModal(id, username) {
+        const form = document.getElementById('changePassForm');
+        form.action = `/users/change_password/${id}`;
+        document.getElementById('cpUsername').innerText = username;
+        
+        if (!cpModal) {
+            cpModal = new bootstrap.Modal(document.getElementById('changePassModal'));
+        }
+        cpModal.show();
+    }
+</script>
+{% endblock %}

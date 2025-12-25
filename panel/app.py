@@ -231,11 +231,15 @@ def _ensure_db_initialized():
                 ('name', 'ALTER TABLE proxy ADD COLUMN name VARCHAR(100)'),
                 ('created_at', 'ALTER TABLE proxy ADD COLUMN created_at DATETIME'),
             ]
-            with db.engine.connect() as conn:
-                for col, stmt in migrations:
-                    if col not in columns:
-                        conn.execute(text(stmt))
-                conn.commit()
+            
+        # Check User table for created_at
+        if inspector.has_table('user'):
+            columns = {c['name'] for c in inspector.get_columns('user')}
+            if 'created_at' not in columns:
+                with db.engine.connect() as conn:
+                    conn.execute(text('ALTER TABLE user ADD COLUMN created_at DATETIME'))
+                    conn.commit()
+                    
         _db_initialized = True
 
 @app.before_request
@@ -838,6 +842,68 @@ def dashboard():
 
     return render_template('dashboard.html', proxies=proxies, logs=logs)
 
+@app.route('/users')
+@login_required
+def users_list():
+    users = User.query.all()
+    return render_template('users.html', users=users)
+
+@app.route('/users/add', methods=['POST'])
+@login_required
+def user_add():
+    username = request.form.get('username')
+    password = request.form.get('password')
+    
+    if not username or not password:
+        flash('نام کاربری و رمز عبور الزامی است.', 'danger')
+        return redirect(url_for('users_list'))
+        
+    if User.query.filter_by(username=username).first():
+        flash('این نام کاربری قبلاً وجود دارد.', 'danger')
+        return redirect(url_for('users_list'))
+        
+    u = User(username=username)
+    u.set_password(password)
+    db.session.add(u)
+    db.session.commit()
+    
+    log_activity("User Add", f"Added admin user: {username}")
+    flash('کاربر جدید با موفقیت اضافه شد.', 'success')
+    return redirect(url_for('users_list'))
+
+@app.route('/users/delete/<int:id>')
+@login_required
+def user_delete(id):
+    if id == current_user.id:
+        flash('نمی‌توانید حساب خودتان را حذف کنید.', 'danger')
+        return redirect(url_for('users_list'))
+        
+    u = User.query.get_or_404(id)
+    username = u.username
+    db.session.delete(u)
+    db.session.commit()
+    
+    log_activity("User Delete", f"Deleted admin user: {username}")
+    flash(f'کاربر {username} حذف شد.', 'success')
+    return redirect(url_for('users_list'))
+
+@app.route('/users/change_password/<int:id>', methods=['POST'])
+@login_required
+def user_change_password(id):
+    u = User.query.get_or_404(id)
+    password = request.form.get('password')
+    
+    if not password:
+        flash('رمز عبور جدید وارد نشده است.', 'danger')
+        return redirect(url_for('users_list'))
+        
+    u.set_password(password)
+    db.session.commit()
+    
+    log_activity("User Password", f"Changed password for user: {u.username}")
+    flash(f'رمز عبور کاربر {u.username} تغییر کرد.', 'success')
+    return redirect(url_for('users_list'))
+
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required
 def settings():
@@ -1361,6 +1427,56 @@ def create_backup():
             # Add templates and static if needed, but code is in git usually. DB is most important.
             
         return jsonify({'status': 'success', 'path': backup_file})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+
+@app.route('/system/restore', methods=['POST'])
+@login_required
+def restore_backup():
+    try:
+        if 'backup_file' not in request.files:
+            return jsonify({'status': 'error', 'message': 'فایلی ارسال نشده است.'})
+            
+        file = request.files['backup_file']
+        if file.filename == '':
+            return jsonify({'status': 'error', 'message': 'نام فایل خالی است.'})
+            
+        if not file.filename.endswith('.tar.gz'):
+            return jsonify({'status': 'error', 'message': 'فرمت فایل باید tar.gz باشد.'})
+            
+        backup_path = f"/tmp/{file.filename}"
+        file.save(backup_path)
+        
+        # Validate and Extract
+        panel_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        with tarfile.open(backup_path, "r:gz") as tar:
+            # Check if critical files exist
+            names = tar.getnames()
+            if 'panel.db' not in names and './panel.db' not in names:
+                 return jsonify({'status': 'error', 'message': 'فایل بکاپ معتبر نیست (panel.db یافت نشد).'})
+            
+            # Extract panel.db specifically to restore DB
+            # We should be careful about paths.
+            # Usually tar created with arcname='panel.db' puts it at root of tar.
+            
+            # Stop writing to DB if possible or just overwrite (sqlite allows it but connection might lock)
+            # Since we are using SQLAlchemy, we should dispose engine first?
+            # Or just overwrite and hope for best (Linux handles file replacement usually).
+            # Better: Restart service after restore.
+            
+            tar.extract('panel.db', path=panel_dir)
+            # If app.py is in backup, we might restore it too, but code restore is risky.
+            # Let's stick to DB restore for now as that's what matters for user data.
+            
+        os.remove(backup_path)
+        
+        # Restart Service
+        subprocess.Popen(['systemctl', 'restart', 'hoseinproxy'])
+        
+        flash('بکاپ با موفقیت بازگردانی شد. سرویس در حال ریستارت است...', 'success')
+        return jsonify({'status': 'success'})
+        
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 

@@ -51,6 +51,19 @@
                     <i class="fas fa-save me-1"></i> تهیه نسخه پشتیبان (Backup)
                 </button>
                 
+                <hr>
+                
+                <div class="mb-3">
+                    <label class="form-label text-muted small">بازگردانی بکاپ (Restore)</label>
+                    <div class="input-group">
+                        <input type="file" class="form-control" id="backupFile" accept=".tar.gz">
+                        <button class="btn btn-outline-danger" type="button" onclick="restoreBackup()">
+                            <i class="fas fa-upload"></i>
+                        </button>
+                    </div>
+                    <div class="form-text small">فایل .tar.gz معتبر را انتخاب کنید. سیستم پس از آپلود ریستارت می‌شود.</div>
+                </div>
+                
                 <div class="alert alert-warning small border-0 bg-opacity-10 bg-warning text-dark">
                     <i class="fas fa-exclamation-triangle me-1"></i>
                     توجه: با ریستارت کردن سرویس، دسترسی به پنل برای چند لحظه قطع خواهد شد.
@@ -168,14 +181,78 @@
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
-                    Swal.fire('موفق', 'نسخه پشتیبان ایجاد شد:\n' + data.path, 'success');
+                    Swal.fire({
+                        title: 'بکاپ آماده شد!',
+                        text: 'مسیر فایل: ' + data.path,
+                        icon: 'success'
+                    });
                 } else {
                     Swal.fire('خطا', data.message, 'error');
                 }
             });
     }
 
+    function restoreBackup() {
+        const fileInput = document.getElementById('backupFile');
+        const file = fileInput.files[0];
+        
+        if (!file) {
+            Swal.fire('خطا', 'لطفاً یک فایل انتخاب کنید.', 'warning');
+            return;
+        }
+        
+        Swal.fire({
+            title: 'آیا مطمئن هستید؟',
+            text: "با بازگردانی بکاپ، تمامی اطلاعات فعلی (پروکسی‌ها، کاربران و...) با اطلاعات فایل جایگزین خواهند شد و سیستم ریستارت می‌شود.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'بله، بازگردانی کن',
+            cancelButtonText: 'لغو'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const formData = new FormData();
+                formData.append('backup_file', file);
+                
+                Swal.fire({
+                    title: 'در حال آپلود و بازگردانی...',
+                    html: 'لطفاً صبر کنید.',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                fetch('{{ url_for("restore_backup") }}', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        Swal.fire({
+                            title: 'موفق',
+                            text: 'بکاپ بازگردانی شد. سیستم در حال ریستارت است...',
+                            icon: 'success',
+                            timer: 3000,
+                            showConfirmButton: false
+                        }).then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire('خطا', data.message, 'error');
+                    }
+                })
+                .catch(err => {
+                    Swal.fire('خطا', 'ارتباط با سرور قطع شد.', 'error');
+                });
+            }
+        });
+    }
+
     function loadLogs() {
+        document.getElementById('logViewer').innerText = 'در حال دریافت...';
         fetch('{{ url_for("system_logs") }}')
             .then(res => res.json())
             .then(data => {
