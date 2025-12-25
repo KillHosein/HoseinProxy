@@ -8,18 +8,18 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
     <!-- Google Fonts (Vazirmatn) -->
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
-    <!-- Font Awesome for Icons -->
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
         :root {
-            --primary-color: #00f2fe;
-            --secondary-color: #4facfe;
-            --telegram-color: #2AABEE;
-            --bg-dark: #050505;
-            --glass-bg: rgba(20, 20, 20, 0.75);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            --text-glow: 0 0 10px rgba(0, 242, 254, 0.5);
+            --primary: #00f2fe;
+            --secondary: #4facfe;
+            --accent: #ff0099;
+            --bg-dark: #09090b;
+            --card-bg: rgba(20, 20, 28, 0.7);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --telegram: #229ED9;
         }
 
         body {
@@ -27,378 +27,449 @@
             background-color: var(--bg-dark);
             margin: 0;
             padding: 0;
-            overflow-x: hidden;
+            overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
-            position: relative;
+            height: 100vh;
+            color: #fff;
+            perspective: 1000px; /* برای افکت سه بعدی */
         }
 
-        /* Canvas Background Styling */
+        /* پس زمینه */
         #networkCanvas {
-            position: fixed;
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: -1;
-            background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
+            z-index: 0;
+            background: radial-gradient(circle at 50% 50%, #1a1a2e 0%, #000000 100%);
         }
 
-        .login-container {
+        /* نگهدارنده کارت برای چرخش سه بعدی */
+        .tilt-card-wrap {
+            position: relative;
+            z-index: 10;
             width: 100%;
+            max-width: 420px;
             padding: 20px;
-            display: flex;
-            justify-content: center;
-            z-index: 1;
+            transform-style: preserve-3d;
+            transform: perspective(1000px);
         }
 
         .login-card {
-            background: var(--glass-bg);
+            position: relative;
+            background: var(--card-bg);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
+            border: 1px solid var(--border-color);
             border-radius: 24px;
-            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
-            width: 100%;
-            max-width: 420px;
             overflow: hidden;
-            position: relative;
-            animation: cardEntrance 1s cubic-bezier(0.19, 1, 0.22, 1);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            transition: transform 0.1s ease; /* حرکت نرم موس */
         }
 
-        /* خط نئونی بالای کارت */
+        /* افکت نور دنبال‌کننده موس (Spotlight) */
         .login-card::before {
+            content: '';
+            position: absolute;
+            height: 100%;
+            width: 100%;
+            top: 0;
+            left: 0;
+            background: radial-gradient(
+                800px circle at var(--mouse-x) var(--mouse-y),
+                rgba(255, 255, 255, 0.06),
+                transparent 40%
+            );
+            z-index: 3;
+            pointer-events: none; /* تاثیری روی کلیک‌ها نداشته باشد */
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        
+        .login-card:hover::before {
+            opacity: 1;
+        }
+
+        .card-body {
+            padding: 3rem 2.5rem;
+            position: relative;
+            z-index: 4;
+        }
+
+        /* افکت گلیچ متن */
+        .glitch-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 0.5rem;
+        }
+
+        .glitch {
+            font-size: 2.5rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            position: relative;
+            color: #fff;
+            letter-spacing: 2px;
+        }
+
+        .glitch::before,
+        .glitch::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .glitch::before {
+            left: 2px;
+            text-shadow: -1px 0 var(--accent);
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim-1 5s infinite linear alternate-reverse;
+        }
+
+        .glitch::after {
+            left: -2px;
+            text-shadow: -1px 0 var(--primary);
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim-2 5s infinite linear alternate-reverse;
+        }
+
+        @keyframes glitch-anim-1 {
+            0% { clip: rect(20px, 9999px, 10px, 0); }
+            20% { clip: rect(60px, 9999px, 80px, 0); }
+            40% { clip: rect(10px, 9999px, 50px, 0); }
+            60% { clip: rect(80px, 9999px, 20px, 0); }
+            80% { clip: rect(30px, 9999px, 70px, 0); }
+            100% { clip: rect(50px, 9999px, 90px, 0); }
+        }
+        @keyframes glitch-anim-2 {
+            0% { clip: rect(60px, 9999px, 10px, 0); }
+            20% { clip: rect(10px, 9999px, 80px, 0); }
+            40% { clip: rect(80px, 9999px, 10px, 0); }
+            60% { clip: rect(30px, 9999px, 70px, 0); }
+            80% { clip: rect(90px, 9999px, 20px, 0); }
+            100% { clip: rect(10px, 9999px, 50px, 0); }
+        }
+
+        .subtitle {
+            color: rgba(255,255,255,0.5);
+            font-size: 0.85rem;
+            letter-spacing: 3px;
+            font-family: 'Courier New', monospace;
+            display: block;
+            margin-bottom: 2.5rem;
+            text-transform: uppercase;
+        }
+
+        /* ورودی‌های مدرن */
+        .cyber-input-group {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        .cyber-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 15px 45px 15px 15px;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .cyber-input:focus {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
+        }
+
+        .input-icon {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 1.1rem;
+            transition: 0.3s;
+        }
+
+        .cyber-input:focus + .input-icon {
+            color: var(--primary);
+        }
+
+        .floating-label {
+            position: absolute;
+            right: 45px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255, 255, 255, 0.4);
+            pointer-events: none;
+            transition: 0.3s ease all;
+            background: transparent;
+            padding: 0 5px;
+            font-size: 0.95rem;
+        }
+
+        .cyber-input:focus ~ .floating-label,
+        .cyber-input:not(:placeholder-shown) ~ .floating-label {
+            top: 0;
+            right: 15px;
+            font-size: 0.75rem;
+            color: var(--primary);
+            background: var(--bg-dark); /* برای خوانایی روی خط */
+            /* در واقع چون بک گراند شفاف نیست باید با رنگ کارت یکی باشه یا بیخیال بک گراند شد */
+            background: transparent; 
+            transform: translateY(-120%);
+        }
+
+        /* دکمه پیشرفته */
+        .btn-cyber {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(90deg, var(--secondary), var(--primary));
+            color: #000;
+            font-weight: 800;
+            font-size: 1.1rem;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s;
+            z-index: 1;
+        }
+
+        .btn-cyber::before {
             content: '';
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
-            height: 3px;
-            background: linear-gradient(90deg, transparent, var(--primary-color), transparent);
-            animation: scanline 3s infinite linear;
-            z-index: 2;
-        }
-
-        @keyframes scanline {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
-
-        @keyframes cardEntrance {
-            from { opacity: 0; transform: translateY(50px) scale(0.9); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        .card-header {
-            background: transparent;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            padding: 2.5rem 1rem 1rem;
-            text-align: center;
-        }
-
-        .brand-title {
-            color: #fff;
-            font-weight: 900;
-            font-size: 2rem;
-            letter-spacing: 1px;
-            margin: 0;
-            text-shadow: var(--text-glow);
-        }
-        
-        .brand-subtitle {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.85rem;
-            margin-top: 5px;
-            font-family: 'Courier New', Courier, monospace;
-        }
-
-        .card-body {
-            padding: 2rem;
-        }
-
-        .form-label {
-            color: #ccc;
-            font-size: 0.9rem;
-            margin-bottom: 8px;
-        }
-
-        .input-group-text {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--glass-border);
-            border-left: none;
-            color: var(--primary-color);
-            border-radius: 0 12px 12px 0;
-        }
-
-        .form-control {
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid var(--glass-border);
-            border-right: none;
-            color: #fff;
-            border-radius: 12px 0 0 12px;
-            padding: 12px;
-            transition: all 0.3s;
-        }
-
-        .form-control:focus {
-            background: rgba(0, 0, 0, 0.6);
-            border-color: var(--primary-color);
-            box-shadow: none;
-            color: #fff;
-        }
-        
-        .form-control:focus + .input-group-text {
-            border-color: var(--primary-color);
-            text-shadow: 0 0 8px var(--primary-color);
-        }
-
-        .btn-login {
-            background: linear-gradient(90deg, var(--secondary-color), var(--primary-color));
-            border: none;
-            border-radius: 12px;
-            padding: 12px;
-            color: #000;
-            font-weight: 800;
-            font-size: 1.1rem;
-            margin-top: 10px;
-            transition: all 0.3s;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 0 20px rgba(0, 242, 254, 0.4);
-            color: #000;
-        }
-
-        .btn-login::after {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: rgba(255,255,255,0.2);
-            transform: rotate(45deg);
-            transition: all 0.3s;
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            z-index: -1;
+            transition: opacity 0.3s;
             opacity: 0;
         }
-        .btn-login:hover::after {
-            left: 100%;
+
+        .btn-cyber:hover::before {
             opacity: 1;
-            transition: 0.7s;
         }
 
-        /* --- Footer & Contact Section --- */
-        .footer-section {
-            margin-top: 2rem;
-            border-top: 1px solid rgba(255,255,255,0.08);
-            padding-top: 1.5rem;
-            text-align: center;
+        .btn-cyber:active {
+            transform: scale(0.98);
         }
 
-        .contact-title {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 0.85rem;
-            margin-bottom: 15px;
-            display: block;
+        /* فوتر */
+        .footer-cyber {
+            margin-top: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
         }
 
-        .btn-telegram {
+        .contact-btn {
+            color: var(--telegram);
+            text-decoration: none;
+            font-size: 0.9rem;
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 10px;
-            background: rgba(42, 171, 238, 0.1);
-            color: var(--telegram-color);
-            border: 1px solid rgba(42, 171, 238, 0.3);
-            padding: 10px;
-            border-radius: 12px;
-            text-decoration: none;
-            font-weight: bold;
-            font-size: 0.95rem;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            margin-bottom: 20px;
-        }
-
-        .btn-telegram:hover {
-            background: var(--telegram-color);
-            color: white;
-            box-shadow: 0 0 20px rgba(42, 171, 238, 0.4);
-            transform: translateY(-2px);
-            border-color: var(--telegram-color);
-        }
-
-        .btn-telegram i {
-            font-size: 1.3rem;
-        }
-
-        .developer-credit {
-            font-size: 0.75rem;
-            color: rgba(255, 255, 255, 0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 5px;
-        }
-
-        .developer-link {
-            color: var(--primary-color);
-            text-decoration: none;
-            font-weight: 600;
-            font-family: 'Courier New', monospace;
-            letter-spacing: 0.5px;
-            position: relative;
+            gap: 8px;
+            opacity: 0.8;
             transition: 0.3s;
+            padding: 8px 16px;
+            border-radius: 50px;
+            background: rgba(34, 158, 217, 0.05);
+            border: 1px solid rgba(34, 158, 217, 0.2);
+        }
+
+        .contact-btn:hover {
+            opacity: 1;
+            background: rgba(34, 158, 217, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .creator-link {
+            font-family: 'Courier New', monospace;
+            color: #fff;
+            text-decoration: none;
+            font-size: 0.8rem;
+            opacity: 0.4;
+            transition: 0.3s;
+            border-bottom: 1px dashed rgba(255,255,255,0.2);
         }
         
-        .developer-link:hover {
-            color: #fff;
-            text-shadow: 0 0 10px var(--primary-color);
+        .creator-link:hover {
+            opacity: 1;
+            color: var(--primary);
+            border-color: var(--primary);
         }
 
-        /* Alert Styling */
+        /* Alerts */
         .alert {
             background: rgba(255, 50, 50, 0.1);
-            border: 1px solid rgba(255, 50, 50, 0.3);
+            border: 1px solid rgba(255, 50, 50, 0.2);
             color: #ff8080;
-            font-size: 0.9rem;
-            border-radius: 12px;
+            font-size: 0.85rem;
+            margin-bottom: 1.5rem;
         }
-        .alert-success {
-            background: rgba(0, 255, 100, 0.1);
-            border-color: rgba(0, 255, 100, 0.3);
-            color: #80ffaa;
-        }
-        .btn-close { filter: invert(1); }
 
     </style>
 </head>
 <body>
 
-    <!-- بوم نقاشی برای افکت شبکه متصل -->
     <canvas id="networkCanvas"></canvas>
 
-    <div class="login-container">
-        <div class="card login-card">
-            <div class="card-header">
-                <h3 class="brand-title">Hosein<span style="color:var(--primary-color)">Proxy</span></h3>
-                <p class="brand-subtitle">&lt; Secure Connection /&gt;</p>
-            </div>
-            
-            <div class="card-body">
+    <div class="tilt-card-wrap" id="tiltCard">
+        <div class="login-card">
+            <div class="card-body text-center">
+                
+                <div class="mb-2">
+                    <div class="glitch-wrapper">
+                        <div class="glitch" data-text="HoseinProxy">HoseinProxy</div>
+                    </div>
+                </div>
+                <span class="subtitle">&lt; SYSTEM ACCESS /&gt;</span>
+
+                <!-- فلش مسیج ها -->
                 {% with messages = get_flashed_messages(with_categories=true) %}
                   {% if messages %}
                     {% for category, message in messages %}
                       <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        <i class="fas fa-info-circle me-2"></i> {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        <i class="fas fa-exclamation-triangle me-2"></i> {{ message }}
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
                       </div>
                     {% endfor %}
                   {% endif %}
                 {% endwith %}
 
                 <form method="POST">
-                    <div class="mb-4">
-                        <label class="form-label">نام کاربری</label>
-                        <div class="input-group dir-ltr">
-                            <span class="input-group-text"><i class="fas fa-user"></i></span>
-                            <input type="text" name="username" class="form-control text-center" placeholder="Username" required autofocus>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="form-label">رمز عبور</label>
-                        <div class="input-group dir-ltr">
-                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
-                            <input type="password" name="password" class="form-control text-center" placeholder="Password" required>
-                        </div>
+                    <div class="cyber-input-group">
+                        <input type="text" name="username" class="cyber-input" id="userInput" placeholder=" " required autocomplete="off">
+                        <label for="userInput" class="floating-label">نام کاربری</label>
+                        <i class="fas fa-user-astronaut input-icon"></i>
                     </div>
 
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-login">
-                            <i class="fas fa-sign-in-alt me-2"></i> ورود به سیستم
-                        </button>
+                    <div class="cyber-input-group">
+                        <input type="password" name="password" class="cyber-input" id="passInput" placeholder=" " required>
+                        <label for="passInput" class="floating-label">رمز عبور</label>
+                        <i class="fas fa-shield-alt input-icon"></i>
                     </div>
+
+                    <button type="submit" class="btn-cyber">
+                        <i class="fas fa-bolt me-2"></i> ورود به سیستم
+                    </button>
                 </form>
 
-                <div class="footer-section">
-                    <span class="contact-title">جهت ارتباط، پشتیبانی و خرید</span>
-                    
-                    <a href="https://t.me/KillHosein" target="_blank" class="btn-telegram">
-                        <i class="fab fa-telegram-plane"></i>
-                        ارتباط در تلگرام
+                <div class="footer-cyber">
+                    <a href="https://t.me/KillHosein" target="_blank" class="contact-btn">
+                        <i class="fab fa-telegram"></i>
+                        پشتیبانی و خرید
                     </a>
-
-                    <div class="developer-credit">
-                        <span>Developed by</span>
-                        <a href="https://t.me/KillHosein" target="_blank" class="developer-link">
-                            @KillHosein
-                        </a>
-                    </div>
+                    
+                    <a href="https://t.me/KillHosein" target="_blank" class="creator-link">
+                        Designed by @KillHosein
+                    </a>
                 </div>
+
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- اسکریپت ساخت شبکه متحرک پس‌زمینه -->
+
     <script>
+        // --- 1. تنظیمات افکت تیلت (3D Tilt) و نور موس ---
+        const cardWrap = document.getElementById('tiltCard');
+        const card = cardWrap.querySelector('.login-card');
+
+        document.addEventListener('mousemove', (e) => {
+            const x = e.clientX;
+            const y = e.clientY;
+            
+            // محاسبات چرخش سه بعدی
+            const rect = cardWrap.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            
+            const rotateX = ((y - centerY) / (window.innerHeight / 2)) * -10; // درجه چرخش عمودی
+            const rotateY = ((x - centerX) / (window.innerWidth / 2)) * 10;   // درجه چرخش افقی
+
+            cardWrap.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+
+            // تنظیم موقعیت نور موس روی کارت
+            // مختصات موس نسبت به خود کارت
+            const xRelative = x - rect.left;
+            const yRelative = y - rect.top;
+            
+            card.style.setProperty('--mouse-x', `${xRelative}px`);
+            card.style.setProperty('--mouse-y', `${yRelative}px`);
+        });
+        
+        // بازگشت به حالت اولیه وقتی موس خارج میشه
+        document.addEventListener('mouseleave', () => {
+            cardWrap.style.transform = 'perspective(1000px) rotateX(0) rotateY(0)';
+        });
+
+
+        // --- 2. انیمیشن پیشرفته پس‌زمینه (Particles) ---
         const canvas = document.getElementById('networkCanvas');
         const ctx = canvas.getContext('2d');
         
         let width, height;
         let particles = [];
         
-        // تنظیمات شبکه
         const properties = {
-            bgColor: 'rgba(17, 17, 19, 1)',
-            particleColor: 'rgba(0, 242, 254, 0.5)', 
-            particleRadius: 3,
-            particleCount: 60, 
-            lineLength: 150,
-            particleSpeed: 0.5 
+            particleColor: 'rgba(0, 242, 254, 0.8)',
+            lineColor: 'rgba(0, 242, 254, ',
+            particleCount: 70,
+            connectionDistance: 140,
+            baseSpeed: 0.3
         }
 
         function resize() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
-            
-            if(width < 768) {
-                properties.particleCount = 35;
-                properties.lineLength = 100;
-            } else {
-                properties.particleCount = 60;
-                properties.lineLength = 150;
-            }
+            if(width < 768) properties.particleCount = 40;
+            else properties.particleCount = 70;
         }
 
         class Particle {
             constructor() {
                 this.x = Math.random() * width;
                 this.y = Math.random() * height;
-                this.velocityX = (Math.random() * (properties.particleSpeed * 2)) - properties.particleSpeed;
-                this.velocityY = (Math.random() * (properties.particleSpeed * 2)) - properties.particleSpeed;
+                this.vx = (Math.random() - 0.5) * properties.baseSpeed;
+                this.vy = (Math.random() - 0.5) * properties.baseSpeed;
+                this.size = Math.random() * 2 + 0.5;
+                this.pulsing = Math.random() > 0.5; // برخی ذرات چشمک میزنن
             }
 
-            position() {
-                this.x += this.velocityX;
-                this.y += this.velocityY;
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
 
-                if(this.x > width) this.velocityX *= -1;
-                if(this.y > height) this.velocityY *= -1; 
-                if(this.x < 0) this.velocityX *= -1;
-                if(this.y < 0) this.velocityY *= -1;
+                if(this.x < 0 || this.x > width) this.vx = -this.vx;
+                if(this.y < 0 || this.y > height) this.vy = -this.vy;
+                
+                // افکت چشمک زدن سایز
+                if(this.pulsing) {
+                    this.size += Math.random() * 0.05 - 0.025;
+                    if(this.size < 0.5) this.size = 0.5;
+                    if(this.size > 2.5) this.size = 2.5;
+                }
             }
 
             draw() {
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, properties.particleRadius, 0, Math.PI * 2);
-                ctx.closePath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
                 ctx.fillStyle = properties.particleColor;
                 ctx.fill();
             }
@@ -406,53 +477,45 @@
 
         function initParticles() {
             particles = [];
-            for(let i = 0; i < properties.particleCount; i++) {
+            for(let i=0; i<properties.particleCount; i++){
                 particles.push(new Particle());
             }
         }
 
-        function drawLines() {
-            let x1, y1, x2, y2, length, opacity;
-            for(let i in particles) {
-                for(let j in particles) {
-                    x1 = particles[i].x;
-                    y1 = particles[i].y;
-                    x2 = particles[j].x;
-                    y2 = particles[j].y;
-                    
-                    length = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-                    
-                    if(length < properties.lineLength) {
-                        opacity = 1 - length / properties.lineLength;
-                        ctx.lineWidth = '0.5';
-                        ctx.strokeStyle = 'rgba(0, 242, 254, '+ opacity +')';
+        function animateParticles() {
+            ctx.clearRect(0, 0, width, height);
+            
+            for(let i=0; i<particles.length; i++){
+                particles[i].update();
+                particles[i].draw();
+                
+                for(let j=i; j<particles.length; j++){
+                    let dx = particles[i].x - particles[j].x;
+                    let dy = particles[i].y - particles[j].y;
+                    let distance = Math.sqrt(dx*dx + dy*dy);
+
+                    if(distance < properties.connectionDistance){
+                        let opacity = 1 - (distance / properties.connectionDistance);
                         ctx.beginPath();
-                        ctx.moveTo(x1, y1);
-                        ctx.lineTo(x2, y2);
-                        ctx.closePath();
+                        ctx.strokeStyle = properties.lineColor + (opacity * 0.4) + ')'; // خطوط کمرنگ‌تر
+                        ctx.lineWidth = 0.5;
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
                         ctx.stroke();
                     }
                 }
             }
+            requestAnimationFrame(animateParticles);
         }
 
-        function loop() {
-            ctx.clearRect(0, 0, width, height);
-            for(let i in particles) {
-                particles[i].position();
-                particles[i].draw();
-            }
-            drawLines();
-            requestAnimationFrame(loop);
-        }
-
-        window.onresize = function() {
+        window.addEventListener('resize', () => {
             resize();
             initParticles();
-        };
+        });
+
         resize();
         initParticles();
-        loop();
+        animateParticles();
 
     </script>
 </body>
