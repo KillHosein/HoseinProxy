@@ -212,18 +212,29 @@ def update_docker_stats():
                                                         tx += int(values[8])
                                     else:
                                         # Fallback to docker exec if not accessible (e.g. running in container)
+                                        # Try simple cat first
                                         exit_code, output = container.exec_run("cat /proc/net/dev")
+                                        if exit_code != 0:
+                                             # Try ip command if cat fails
+                                             exit_code, output = container.exec_run("ip -s link")
+                                             
                                         if exit_code == 0:
                                             output_str = output.decode('utf-8')
-                                            for line in output_str.split('\n'):
-                                                if ':' in line:
-                                                    parts = line.split(':')
-                                                    iface_name = parts[0].strip()
-                                                    if iface_name == 'lo': continue
-                                                    values = parts[1].split()
-                                                    if len(values) >= 9:
-                                                        rx += int(values[0])
-                                                        tx += int(values[8])
+                                            # Parse cat /proc/net/dev output
+                                            if "Receive" in output_str or "Inter-" in output_str:
+                                                for line in output_str.split('\n'):
+                                                    if ':' in line:
+                                                        parts = line.split(':')
+                                                        iface_name = parts[0].strip()
+                                                        if iface_name == 'lo': continue
+                                                        values = parts[1].split()
+                                                        if len(values) >= 9:
+                                                            rx += int(values[0])
+                                                            tx += int(values[8])
+                                            # Parse ip -s link output
+                                            elif "RX:" in output_str:
+                                                 # This is harder to parse without regex, sticking to /proc/net/dev usually best
+                                                 pass
                                 except Exception as e2:
                                     # print(f"Fallback Stats Error: {e2}")
                                     pass
@@ -239,23 +250,44 @@ def update_docker_stats():
                             # Method 2: ss command (Linux only, more reliable for systemd services)
                             if count == 0 and sys.platform.startswith('linux'):
                                 try:
-                                    # Check established connections on the specific port
-                                    # -t: tcp, -n: numeric, -H: no header
+                                    # Try ss (Socket Statistics)
                                     cmd = f"ss -tnH state established sport = :{p.port} | wc -l"
                                     output = subprocess.check_output(cmd, shell=True).decode().strip()
-                                    if output.isdigit():
+                                    if output.isdigit() and int(output) > 0:
                                         count = int(output)
+                                    
+                                    # Method 3: conntrack (if ss fails or returns 0, try netfilter conntrack)
+                                    if count == 0 and os.path.exists("/proc/net/nf_conntrack"):
+                                        # Count established connections in conntrack for this port
+                                        # Line format: ... sport=443 ...
+                                        with open("/proc/net/nf_conntrack", "r") as f:
+                                            conntrack_data = f.read()
+                                            # Simple counting of lines containing sport={port} and ESTABLISHED
+                                            # Note: Docker maps host port to container port. Users connect to host port.
+                                            # We need to count dport={port} (destination port from client perspective)
+                                            # But in conntrack it might appear as dport={port} in original direction.
+                                            term1 = f"dport={p.port}"
+                                            term2 = "ESTABLISHED"
+                                            c_count = 0
+                                            for line in conntrack_data.split('\n'):
+                                                if term1 in line and term2 in line:
+                                                    c_count += 1
+                                            if c_count > 0:
+                                                count = c_count
                                 except Exception as e_ss:
-                                    # print(f"SS Error: {e_ss}")
+                                    # print(f"SS/Conntrack Error: {e_ss}")
                                     pass
 
                             p.active_connections = count
                                 
                         except Exception as e:
                             # Container might be stopped or deleted
+                            # print(f"Error updating proxy {p.port}: {e}")
                             continue
                     
-                    db.session.commit()
+                    if proxies:
+                        db.session.commit()
+                        # print("Stats updated successfully.")
                     
                     # 3. Update Historical Stats (Every ~1 hour)
                     # For demo purposes/testing, let's do it every minute if it's a new minute
