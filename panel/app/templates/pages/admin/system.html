@@ -177,7 +177,7 @@
             }
         });
         
-        fetch('{{ url_for("create_backup") }}', { method: 'POST' })
+        fetch('{{ url_for("system.backup") }}', { method: 'POST' })
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
