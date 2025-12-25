@@ -9,25 +9,25 @@
 
 <div class="row">
     <div class="col-md-6">
-        <div class="card card-custom">
-            <div class="card-header bg-white">
+        <div class="card card-custom h-100">
+            <div class="card-header bg-gradient-primary text-white">
                 <h5 class="mb-0"><i class="fas fa-network-wired me-2"></i> تنظیمات سرور</h5>
             </div>
             <div class="card-body">
                 <form method="POST">
                     <div class="mb-3">
-                        <label for="server_ip" class="form-label">آی‌پی سرور (Server IP)</label>
+                        <label for="server_ip" class="form-label fw-bold">آی‌پی سرور (Server IP)</label>
                         <input type="text" class="form-control" id="server_ip" name="server_ip" value="{{ server_ip }}" placeholder="مثلاً: 192.168.1.1">
                         <div class="form-text">این IP برای تولید لینک‌های اتصال استفاده می‌شود.</div>
                     </div>
                     
                     <div class="mb-3">
-                        <label for="server_domain" class="form-label">دامنه سرور (Server Domain)</label>
+                        <label for="server_domain" class="form-label fw-bold">دامنه سرور (Server Domain)</label>
                         <input type="text" class="form-control" id="server_domain" name="server_domain" value="{{ server_domain }}" placeholder="مثلاً: proxy.example.com">
                         <div class="form-text">اگر دامنه دارید وارد کنید، در غیر این صورت خالی بگذارید.</div>
                     </div>
 
-                    <button type="submit" class="btn btn-primary">
+                    <button type="submit" class="btn btn-primary w-100">
                         <i class="fas fa-save me-1"></i> ذخیره تغییرات
                     </button>
                 </form>
@@ -36,8 +36,8 @@
     </div>
     
     <div class="col-md-6">
-        <div class="card card-custom">
-            <div class="card-header bg-white">
+        <div class="card card-custom h-100">
+            <div class="card-header bg-gradient-info text-white">
                 <h5 class="mb-0"><i class="fas fa-shield-alt me-2"></i> امنیت (به زودی)</h5>
             </div>
             <div class="card-body">
