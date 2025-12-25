@@ -859,7 +859,6 @@
     
     const generateSecret = () => {
         const type = document.getElementById('proxyType').value;
-        if(type==='tls') { document.getElementById('newSecret').value=''; return; }
         let sec = [...Array(32)].map(()=>Math.floor(Math.random()*16).toString(16)).join('');
         document.getElementById('newSecret').value = type==='dd' ? 'dd'+sec : sec;
     };
@@ -1020,12 +1019,22 @@
             
             if(els.u) els.u.innerText = p.active_connections;
             if(els.r) els.r.innerText = p.download_rate_mbps||0;
-            if(p.quota_mb && els.qU) {
-                els.qU.innerText = (p.quota_used_mb/1024).toFixed(2); 
-                els.qT.innerText = (p.quota_mb/1024).toFixed(2);
-                const pct = Math.min(100, (p.quota_used_mb/p.quota_mb)*100);
-                els.qB.style.width = pct+'%';
-                els.qB.className = `progress-bar rounded-pill ${pct > 90 ? 'bg-danger' : 'bg-gradient-to-r from-green-400 to-emerald-500'}`;
+            
+            if(els.qU) {
+                const used = (p.quota_used_mb/1024).toFixed(2);
+                els.qU.innerText = used;
+                
+                if (p.quota_mb) {
+                    const total = (p.quota_mb/1024).toFixed(2);
+                    els.qT.innerText = total;
+                    const pct = Math.min(100, (p.quota_used_mb/p.quota_mb)*100);
+                    els.qB.style.width = pct+'%';
+                    els.qB.className = `progress-bar rounded-pill ${pct > 90 ? 'bg-danger' : 'bg-gradient-to-r from-green-400 to-emerald-500'}`;
+                } else {
+                    els.qT.innerText = '∞';
+                    els.qB.style.width = '100%';
+                    els.qB.className = 'progress-bar rounded-pill bg-info bg-opacity-50';
+                }
             }
         });
         applyProxyFilters();
