@@ -1,4 +1,5 @@
 import os
+import sys
 import secrets
 import docker
 import psutil
@@ -231,10 +232,24 @@ def update_docker_stats():
                             p.upload = tx
                             
                             # 2. Update Active Connections
-                            # Count established connections to the proxy port
-                            # This is an approximation based on host port bindings
+                            # Method 1: psutil (Works if running on host or same net namespace)
                             conns = [c for c in all_connections if c.laddr.port == p.port and c.status == 'ESTABLISHED']
-                            p.active_connections = len(conns)
+                            count = len(conns)
+
+                            # Method 2: ss command (Linux only, more reliable for systemd services)
+                            if count == 0 and sys.platform.startswith('linux'):
+                                try:
+                                    # Check established connections on the specific port
+                                    # -t: tcp, -n: numeric, -H: no header
+                                    cmd = f"ss -tnH state established sport = :{p.port} | wc -l"
+                                    output = subprocess.check_output(cmd, shell=True).decode().strip()
+                                    if output.isdigit():
+                                        count = int(output)
+                                except Exception as e_ss:
+                                    # print(f"SS Error: {e_ss}")
+                                    pass
+
+                            p.active_connections = count
                                 
                         except Exception as e:
                             # Container might be stopped or deleted
