@@ -14,7 +14,7 @@ proxy_bp = Blueprint('proxy', __name__, url_prefix='/proxy')
 @login_required
 def add():
     port = request.form.get('port', type=int)
-    workers = request.form.get('workers', type=int, default=1)
+    workers = request.form.get('workers', type=int, default=2)
     tag = request.form.get('tag')
     name = request.form.get('name')
     secret = request.form.get('secret')
