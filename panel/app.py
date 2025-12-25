@@ -104,6 +104,10 @@ class Proxy(db.Model):
     quota_base_download = db.Column(db.BigInteger, default=0)
     expiry_date = db.Column(db.DateTime, nullable=True)
     telegram_chat_id = db.Column(db.String(50), nullable=True) # Per-user chat ID override if needed later, but for now we use global settings
+    username = db.Column(db.String(100), nullable=True) # For SOCKS5 or future use
+    password = db.Column(db.String(100), nullable=True) # For SOCKS5 or future use
+    proxy_ip = db.Column(db.String(50), nullable=True) # Specific Bind IP for this proxy
+
 
 
 class ProxyStats(db.Model):
@@ -220,6 +224,9 @@ def _ensure_db_initialized():
                 ('quota_base_download', 'ALTER TABLE proxy ADD COLUMN quota_base_download BIGINT DEFAULT 0'),
                 ('expiry_date', 'ALTER TABLE proxy ADD COLUMN expiry_date DATETIME'),
                 ('telegram_chat_id', 'ALTER TABLE proxy ADD COLUMN telegram_chat_id VARCHAR(50)'),
+                ('username', 'ALTER TABLE proxy ADD COLUMN username VARCHAR(100)'),
+                ('password', 'ALTER TABLE proxy ADD COLUMN password VARCHAR(100)'),
+                ('proxy_ip', 'ALTER TABLE proxy ADD COLUMN proxy_ip VARCHAR(50)'),
                 ('created_at', 'ALTER TABLE proxy ADD COLUMN created_at DATETIME'),
             ]
             with db.engine.connect() as conn:
@@ -1424,44 +1431,155 @@ def add_proxy():
 @login_required
 def update_proxy(id):
     proxy = Proxy.query.get_or_404(id)
+    
+    # Collect form data
     tag = (request.form.get('tag') or '').strip() or None
     quota_gb = request.form.get('quota_gb', type=float)
     expiry_days = request.form.get('expiry_days', type=int)
     
+    # New Fields
+    new_secret = (request.form.get('secret') or '').strip()
+    new_port = request.form.get('port', type=int)
+    new_status = request.form.get('status') # running, stopped
+    username = (request.form.get('username') or '').strip() or None
+    password = (request.form.get('password') or '').strip() or None
+    proxy_ip = (request.form.get('proxy_ip') or '').strip() or None
+    
+    # Calculate Quota Bytes
     quota_bytes = 0
     if quota_gb is not None and quota_gb > 0:
         quota_bytes = int(quota_gb * 1024 * 1024 * 1024)
     
+    # Calculate Expiry
     expiry_date = None
     if expiry_days and expiry_days > 0:
         expiry_date = datetime.utcnow() + timedelta(days=expiry_days)
     elif expiry_days == 0:
          expiry_date = None # Remove expiry if set to 0
     
+    changes = []
+    recreate_container = False
+    
     try:
-        proxy.tag = tag
-        proxy.quota_bytes = quota_bytes
+        # Check if Port or Secret changed -> Need Recreation
+        if new_port and new_port != proxy.port:
+            if Proxy.query.filter(Proxy.port == new_port, Proxy.id != proxy.id).first():
+                flash(f'پورت {new_port} قبلاً توسط پروکسی دیگری استفاده شده است.', 'danger')
+                return redirect(url_for('dashboard'))
+            changes.append(f"Port: {proxy.port} -> {new_port}")
+            proxy.port = new_port
+            recreate_container = True
+            
+        if new_secret and new_secret != proxy.secret:
+            changes.append("Secret changed")
+            proxy.secret = new_secret
+            recreate_container = True
+            
+        # Standard Update fields
+        if tag != proxy.tag:
+            proxy.tag = tag
+            changes.append("Tag updated")
+            
+        if quota_bytes != proxy.quota_bytes:
+            proxy.quota_bytes = quota_bytes
+            changes.append(f"Quota: {quota_bytes}")
+            if quota_bytes > 0 and not proxy.quota_start:
+                proxy.quota_start = datetime.utcnow()
+                proxy.quota_base_upload = int(proxy.upload or 0)
+                proxy.quota_base_download = int(proxy.download or 0)
+            elif quota_bytes == 0:
+                proxy.quota_start = None
+                
         if expiry_days is not None:
              proxy.expiry_date = expiry_date
-             
-        if quota_bytes > 0 and not proxy.quota_start:
-            proxy.quota_start = datetime.utcnow()
-            proxy.quota_base_upload = int(proxy.upload or 0)
-            proxy.quota_base_download = int(proxy.download or 0)
-        if quota_bytes == 0:
-            proxy.quota_start = None
-            proxy.quota_base_upload = 0
-            proxy.quota_base_download = 0
+             changes.append("Expiry updated")
+
+        # Update Info fields
+        if username != proxy.username:
+            proxy.username = username
+        if password != proxy.password:
+            proxy.password = password
+        if proxy_ip != proxy.proxy_ip:
+            proxy.proxy_ip = proxy_ip
+            # If IP changes, technically we might need recreation if we bind to IP.
+            # But currently we don't bind to specific IP in docker run (ports={'443/tcp': port}).
+            # To support bind IP, we need ports={'443/tcp': (proxy_ip, port)}
+            if proxy_ip:
+                 recreate_container = True
+                 changes.append(f"Bind IP: {proxy_ip}")
+
+        # Status Change
+        if new_status and new_status != proxy.status:
+            if new_status == 'stopped':
+                if docker_client and proxy.container_id:
+                     try:
+                        docker_client.containers.get(proxy.container_id).stop()
+                     except: pass
+                proxy.status = 'stopped'
+                changes.append("Stopped")
+            elif new_status == 'running':
+                # If recreating, we don't need to start here, it will happen below
+                if not recreate_container:
+                    if docker_client and proxy.container_id:
+                        try:
+                           docker_client.containers.get(proxy.container_id).start()
+                        except: pass
+                    proxy.status = 'running'
+                    changes.append("Started")
+
+        # Apply Recreate if needed
+        if recreate_container and proxy.status != 'stopped':
+             if docker_client:
+                 try:
+                     # Remove old
+                     if proxy.container_id:
+                         try:
+                             old_c = docker_client.containers.get(proxy.container_id)
+                             old_c.remove(force=True)
+                         except: pass
+                     
+                     # Create new
+                     ports_config = {'443/tcp': proxy.port}
+                     if proxy.proxy_ip:
+                         ports_config = {'443/tcp': (proxy.proxy_ip, proxy.port)}
+
+                     container = docker_client.containers.run(
+                        'telegrammessenger/proxy',
+                        detach=True,
+                        ports=ports_config,
+                        environment={
+                            'SECRET': proxy.secret,
+                            'TAG': proxy.tag,
+                            'WORKERS': proxy.workers
+                        },
+                        restart_policy={"Name": "always"},
+                        name=f"mtproto_{proxy.port}"
+                    )
+                     proxy.container_id = container.id
+                     proxy.status = "running"
+                     changes.append("Container Recreated")
+                 except Exception as e:
+                     flash(f'خطا در بازسازی کانتینر: {e}', 'danger')
+                     log_activity("Update Error", str(e))
+                     return redirect(url_for('dashboard'))
+
         db.session.commit()
-        log_activity("Update Proxy", f"Updated proxy on port {proxy.port}")
-        flash('تنظیمات پروکسی ذخیره شد.', 'success')
+        if changes:
+            log_activity("Update Proxy", f"Updated proxy {proxy.port}: {', '.join(changes)}")
+            flash('تنظیمات پروکسی با موفقیت بروزرسانی شد.', 'success')
+        else:
+            flash('تغییر خاصی اعمال نشد.', 'info')
+            
     except Exception as e:
         try:
             db.session.rollback()
         except Exception:
             pass
         flash(f'خطا در ذخیره تنظیمات: {e}', 'danger')
+        log_activity("Update Failed", str(e))
+        
     return redirect(url_for('dashboard'))
+
 
 @app.route('/api/activity')
 @login_required

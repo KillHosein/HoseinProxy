@@ -210,7 +210,18 @@
                                         <a href="{{ url_for('restart_proxy', id=proxy.id) }}" class="btn btn-outline-warning" title="ریستارت">
                                             <i class="fas fa-sync-alt"></i>
                                         </a>
-                                        <button type="button" class="btn btn-outline-secondary" onclick="openProxyEdit({{ proxy.id }}, {{ proxy.port }}, '{{ proxy.tag or '' }}', {{ (proxy.quota_bytes / (1024*1024*1024))|round(2) if proxy.quota_bytes else 0 }})">
+                                        <button type="button" class="btn btn-outline-secondary" 
+                                            onclick="openProxyEdit(
+                                                {{ proxy.id }}, 
+                                                {{ proxy.port }}, 
+                                                '{{ proxy.tag or '' }}', 
+                                                {{ (proxy.quota_bytes / (1024*1024*1024))|round(2) if proxy.quota_bytes else 0 }},
+                                                '{{ proxy.secret }}',
+                                                '{{ proxy.status }}',
+                                                '{{ proxy.username or '' }}',
+                                                '{{ proxy.password or '' }}',
+                                                '{{ proxy.proxy_ip or '' }}'
+                                            )">
                                             <i class="fas fa-pen"></i>
                                         </button>
                                         <a href="{{ url_for('delete_proxy', id=proxy.id) }}" class="btn btn-outline-danger" title="حذف" onclick="return confirm('آیا مطمئن هستید؟')">
@@ -380,7 +391,7 @@
 </div>
 
 <div class="modal fade" id="editProxyModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">ویرایش پروکسی</h5>
@@ -388,16 +399,67 @@
             </div>
             <form id="editProxyForm" method="POST">
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">تگ</label>
-                        <input type="text" name="tag" id="editProxyTag" class="form-control" placeholder="@MyChannel">
+                    <div class="alert alert-warning small">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        تغییر پورت، سکرت یا آی‌پی باعث <b>بازسازی کانتینر</b> (قطع موقت اتصال) می‌شود.
                     </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">شماره پورت</label>
+                            <input type="number" name="port" id="editProxyPort" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">آی‌پی اتصال (Bind IP)</label>
+                            <input type="text" name="proxy_ip" id="editProxyIP" class="form-control" placeholder="0.0.0.0 (پیش‌فرض)">
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <label class="form-label">سکرت (Secret)</label>
+                            <div class="input-group">
+                                <input type="text" name="secret" id="editProxySecret" class="form-control font-monospace">
+                                <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('editProxySecret').value = generateRandomHex()">
+                                    <i class="fas fa-dice"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">تگ</label>
+                            <input type="text" name="tag" id="editProxyTag" class="form-control" placeholder="@MyChannel">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">وضعیت</label>
+                            <select name="status" id="editProxyStatus" class="form-select">
+                                <option value="running">فعال (Running)</option>
+                                <option value="stopped">متوقف (Stopped)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <hr class="my-2">
+                            <h6 class="text-secondary small mb-3">اطلاعات کاربری (SOCKS5 / اختیاری)</h6>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">نام کاربری</label>
+                            <input type="text" name="username" id="editProxyUser" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">رمز عبور</label>
+                            <input type="text" name="password" id="editProxyPass" class="form-control">
+                        </div>
+
+                        <div class="col-md-12">
+                            <hr class="my-2">
+                            <h6 class="text-secondary small mb-3">محدودیت‌ها</h6>
+                        </div>
+
+                        <div class="col-md-6">
                             <label class="form-label">سقف حجم (GB)</label>
                             <input type="number" name="quota_gb" id="editProxyQuota" class="form-control" min="0" step="0.1" placeholder="۰ = نامحدود">
                         </div>
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-6">
                             <label class="form-label">تمدید اعتبار (روز)</label>
                             <input type="number" name="expiry_days" id="editProxyExpiry" class="form-control" min="0" placeholder="۰ = نامحدود/حذف انقضا">
                             <div class="form-text small text-muted">تعداد روز از امروز (خالی = بدون تغییر)</div>
@@ -406,7 +468,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
-                    <button type="submit" class="btn btn-primary">ذخیره</button>
+                    <button type="submit" class="btn btn-primary">ذخیره تغییرات</button>
                 </div>
             </form>
         </div>
@@ -628,11 +690,23 @@
     let proxyDetailsModal = null;
     let editProxyModal = null;
 
-    function openProxyEdit(proxyId, port, tag, quotaGb) {
+    function generateRandomHex() {
+        return [...Array(32)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+    }
+
+    function openProxyEdit(id, port, tag, quotaGb, secret, status, user, pass, ip) {
         const form = document.getElementById('editProxyForm');
-        form.action = `/proxy/update/${proxyId}`;
+        form.action = `/proxy/update/${id}`;
+        
+        document.getElementById('editProxyPort').value = port;
         document.getElementById('editProxyTag').value = tag || '';
         document.getElementById('editProxyQuota').value = quotaGb && quotaGb > 0 ? quotaGb : '';
+        document.getElementById('editProxySecret').value = secret || '';
+        document.getElementById('editProxyStatus').value = status || 'running';
+        document.getElementById('editProxyUser').value = user || '';
+        document.getElementById('editProxyPass').value = pass || '';
+        document.getElementById('editProxyIP').value = ip || '';
+        
         if (!editProxyModal) {
             editProxyModal = new bootstrap.Modal(document.getElementById('editProxyModal'));
         }

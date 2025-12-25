@@ -190,22 +190,44 @@ class HoseinProxyTestCase(unittest.TestCase):
 
     def test_bulk_create(self):
         self.login('admin', 'password')
-        # We assume docker_client is mocked or None in test env, so it will fail gracefully or just create DB entries if we mocked it.
-        # But our test env sets docker_client = None usually if no docker.
-        # Let's check app.py: docker_client = docker.from_env() in try-except.
-        # If we want to test DB creation part, we need to mock docker_client.
-        # For this integration test, let's just ensure the endpoint accepts the request.
-        
         resp = self.app.post('/proxy/bulk_create', data=dict(
             start_port=30000,
             count=5,
             tag='BulkTest'
         ), follow_redirects=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(b'Docker' in resp.data or b'success' in resp.data or b'error' in resp.data)
+
+    def test_full_update_proxy(self):
+        self.login('admin', 'password')
+        with app.app_context():
+            p = Proxy(port=40000, secret='old_secret', status='stopped')
+            db.session.add(p)
+            db.session.commit()
+            pid = p.id
+            
+        resp = self.app.post(f'/proxy/update/{pid}', data=dict(
+            port=40001,
+            secret='new_secret',
+            tag='updated_tag',
+            username='user1',
+            password='pass1',
+            proxy_ip='1.1.1.1',
+            status='stopped', # Keep stopped to avoid docker calls in test
+            quota_gb=5.5
+        ), follow_redirects=True)
         
         self.assertEqual(resp.status_code, 200)
-        # Without docker, it redirects with error "Docker not connected" or similar, but still 200 OK page.
-        # We can check if flash message is present.
-        self.assertTrue(b'Docker' in resp.data or b'success' in resp.data or b'error' in resp.data)
+        
+        with app.app_context():
+            p = Proxy.query.get(pid)
+            self.assertEqual(p.port, 40001)
+            self.assertEqual(p.secret, 'new_secret')
+            self.assertEqual(p.tag, 'updated_tag')
+            self.assertEqual(p.username, 'user1')
+            self.assertEqual(p.password, 'pass1')
+            self.assertEqual(p.proxy_ip, '1.1.1.1')
+            self.assertEqual(p.quota_bytes, int(5.5 * 1024**3))
 
 
 if __name__ == '__main__':
