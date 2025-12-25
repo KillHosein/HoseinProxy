@@ -14,7 +14,19 @@ from datetime import datetime
 
 # Configuration Class
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY', secrets.token_hex(32))
+    # Persistent Secret Key
+    key_file = os.path.join(os.path.dirname(__file__), 'secret.key')
+    if os.path.exists(key_file):
+        with open(key_file, 'r') as f:
+            SECRET_KEY = f.read().strip()
+    else:
+        SECRET_KEY = secrets.token_hex(32)
+        try:
+            with open(key_file, 'w') as f:
+                f.write(SECRET_KEY)
+        except:
+            pass
+            
     SQLALCHEMY_DATABASE_URI = 'sqlite:///panel.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -248,39 +260,56 @@ def api_stats():
 @login_required
 def api_history():
     """Returns historical traffic data for charts"""
-    # Group by date for the last 7 days
-    from sqlalchemy import func
-    
-    # Simple daily aggregation for now
-    end_date = datetime.utcnow()
-    start_date = end_date - datetime.timedelta(days=7)
-    
-    # We want total traffic (upload + download) per day
-    # Since we store snapshots, we need the max value of each day - max value of previous day
-    # But for simplicity in this version, let's just return the latest snapshot of each day
-    
-    stats = db.session.query(
-        func.date(ProxyStats.timestamp).label('date'),
-        func.sum(ProxyStats.upload).label('total_upload'),
-        func.sum(ProxyStats.download).label('total_download')
-    ).filter(ProxyStats.timestamp >= start_date)\
-     .group_by(func.date(ProxyStats.timestamp))\
-     .all()
-     
-    labels = []
-    upload_data = []
-    download_data = []
-    
-    for s in stats:
-        labels.append(s.date)
-        upload_data.append(round(s.total_upload / (1024*1024), 2)) # MB
-        download_data.append(round(s.total_download / (1024*1024), 2)) # MB
+    try:
+        # Group by date for the last 7 days
+        from sqlalchemy import func
         
-    return jsonify({
-        "labels": labels,
-        "upload": upload_data,
-        "download": download_data
-    })
+        end_date = datetime.utcnow()
+        start_date = end_date - datetime.timedelta(days=7)
+        
+        # Check if we have any stats
+        # If no stats yet, return empty data to prevent errors
+        # Note: Since we are not actively populating ProxyStats in the background thread yet (to keep it simple),
+        # this will return empty charts. To make it work, we need to populate ProxyStats.
+        # For now, let's return a placeholder or real data if it exists.
+        
+        stats = db.session.query(
+            func.date(ProxyStats.timestamp).label('date'),
+            func.sum(ProxyStats.upload).label('total_upload'),
+            func.sum(ProxyStats.download).label('total_download')
+        ).filter(ProxyStats.timestamp >= start_date)\
+         .group_by(func.date(ProxyStats.timestamp))\
+         .all()
+         
+        labels = []
+        upload_data = []
+        download_data = []
+        
+        for s in stats:
+            labels.append(s.date)
+            upload_data.append(round(s.total_upload / (1024*1024), 2)) # MB
+            download_data.append(round(s.total_download / (1024*1024), 2)) # MB
+            
+        # If no data, provide last 7 days empty
+        if not labels:
+            for i in range(7):
+                d = start_date + datetime.timedelta(days=i)
+                labels.append(d.strftime('%Y-%m-%d'))
+                upload_data.append(0)
+                download_data.append(0)
+            
+        return jsonify({
+            "labels": labels,
+            "upload": upload_data,
+            "download": download_data
+        })
+    except Exception as e:
+        print(f"History API Error: {e}")
+        return jsonify({
+            "labels": [],
+            "upload": [],
+            "download": []
+        })
 
 @app.route('/system')
 @login_required
