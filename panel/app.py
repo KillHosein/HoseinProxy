@@ -86,6 +86,15 @@ class Proxy(db.Model):
     # Traffic stats (cumulative)
     upload = db.Column(db.BigInteger, default=0) # bytes
     download = db.Column(db.BigInteger, default=0) # bytes
+    active_connections = db.Column(db.Integer, default=0)
+
+class ProxyStats(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    proxy_id = db.Column(db.Integer, db.ForeignKey('proxy.id'), nullable=False)
+    upload = db.Column(db.BigInteger, default=0)
+    download = db.Column(db.BigInteger, default=0)
+    active_connections = db.Column(db.Integer, default=0)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
 class ActivityLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -153,15 +162,21 @@ def update_docker_stats():
         except:
             time.sleep(2)
             
+    last_history_update = datetime.utcnow() - datetime.timedelta(hours=1, minutes=1) # Force run on start
+    
     while True:
         try:
             with app.app_context():
                 if docker_client:
                     proxies = Proxy.query.filter(Proxy.container_id != None).all()
+                    
+                    # Get all network connections once to save resources
+                    all_connections = psutil.net_connections(kind='tcp')
+                    
                     for p in proxies:
                         try:
+                            # 1. Update Traffic Stats
                             container = docker_client.containers.get(p.container_id)
-                            # Get stats (stream=False gives a snapshot)
                             stats = container.stats(stream=False)
                             networks = stats.get('networks', {})
                             rx = 0
@@ -170,17 +185,44 @@ def update_docker_stats():
                                 rx += data.get('rx_bytes', 0)
                                 tx += data.get('tx_bytes', 0)
                             
-                            # Update DB if changed significantly
-                            if rx > 0 or tx > 0:
-                                p.download = rx
-                                p.upload = tx
+                            p.download = rx
+                            p.upload = tx
+                            
+                            # 2. Update Active Connections
+                            # Count established connections to the proxy port
+                            # This is an approximation based on host port bindings
+                            conns = [c for c in all_connections if c.laddr.port == p.port and c.status == 'ESTABLISHED']
+                            p.active_connections = len(conns)
                                 
                         except Exception as e:
                             # Container might be stopped or deleted
                             continue
+                    
                     db.session.commit()
+                    
+                    # 3. Update Historical Stats (Every ~1 hour)
+                    # For demo purposes/testing, let's do it every minute if it's a new minute
+                    # or just rely on a time check.
+                    now = datetime.utcnow()
+                    if (now - last_history_update).total_seconds() > 3600: # 1 hour
+                        for p in proxies:
+                            # Calculate delta since last snapshot? 
+                            # For simplicity in this chart, we just store current totals. 
+                            # The chart logic calculates differences or shows totals.
+                            # Actually, for "Usage History", we usually want daily usage.
+                            # Let's store the current snapshot.
+                            stat = ProxyStats(
+                                proxy_id=p.id,
+                                upload=p.upload,
+                                download=p.download,
+                                active_connections=p.active_connections,
+                                timestamp=now
+                            )
+                            db.session.add(stat)
+                        db.session.commit()
+                        last_history_update = now
+
         except OperationalError:
-             # Database might be locked or tables missing temporarily
              print("DB Operational Error in Stats Thread. Retrying...")
         except Exception as e:
             print(f"Stats Loop Error: {e}")

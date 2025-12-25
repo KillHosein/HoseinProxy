@@ -129,6 +129,9 @@
                                     <span class="badge bg-warning text-dark">{{ proxy.status }}</span>
                                     {% endif %}
                                 </td>
+                                <td>
+                                    <span class="badge bg-info text-dark"><i class="fas fa-users"></i> {{ proxy.active_connections }}</span>
+                                </td>
                                 <td class="small">
                                     <i class="fas fa-arrow-down text-success"></i> {{ (proxy.download / (1024*1024))|round(2) }} MB <br>
                                     <i class="fas fa-arrow-up text-primary"></i> {{ (proxy.upload / (1024*1024))|round(2) }} MB
