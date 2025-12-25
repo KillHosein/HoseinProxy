@@ -83,14 +83,18 @@
     .nav-link-custom.active::after {
         content: '';
         position: absolute;
-        bottom: 6px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 4px;
-        height: 4px;
-        background-color: #a78bfa;
-        border-radius: 50%;
-        box-shadow: 0 0 5px #a78bfa;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(45deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
+        animation: shimmer 2s infinite;
+        pointer-events: none;
+    }
+    
+    @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
     }
 
     .nav-link-custom i {
@@ -102,8 +106,18 @@
     }
     
     .nav-link-custom:hover i {
-        transform: scale(1.1);
+        transform: scale(1.1) rotate(5deg);
         color: #a78bfa;
+    }
+    
+    .sidebar-heading:hover i {
+        animation: rocket-pulse 1s infinite;
+    }
+    
+    @keyframes rocket-pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1) translateY(-2px); }
+        100% { transform: scale(1); }
     }
 
     /* Navbar Profile Styles */
