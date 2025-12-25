@@ -1,202 +1,150 @@
 {% if current_user.is_authenticated %}
 <style>
-    /* حذف استایل‌های قدیمی و تبدیل به نوبار افقی */
     #sidebar-wrapper {
-        width: calc(100% - 30px) !important; /* فاصله از طرفین برای حالت شناور */
-        max-width: 1400px;
-        margin: 15px auto 20px auto !important; /* فاصله از بالا */
-        min-height: auto !important;
-        height: auto;
-        
-        position: sticky;
-        top: 15px;
-        z-index: 1050;
-        
-        background: rgba(15, 23, 42, 0.85); /* شیشه‌ای تیره */
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 20px; /* گوشه‌های گرد */
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        
+        min-height: 100vh;
+        width: 280px;
+        margin-left: -280px;
+        transition: margin 0.25s ease-out;
+        background: #0f172a; /* رنگ پس‌زمینه هماهنگ با داشبورد */
+        border-left: 1px solid rgba(255, 255, 255, 0.05);
         display: flex;
-        flex-direction: row;
-        align-items: center;
-        padding: 0.5rem 1rem;
-        transition: all 0.3s ease;
+        flex-direction: column;
+        z-index: 1000;
+        box-shadow: 4px 0 24px rgba(0,0,0,0.2);
     }
 
-    /* لوگو */
     #sidebar-wrapper .sidebar-heading {
-        padding: 0.5rem 1rem;
-        font-size: 1.2rem;
+        padding: 1.5rem;
+        font-size: 1.4rem;
         font-weight: 800;
         color: #fff;
-        background: transparent;
-        border: none;
-        margin: 0;
-        white-space: nowrap;
-        border-left: 1px solid rgba(255,255,255,0.1); /* خط جداکننده */
-        margin-left: 10px;
-    }
-
-    /* لیست آیتم‌ها */
-    .list-group {
-        flex-direction: row;
-        align-items: center;
-        padding: 0;
-        margin: 0;
-        flex-grow: 1;
-        overflow-x: auto; /* اسکرول افقی در موبایل */
-        scrollbar-width: none; /* مخفی کردن اسکرول بار فایرفاکس */
-        -ms-overflow-style: none;
-        mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); /* محو شدن لبه‌ها */
-    }
-    
-    .list-group::-webkit-scrollbar { 
-        display: none; /* مخفی کردن اسکرول بار کروم */
+        text-align: center;
+        letter-spacing: -0.5px;
+        background: linear-gradient(180deg, rgba(30, 41, 59, 0.5) 0%, transparent 100%);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        margin-bottom: 1rem;
     }
 
     .list-group-item {
         background-color: transparent !important;
-        color: #94a3b8 !important;
+        color: #94a3b8 !important; /* text-secondary */
         border: none !important;
-        padding: 0.6rem 1rem;
+        padding: 0.9rem 1.5rem;
         font-weight: 500;
-        margin: 0 2px;
+        transition: all 0.2s ease;
+        border-right: 3px solid transparent !important;
+        margin: 4px 12px;
         border-radius: 12px;
-        white-space: nowrap; /* جلوگیری از شکستن متن */
-        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
     }
 
-    /* افکت هاور */
     .list-group-item:hover {
-        background-color: rgba(255, 255, 255, 0.05) !important;
-        color: #fff !important;
-        transform: translateY(-2px); /* حرکت به بالا */
+        background-color: rgba(255, 255, 255, 0.03) !important;
+        color: #f1f5f9 !important;
+        transform: translateX(-5px);
     }
 
-    /* حالت فعال */
     .list-group-item.active {
-        background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.1)) !important;
+        background: linear-gradient(90deg, rgba(139, 92, 246, 0.15), rgba(59, 130, 246, 0.05)) !important;
         color: #fff !important;
-        box-shadow: 0 2px 10px rgba(139, 92, 246, 0.15);
-        border: 1px solid rgba(139, 92, 246, 0.3) !important;
+        border-right-color: #8b5cf6 !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
 
     .list-group-item i {
-        width: 20px;
-        font-size: 1rem;
-        margin-left: 6px !important; /* فاصله آیکون */
-        margin-right: 0 !important;
+        width: 24px;
+        font-size: 1.1rem;
+        transition: transform 0.3s;
+        opacity: 0.8;
     }
-    
-    /* بخش چپ (دکمه‌ها و امضا) */
+
+    .list-group-item:hover i, .list-group-item.active i {
+        transform: scale(1.15);
+        opacity: 1;
+        color: #a78bfa; /* رنگ آیکون در حالت فعال */
+    }
+
     .sidebar-footer {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin: 0;
-        padding: 0 0.5rem;
-        background: transparent;
-        border: none;
-        border-right: 1px solid rgba(255,255,255,0.1);
-        margin-right: 10px;
+        margin-top: auto;
+        padding: 1.5rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        text-align: center;
+        background: linear-gradient(0deg, rgba(30, 41, 59, 0.5) 0%, transparent 100%);
     }
 
     .telegram-btn {
-        width: 38px;
-        height: 38px;
-        padding: 0;
-        border-radius: 50%; /* دایره‌ای */
         display: flex;
         align-items: center;
         justify-content: center;
+        width: 100%;
+        padding: 10px;
         background: rgba(56, 189, 248, 0.1);
         color: #38bdf8;
         border: 1px solid rgba(56, 189, 248, 0.2);
-        transition: all 0.3s ease;
+        border-radius: 12px;
+        text-decoration: none;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-weight: 600;
+        font-size: 0.9rem;
     }
-    
+
     .telegram-btn:hover {
-        background: #38bdf8;
+        background: rgba(56, 189, 248, 0.2);
         color: #fff;
-        box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
-        transform: rotate(15deg);
+        box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
+        transform: translateY(-2px);
+        border-color: rgba(56, 189, 248, 0.4);
     }
 
-    .logout-btn {
-        width: 38px;
-        height: 38px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(239, 68, 68, 0.1);
-        color: #ef4444;
-        border: 1px solid rgba(239, 68, 68, 0.2);
-        transition: all 0.3s ease;
-    }
-    .logout-btn:hover {
-        background: #ef4444;
-        color: white;
-        transform: scale(1.1);
-    }
-
-    /* واکنش‌گرایی برای موبایل */
-    @media (max-width: 768px) {
-        #sidebar-wrapper {
-            width: calc(100% - 20px) !important;
-            padding: 0.5rem;
-            top: 10px;
-        }
-        .sidebar-heading span { display: none; } /* مخفی کردن متن لوگو در موبایل */
-        .sidebar-heading i { font-size: 1.4rem; margin: 0; }
-        .list-group-item span { display: inline-block; } /* متن‌ها باشند */
-        .list-group-item { padding: 0.5rem 0.8rem; font-size: 0.85rem; }
+    /* تنظیم برای حالت ریسپانسیو */
+    body.sb-sidenav-toggled #sidebar-wrapper {
+        margin-left: 0;
     }
 </style>
 
 <div id="sidebar-wrapper">
-    <!-- لوگو -->
-    <div class="sidebar-heading" title="HoseinProxy">
-        <i class="fas fa-rocket text-primary"></i>
-        <span class="d-none d-md-inline ms-2">HoseinProxy</span>
+    <div class="sidebar-heading">
+        <i class="fas fa-rocket me-2 text-primary"></i> HoseinProxy
     </div>
     
-    <!-- منوی اسکرولی -->
-    <div class="list-group list-group-flush">
+    <div class="list-group list-group-flush mt-2">
         <a href="{{ url_for('main.dashboard') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'main.dashboard' %}active{% endif %}">
-            <i class="fas fa-tachometer-alt"></i> <span>داشبورد</span>
-        </a>
-        <a href="{{ url_for('users.list') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'users.list' %}active{% endif %}">
-            <i class="fas fa-users-cog"></i> <span>مدیران</span>
+            <i class="fas fa-tachometer-alt me-3"></i> داشبورد
         </a>
         <a href="{{ url_for('reports.index') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'reports.index' %}active{% endif %}">
-            <i class="fas fa-chart-pie"></i> <span>گزارشات</span>
+            <i class="fas fa-chart-pie me-3"></i> گزارشات
+        </a>
+        <a href="{{ url_for('users.list') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'users.list' %}active{% endif %}">
+            <i class="fas fa-users-cog me-3"></i> مدیران
         </a>
         <a href="{{ url_for('firewall.index') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'firewall.index' %}active{% endif %}">
-            <i class="fas fa-shield-alt"></i> <span>فایروال</span>
+            <i class="fas fa-shield-alt me-3"></i> فایروال
         </a>
         <a href="{{ url_for('system.page') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'system.page' %}active{% endif %}">
-            <i class="fas fa-server"></i> <span>سیستم</span>
+            <i class="fas fa-server me-3"></i> سیستم
         </a>
         <a href="{{ url_for('tools.index') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'tools.index' %}active{% endif %}">
-            <i class="fas fa-network-wired"></i> <span>ابزارها</span>
+            <i class="fas fa-network-wired me-3"></i> ابزارها
         </a>
         <a href="{{ url_for('settings.index') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'settings.index' %}active{% endif %}">
-            <i class="fas fa-cogs"></i> <span>تنظیمات</span>
+            <i class="fas fa-cogs me-3"></i> تنظیمات
+        </a>
+        
+        <div class="my-2 border-top border-secondary border-opacity-10 mx-4"></div>
+        
+        <a href="{{ url_for('auth.logout') }}" class="list-group-item list-group-item-action text-danger" style="color: #ef4444 !important;">
+            <i class="fas fa-sign-out-alt me-3"></i> خروج
         </a>
     </div>
 
-    <!-- دکمه‌های سمت چپ (امضا و خروج) -->
     <div class="sidebar-footer">
-        <a href="https://t.me/HoseinProxy" target="_blank" class="telegram-btn" title="پشتیبانی تلگرام">
-            <i class="fab fa-telegram-plane"></i>
+        <a href="https://t.me/HoseinProxy" target="_blank" class="telegram-btn mb-3">
+            <i class="fab fa-telegram-plane me-2 fa-lg"></i> پشتیبانی تلگرام
         </a>
-        <a href="{{ url_for('auth.logout') }}" class="logout-btn" title="خروج">
-            <i class="fas fa-power-off"></i>
-        </a>
+        <div class="text-secondary small opacity-50 font-monospace" style="font-size: 0.75rem;">
+            Version 3.1.0
+        </div>
     </div>
 </div>
 {% endif %}
