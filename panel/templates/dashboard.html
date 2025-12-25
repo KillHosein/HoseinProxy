@@ -154,7 +154,7 @@
                                 <td>
                                     <div class="d-flex gap-2 align-items-center">
                                         <span class="badge bg-info text-dark"><i class="fas fa-users"></i> <span id="proxy-users-{{ proxy.id }}" data-proxy-conn="{{ proxy.active_connections }}">{{ proxy.active_connections }}</span></span>
-                                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="openProxyDetails({{ proxy.id }}, {{ proxy.port }})">جزئیات</button>
+                                        <button type="button" class="btn btn-outline-primary btn-sm details-proxy-btn" data-id="{{ proxy.id }}" data-port="{{ proxy.port }}">جزئیات</button>
                                     </div>
                                 </td>
                                 <td class="small">
@@ -218,19 +218,17 @@
                                         <a href="{{ url_for('restart_proxy', id=proxy.id) }}" class="btn btn-outline-warning" title="ریستارت">
                                             <i class="fas fa-sync-alt"></i>
                                         </a>
-                                        <button type="button" class="btn btn-outline-secondary" 
-                                            onclick="openProxyEdit(
-                                                {{ proxy.id }}, 
-                                                {{ proxy.port }}, 
-                                                '{{ proxy.tag or '' }}', 
-                                                {{ (proxy.quota_bytes / (1024*1024*1024))|round(2) if proxy.quota_bytes else 0 }},
-                                                '{{ proxy.secret }}',
-                                                '{{ proxy.status }}',
-                                                '{{ proxy.username or '' }}',
-                                                '{{ proxy.password or '' }}',
-                                                '{{ proxy.proxy_ip or '' }}',
-                                                '{{ proxy.name or '' }}'
-                                            )">
+                                        <button type="button" class="btn btn-outline-secondary edit-proxy-btn" 
+                                            data-id="{{ proxy.id }}"
+                                            data-port="{{ proxy.port }}"
+                                            data-tag="{{ proxy.tag or '' }}"
+                                            data-quota="{{ (proxy.quota_bytes / (1024*1024*1024))|round(2) if proxy.quota_bytes else 0 }}"
+                                            data-secret="{{ proxy.secret }}"
+                                            data-status="{{ proxy.status }}"
+                                            data-user="{{ proxy.username or '' }}"
+                                            data-pass="{{ proxy.password or '' }}"
+                                            data-ip="{{ proxy.proxy_ip or '' }}"
+                                            data-name="{{ proxy.name or '' }}">
                                             <i class="fas fa-pen"></i>
                                         </button>
                                         <a href="{{ url_for('delete_proxy', id=proxy.id) }}" class="btn btn-outline-danger" title="حذف" onclick="return confirm('آیا مطمئن هستید؟')">
@@ -1002,5 +1000,21 @@
     updateAlerts();
     applyProxyFilters();
 
+    // Handle Edit Button Clicks
+    document.addEventListener('click', function(e) {
+        const editBtn = e.target.closest('.edit-proxy-btn');
+        if (editBtn) {
+            const d = editBtn.dataset;
+            openProxyEdit(d.id, d.port, d.tag, d.quota, d.secret, d.status, d.user, d.pass, d.ip, d.name);
+            return;
+        }
+
+        const detailsBtn = e.target.closest('.details-proxy-btn');
+        if (detailsBtn) {
+            const d = detailsBtn.dataset;
+            openProxyDetails(d.id, d.port);
+            return;
+        }
+    });
 </script>
 {% endblock %}

@@ -183,7 +183,7 @@
                 if (data.status === 'success') {
                     Swal.fire({
                         title: 'بکاپ آماده شد!',
-                        text: 'مسیر فایل: ' + data.path,
+                        text: data.message + '\nمسیر فایل: ' + data.path,
                         icon: 'success'
                     });
                 } else {

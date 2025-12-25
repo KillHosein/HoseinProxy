@@ -158,6 +158,239 @@ _geo_cache_expiry = {}
 _alerts_lock = threading.Lock()
 _last_alert_by_key = {}
 
+import telebot
+from telebot import types
+
+# ... (Imports)
+
+_db_initialized = False
+_db_init_lock = threading.Lock()
+
+# ... (Locks)
+
+_bot_instance = None
+_bot_thread = None
+
+def get_bot():
+    global _bot_instance
+    if _bot_instance:
+        return _bot_instance
+    token = get_setting('telegram_bot_token')
+    if token:
+        try:
+            _bot_instance = telebot.TeleBot(token, threaded=False)
+            return _bot_instance
+        except:
+            return None
+    return None
+
+def _send_telegram_alert(message):
+    try:
+        bot = get_bot()
+        chat_id = get_setting('telegram_chat_id')
+        if bot and chat_id:
+            bot.send_message(chat_id, message)
+    except Exception as e:
+        print(f"Telegram Error: {e}")
+
+def run_telegram_bot():
+    """Runs the Telegram Bot polling loop"""
+    # Wait for DB
+    while not _db_initialized:
+        time.sleep(2)
+        
+    token = get_setting('telegram_bot_token')
+    if not token:
+        return
+
+    bot = telebot.TeleBot(token)
+    
+    # --- Bot Handlers ---
+    @bot.message_handler(commands=['start', 'help'])
+    def send_welcome(message):
+        chat_id = str(message.chat.id)
+        admin_chat_id = get_setting('telegram_chat_id')
+        
+        if admin_chat_id and chat_id != admin_chat_id:
+            bot.reply_to(message, "⛔ Access Denied.")
+            return
+            
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+        markup.add("📊 وضعیت سیستم", "🚀 لیست پروکسی‌ها")
+        markup.add("📦 دریافت بکاپ", "🛑 گزارش‌ها")
+        
+        bot.reply_to(message, f"👋 سلام! به پنل مدیریت HoseinProxy خوش آمدید.\n\nمنوی اصلی:", reply_markup=markup)
+
+    @bot.message_handler(func=lambda m: m.text == "📊 وضعیت سیستم")
+    def status_handler(message):
+        chat_id = str(message.chat.id)
+        if chat_id != get_setting('telegram_chat_id'): return
+        
+        try:
+            cpu = psutil.cpu_percent(interval=None)
+            ram = psutil.virtual_memory().percent
+            disk = psutil.disk_usage('/').percent
+            
+            with app.app_context():
+                proxy_count = Proxy.query.count()
+                active_count = Proxy.query.filter_by(status='running').count()
+                total_upload = db.session.query(func.sum(Proxy.upload)).scalar() or 0
+                total_download = db.session.query(func.sum(Proxy.download)).scalar() or 0
+            
+            msg = (
+                f"📊 **System Status**\n\n"
+                f"💻 CPU: `{cpu}%`\n"
+                f"🧠 RAM: `{ram}%`\n"
+                f"💾 Disk: `{disk}%`\n\n"
+                f"🚀 Proxies: `{active_count}/{proxy_count}` Active\n"
+                f"⬆️ Upload: `{round(total_upload / (1024**3), 2)} GB`\n"
+                f"⬇️ Download: `{round(total_download / (1024**3), 2)} GB`"
+            )
+            bot.reply_to(message, msg, parse_mode='Markdown')
+        except Exception as e:
+            bot.reply_to(message, f"Error: {e}")
+
+    @bot.message_handler(func=lambda m: m.text == "🚀 لیست پروکسی‌ها")
+    def proxies_handler(message):
+        chat_id = str(message.chat.id)
+        if chat_id != get_setting('telegram_chat_id'): return
+        
+        with app.app_context():
+            proxies = Proxy.query.all()
+            if not proxies:
+                bot.reply_to(message, "هیچ پروکسی وجود ندارد.")
+                return
+                
+            markup = types.InlineKeyboardMarkup()
+            for p in proxies:
+                status_icon = "🟢" if p.status == 'running' else "🔴"
+                btn_text = f"{status_icon} {p.port} | {p.name or p.tag or 'No Name'}"
+                markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"p_{p.id}"))
+            
+            bot.reply_to(message, "لیست پروکسی‌ها (برای مدیریت کلیک کنید):", reply_markup=markup)
+
+    @bot.callback_query_handler(func=lambda call: call.data.startswith('p_'))
+    def proxy_detail_callback(call):
+        try:
+            proxy_id = int(call.data.split('_')[1])
+            with app.app_context():
+                p = Proxy.query.get(proxy_id)
+                if not p:
+                    bot.answer_callback_query(call.id, "پروکسی یافت نشد.")
+                    return
+                
+                status_icon = "🟢" if p.status == 'running' else "🔴"
+                msg = (
+                    f"⚙️ **Proxy #{p.port}**\n"
+                    f"Name: {p.name or '-'}\n"
+                    f"Tag: {p.tag or '-'}\n"
+                    f"Status: {status_icon} {p.status}\n"
+                    f"👥 Users: {p.active_connections}\n"
+                    f"⬆️ UP: {round(p.upload / (1024**2), 2)} MB\n"
+                    f"⬇️ DL: {round(p.download / (1024**2), 2)} MB\n"
+                )
+                
+                markup = types.InlineKeyboardMarkup(row_width=2)
+                # Actions
+                if p.status == 'running':
+                    markup.add(types.InlineKeyboardButton("🔴 توقف", callback_data=f"stop_{p.id}"),
+                               types.InlineKeyboardButton("🔄 ریستارت", callback_data=f"restart_{p.id}"))
+                else:
+                    markup.add(types.InlineKeyboardButton("🟢 شروع", callback_data=f"start_{p.id}"))
+                
+                markup.add(types.InlineKeyboardButton("🔗 دریافت لینک اتصال", callback_data=f"link_{p.id}"))
+                markup.add(types.InlineKeyboardButton("🔙 بازگشت", callback_data="back_list"))
+                
+                bot.edit_message_text(msg, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode='Markdown')
+        except Exception as e:
+            print(f"Bot Callback Error: {e}")
+
+    @bot.callback_query_handler(func=lambda call: call.data == "back_list")
+    def back_list_callback(call):
+        with app.app_context():
+            proxies = Proxy.query.all()
+            markup = types.InlineKeyboardMarkup()
+            for p in proxies:
+                status_icon = "🟢" if p.status == 'running' else "🔴"
+                btn_text = f"{status_icon} {p.port} | {p.name or p.tag or 'No Name'}"
+                markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"p_{p.id}"))
+            bot.edit_message_text("لیست پروکسی‌ها:", call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+    @bot.callback_query_handler(func=lambda call: call.data.startswith(('stop_', 'start_', 'restart_', 'link_')))
+    def action_callback(call):
+        action, pid = call.data.split('_')
+        pid = int(pid)
+        
+        with app.app_context():
+            p = Proxy.query.get(pid)
+            if not p:
+                bot.answer_callback_query(call.id, "پروکسی یافت نشد.")
+                return
+
+            if action == 'link':
+                server_ip = get_setting('server_ip') or 'YOUR_IP'
+                link = f"https://t.me/proxy?server={server_ip}&port={p.port}&secret={p.secret}"
+                bot.send_message(call.message.chat.id, f"🔗 **لینک اتصال:**\n\n`{link}`", parse_mode='Markdown')
+                bot.answer_callback_query(call.id, "لینک ارسال شد.")
+                return
+
+            # Docker Actions
+            try:
+                if docker_client and p.container_id:
+                    container = docker_client.containers.get(p.container_id)
+                    if action == 'stop':
+                        container.stop()
+                        p.status = 'stopped'
+                        bot.answer_callback_query(call.id, "پروکسی متوقف شد.")
+                    elif action == 'start':
+                        container.start()
+                        p.status = 'running'
+                        bot.answer_callback_query(call.id, "پروکسی روشن شد.")
+                    elif action == 'restart':
+                        container.restart()
+                        p.status = 'running'
+                        bot.answer_callback_query(call.id, "پروکسی ریستارت شد.")
+                    
+                    db.session.commit()
+                    # Refresh view
+                    proxy_detail_callback(call) # Hack to refresh
+                else:
+                    bot.answer_callback_query(call.id, "خطا در ارتباط با داکر.")
+            except Exception as e:
+                bot.answer_callback_query(call.id, f"خطا: {e}")
+
+    @bot.message_handler(func=lambda m: m.text == "📦 دریافت بکاپ")
+    def backup_handler(message):
+        chat_id = str(message.chat.id)
+        if chat_id != get_setting('telegram_chat_id'): return
+        
+        bot.reply_to(message, "⏳ در حال تهیه بکاپ...")
+        # Reuse logic? Better to call API or replicate logic.
+        # Replicating logic for simplicity in thread
+        try:
+            with app.app_context():
+                backup_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backups')
+                if not os.path.exists(backup_dir): os.makedirs(backup_dir)
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"hoseinproxy_backup_{timestamp}.tar.gz"
+                backup_file = os.path.join(backup_dir, filename)
+                panel_dir = os.path.dirname(os.path.abspath(__file__))
+                with tarfile.open(backup_file, "w:gz") as tar:
+                    if os.path.exists(os.path.join(panel_dir, 'panel.db')): tar.add(os.path.join(panel_dir, 'panel.db'), arcname='panel.db')
+                    if os.path.exists(os.path.join(panel_dir, 'app.py')): tar.add(os.path.join(panel_dir, 'app.py'), arcname='app.py')
+                    if os.path.exists(os.path.join(panel_dir, 'requirements.txt')): tar.add(os.path.join(panel_dir, 'requirements.txt'), arcname='requirements.txt')
+                    if os.path.exists(os.path.join(panel_dir, 'secret.key')): tar.add(os.path.join(panel_dir, 'secret.key'), arcname='secret.key')
+                
+                with open(backup_file, 'rb') as f:
+                    bot.send_document(chat_id, f, caption=f"📦 Backup: {filename}")
+        except Exception as e:
+            bot.reply_to(message, f"Error: {e}")
+
+    try:
+        bot.infinity_polling(timeout=10, long_polling_timeout=5)
+    except Exception as e:
+        print(f"Bot Polling Error: {e}")
+
 # --- Helpers ---
 @login_manager.user_loader
 def load_user(user_id):
@@ -1410,23 +1643,59 @@ def system_logs():
 @login_required
 def create_backup():
     try:
-        backup_dir = "/root/backups"
+        backup_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backups')
         if not os.path.exists(backup_dir):
             os.makedirs(backup_dir)
             
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_file = f"{backup_dir}/hoseinproxy_backup_{timestamp}.tar.gz"
+        filename = f"hoseinproxy_backup_{timestamp}.tar.gz"
+        backup_file = os.path.join(backup_dir, filename)
         
         # Path to panel directory (current dir)
         panel_dir = os.path.dirname(os.path.abspath(__file__))
         
         with tarfile.open(backup_file, "w:gz") as tar:
-            tar.add(os.path.join(panel_dir, 'panel.db'), arcname='panel.db')
-            tar.add(os.path.join(panel_dir, 'app.py'), arcname='app.py')
-            tar.add(os.path.join(panel_dir, 'requirements.txt'), arcname='requirements.txt')
-            # Add templates and static if needed, but code is in git usually. DB is most important.
+            # Critical files
+            if os.path.exists(os.path.join(panel_dir, 'panel.db')):
+                tar.add(os.path.join(panel_dir, 'panel.db'), arcname='panel.db')
+            if os.path.exists(os.path.join(panel_dir, 'app.py')):
+                tar.add(os.path.join(panel_dir, 'app.py'), arcname='app.py')
+            if os.path.exists(os.path.join(panel_dir, 'requirements.txt')):
+                tar.add(os.path.join(panel_dir, 'requirements.txt'), arcname='requirements.txt')
+            if os.path.exists(os.path.join(panel_dir, 'secret.key')):
+                tar.add(os.path.join(panel_dir, 'secret.key'), arcname='secret.key')
+                
+        # Send to Telegram
+        bot_token = get_setting('telegram_bot_token')
+        chat_id = get_setting('telegram_chat_id')
+        sent_to_telegram = False
+        
+        if bot_token and chat_id:
+            try:
+                with open(backup_file, 'rb') as f:
+                    url = f"https://api.telegram.org/bot{bot_token}/sendDocument"
+                    data = {'chat_id': chat_id, 'caption': f'📦 Backup: {filename}\n📅 {timestamp}'}
+                    files = {'document': f}
+                    resp = requests.post(url, data=data, files=files, timeout=30)
+                    if resp.status_code == 200:
+                        sent_to_telegram = True
+            except Exception as e:
+                print(f"Telegram Upload Error: {e}")
+
+        # Cleanup old backups (keep last 5)
+        try:
+            files = sorted([os.path.join(backup_dir, f) for f in os.listdir(backup_dir) if f.endswith('.tar.gz')], key=os.path.getmtime)
+            while len(files) > 5:
+                os.remove(files[0])
+                files.pop(0)
+        except:
+            pass
             
-        return jsonify({'status': 'success', 'path': backup_file})
+        msg = 'نسخه پشتیبان ایجاد شد.'
+        if sent_to_telegram:
+            msg += ' و به تلگرام ارسال شد.'
+            
+        return jsonify({'status': 'success', 'path': backup_file, 'message': msg})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 
@@ -1863,5 +2132,14 @@ def create_admin(username, password):
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()
+        _ensure_db_initialized()
+    
+    # Start Stats Thread
+    stats_thread = threading.Thread(target=update_docker_stats, daemon=True)
+    stats_thread.start()
+    
+    # Start Bot Thread
+    bot_thread = threading.Thread(target=run_telegram_bot, daemon=True)
+    bot_thread.start()
+    
     app.run(host='0.0.0.0', port=5000, debug=True)
