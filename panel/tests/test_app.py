@@ -11,29 +11,35 @@ TEST_DB_PATH = os.path.join(os.path.dirname(__file__), 'test_panel.db')
 os.environ['HOSEINPROXY_DATABASE_URI'] = f"sqlite:///{TEST_DB_PATH}"
 os.environ['HOSEINPROXY_DISABLE_STATS_THREAD'] = "1"
 
-from app import app, db, User, Proxy, ProxyStats, Alert
+from app import create_app
+from app.extensions import db
+from app.models import User, Proxy, ProxyStats, Alert
+
+app = create_app()
 
 class HoseinProxyTestCase(unittest.TestCase):
     def setUp(self):
         """Set up test environment"""
         app.config['TESTING'] = True
+        app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{TEST_DB_PATH}"
         
         self.app = app.test_client()
+        self.app_context = app.app_context()
+        self.app_context.push()
         
-        with app.app_context():
-            db.create_all()
-            
-            # Create test user
-            u = User(username='admin')
-            u.set_password('password')
-            db.session.add(u)
-            db.session.commit()
+        db.create_all()
+        
+        # Create test user
+        u = User(username='admin')
+        u.set_password('password')
+        db.session.add(u)
+        db.session.commit()
 
     def tearDown(self):
         """Clean up after tests"""
-        with app.app_context():
-            db.session.remove()
-            db.drop_all()
+        db.session.remove()
+        db.drop_all()
+        self.app_context.pop()
 
     def login(self, username, password):
         return self.app.post('/login', data=dict(

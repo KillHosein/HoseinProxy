@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "layouts/base.html" %}
 
 {% block title %}فایروال - HoseinProxy{% endblock %}
 
@@ -58,7 +58,7 @@
                                 <td>{{ item.reason or '-' }}</td>
                                 <td class="small text-muted">{{ item.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
                                 <td>
-                                    <a href="{{ url_for('firewall_delete', id=item.id) }}" class="btn btn-sm btn-outline-success" title="آزاد کردن">
+                                    <a href="{{ url_for('firewall.delete', id=item.id) }}" class="btn btn-sm btn-outline-success" title="آزاد کردن">
                                         <i class="fas fa-unlock"></i>
                                     </a>
                                 </td>

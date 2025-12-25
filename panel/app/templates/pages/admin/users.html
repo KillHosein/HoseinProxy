@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "layouts/base.html" %}
 
 {% block title %}مدیریت کاربران - HoseinProxy{% endblock %}
 
@@ -42,7 +42,7 @@
                                     </button>
                                     
                                     {% if user.id != current_user.id %}
-                                    <a href="{{ url_for('user_delete', id=user.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('آیا از حذف این کاربر مطمئن هستید؟')">
+                                    <a href="{{ url_for('users.delete', id=user.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('آیا از حذف این کاربر مطمئن هستید؟')">
                                         <i class="fas fa-trash"></i>
                                     </a>
                                     {% else %}

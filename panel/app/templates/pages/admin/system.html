@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "layouts/base.html" %}
 
 {% block title %}مدیریت سیستم - HoseinProxy{% endblock %}
 
@@ -105,7 +105,7 @@
         status.className = 'alert alert-info';
         status.innerText = 'در حال ارتباط با سرور گیت...';
         
-        fetch('{{ url_for("check_update") }}', { method: 'POST' })
+        fetch('{{ url_for("system.check_update") }}', { method: 'POST' })
             .then(res => res.json())
             .then(data => {
                 btn.disabled = false;
@@ -138,7 +138,7 @@
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> در حال آپدیت...';
         
-        fetch('{{ url_for("do_update") }}', { method: 'POST' })
+        fetch('{{ url_for("system.do_update") }}', { method: 'POST' })
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
@@ -155,7 +155,7 @@
     function restartService() {
         if(!confirm('آیا مطمئن هستید؟')) return;
         
-        fetch('{{ url_for("restart_service") }}', { method: 'POST' })
+        fetch('{{ url_for("system.restart_service") }}', { method: 'POST' })
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success') {
@@ -224,7 +224,7 @@
                     }
                 });
                 
-                fetch('{{ url_for("restore_backup") }}', {
+                fetch('{{ url_for("system.restore") }}', {
                     method: 'POST',
                     body: formData
                 })
@@ -253,7 +253,7 @@
 
     function loadLogs() {
         document.getElementById('logViewer').innerText = 'در حال دریافت...';
-        fetch('{{ url_for("system_logs") }}')
+        fetch('{{ url_for("system.logs") }}')
             .then(res => res.json())
             .then(data => {
                 document.getElementById('logViewer').innerText = data.content;

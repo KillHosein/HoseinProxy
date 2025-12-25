@@ -1,0 +1,34 @@
+{% if current_user.is_authenticated %}
+<div id="sidebar-wrapper">
+    <div class="sidebar-heading">HoseinProxy 🚀</div>
+    <div class="list-group list-group-flush">
+        <a href="{{ url_for('main.dashboard') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'main.dashboard' %}active{% endif %}">
+            <i class="fas fa-tachometer-alt me-2"></i> داشبورد
+        </a>
+        <a href="{{ url_for('reports.index') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'reports.index' %}active{% endif %}">
+            <i class="fas fa-chart-pie me-2"></i> گزارشات
+        </a>
+        <a href="{{ url_for('settings.index') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'settings.index' %}active{% endif %}">
+            <i class="fas fa-cogs me-2"></i> تنظیمات
+        </a>
+        <a href="{{ url_for('firewall.index') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'firewall.index' %}active{% endif %}">
+            <i class="fas fa-shield-alt me-2"></i> فایروال
+        </a>
+        <a href="{{ url_for('system.page') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'system.page' %}active{% endif %}">
+            <i class="fas fa-server me-2"></i> مدیریت سیستم
+        </a>
+        <a href="{{ url_for('users.list') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'users.list' %}active{% endif %}">
+            <i class="fas fa-users-cog me-2"></i> مدیران
+        </a>
+        <a href="{{ url_for('tools.index') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'tools.index' %}active{% endif %}">
+            <i class="fas fa-network-wired me-2"></i> ابزارهای شبکه
+        </a>
+        <a href="{{ url_for('auth.logout') }}" class="list-group-item list-group-item-action text-danger">
+            <i class="fas fa-sign-out-alt me-2"></i> خروج
+        </a>
+    </div>
+    <div class="text-center mt-auto p-3 text-muted small">
+        نسخه 3.1.0
+    </div>
+</div>
+{% endif %}

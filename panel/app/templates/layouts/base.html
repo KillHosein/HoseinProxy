@@ -19,6 +19,7 @@
             --sidebar-bg: #343a40;
             --sidebar-text: #c2c7d0;
             --sidebar-active-bg: #007bff;
+            --loader-bg: #ffffff;
         }
 
         [data-bs-theme="dark"] {
@@ -28,6 +29,7 @@
             --sidebar-bg: #1a1d20;
             --sidebar-text: #adb5bd;
             --sidebar-active-bg: #0d6efd;
+            --loader-bg: #212529;
         }
 
         body {
@@ -35,6 +37,7 @@
             background-color: var(--bs-body-bg);
             color: var(--bs-body-color);
             overflow-x: hidden;
+            scroll-behavior: smooth;
         }
         
         /* Sidebar Styles */
@@ -74,11 +77,13 @@
             color: var(--sidebar-text);
             border: none;
             padding: 1rem 1.5rem;
+            transition: all 0.2s;
         }
         
         .list-group-item:hover {
             color: #fff;
             background-color: rgba(255,255,255,0.1);
+            padding-right: 1.8rem; /* Slight shift effect */
         }
         
         .list-group-item.active {
@@ -89,152 +94,84 @@
 
         .card-custom {
             border: none;
-            border-radius: 10px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            margin-bottom: 24px;
             background-color: var(--card-bg);
+            transition: transform 0.2s;
+        }
+
+        .card-custom:hover {
+            transform: translateY(-2px);
         }
         
         .bg-white {
             background-color: var(--card-bg) !important;
         }
         
-        [data-bs-theme="dark"] .table {
-            color: #fff;
-            border-color: #373b3e;
-        }
-        
-        [data-bs-theme="dark"] .table-hover > tbody > tr:hover {
-            --bs-table-accent-bg: #373b3e;
-        }
-        
-        [data-bs-theme="dark"] .bg-light {
-            background-color: #343a40 !important;
-        }
-        
-        [data-bs-theme="dark"] .text-muted {
-            color: #adb5bd !important;
-        }
-        
-        [data-bs-theme="dark"] .text-secondary {
-            color: #adb5bd !important;
-        }
-        
+        /* Dark Mode Overrides */
+        [data-bs-theme="dark"] .table { color: #fff; border-color: #373b3e; }
+        [data-bs-theme="dark"] .table-hover > tbody > tr:hover { --bs-table-accent-bg: #373b3e; }
+        [data-bs-theme="dark"] .bg-light { background-color: #343a40 !important; }
+        [data-bs-theme="dark"] .text-muted { color: #adb5bd !important; }
+        [data-bs-theme="dark"] .text-secondary { color: #adb5bd !important; }
         [data-bs-theme="dark"] .form-control, [data-bs-theme="dark"] .form-select {
-            background-color: #2c3034;
-            border-color: #495057;
-            color: #fff;
+            background-color: #2c3034; border-color: #495057; color: #fff;
         }
-        
-        [data-bs-theme="dark"] .modal-content {
-            background-color: #2c3034;
-            border-color: #495057;
+        [data-bs-theme="dark"] .modal-content { background-color: #2c3034; border-color: #495057; }
+        [data-bs-theme="dark"] .modal-header, [data-bs-theme="dark"] .modal-footer { border-color: #495057; }
+        [data-bs-theme="dark"] .close { filter: invert(1) grayscale(100%) brightness(200%); }
+
+        /* Loader */
+        #loader {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--loader-bg);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s;
         }
-        
-        [data-bs-theme="dark"] .modal-header, [data-bs-theme="dark"] .modal-footer {
-            border-color: #495057;
-        }
-        
-        [data-bs-theme="dark"] .close {
-            filter: invert(1) grayscale(100%) brightness(200%);
-        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
 
         @media (min-width: 768px) {
-
-            #sidebar-wrapper {
-                margin-right: 0;
-            }
-
-            #page-content-wrapper {
-                min-width: 0;
-                width: 100%;
-            }
-
-            #wrapper.toggled #sidebar-wrapper {
-                margin-right: -15rem;
-            }
+            #sidebar-wrapper { margin-right: 0; }
+            #page-content-wrapper { min-width: 0; width: 100%; }
+            #wrapper.toggled #sidebar-wrapper { margin-right: -15rem; }
         }
     </style>
 </head>
 <body>
+    <!-- Loader -->
+    <div id="loader">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
 
     <div class="d-flex" id="wrapper">
 
         <!-- Sidebar -->
-        {% if current_user.is_authenticated %}
-        <div id="sidebar-wrapper">
-            <div class="sidebar-heading">HoseinProxy 🚀</div>
-            <div class="list-group list-group-flush">
-                <a href="{{ url_for('dashboard') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'dashboard' %}active{% endif %}">
-                    <i class="fas fa-tachometer-alt me-2"></i> داشبورد
-                </a>
-                <a href="{{ url_for('reports') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'reports' %}active{% endif %}">
-                    <i class="fas fa-chart-pie me-2"></i> گزارشات
-                </a>
-                <a href="{{ url_for('settings') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'settings' %}active{% endif %}">
-                    <i class="fas fa-cogs me-2"></i> تنظیمات
-                </a>
-                <a href="{{ url_for('firewall') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'firewall' %}active{% endif %}">
-                    <i class="fas fa-shield-alt me-2"></i> فایروال
-                </a>
-                <a href="{{ url_for('system_page') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'system_page' %}active{% endif %}">
-                    <i class="fas fa-server me-2"></i> مدیریت سیستم
-                </a>
-                <a href="{{ url_for('users_list') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'users_list' %}active{% endif %}">
-                    <i class="fas fa-users-cog me-2"></i> مدیران
-                </a>
-                <a href="{{ url_for('network_tools') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'network_tools' %}active{% endif %}">
-                    <i class="fas fa-network-wired me-2"></i> ابزارهای شبکه
-                </a>
-                <a href="{{ url_for('logout') }}" class="list-group-item list-group-item-action text-danger">
-                    <i class="fas fa-sign-out-alt me-2"></i> خروج
-                </a>
-            </div>
-            <div class="text-center mt-auto p-3 text-muted small">
-                نسخه 1.1.0
-            </div>
-        </div>
-        {% endif %}
-        <!-- /#sidebar-wrapper -->
-
+        {% include "components/sidebar.html" %}
+        
         <!-- Page Content -->
         <div id="page-content-wrapper">
-
-            <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
-                <div class="container-fluid">
-                    {% if current_user.is_authenticated %}
-                    <button class="btn btn-primary" id="menu-toggle"><i class="fas fa-bars"></i></button>
-                    {% endif %}
-                    
-                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
-
-                    <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                        <ul class="navbar-nav ms-auto mt-2 mt-lg-0 align-items-center">
-                            <li class="nav-item">
-                                <button class="btn btn-link nav-link" id="themeToggle">
-                                    <i class="fas fa-moon"></i>
-                                </button>
-                            </li>
-                            {% if current_user.is_authenticated %}
-                            <li class="nav-item">
-                                <span class="nav-link text-secondary">
-                                    <i class="fas fa-user-circle"></i> {{ current_user.username }}
-                                </span>
-                            </li>
-                            {% endif %}
-                        </ul>
-                    </div>
-                </div>
-            </nav>
+            
+            <!-- Navbar -->
+            {% include "components/navbar.html" %}
 
             <div class="container-fluid p-4">
                 <!-- Flash Messages -->
                 {% with messages = get_flashed_messages(with_categories=true) %}
                   {% if messages %}
                     {% for category, message in messages %}
-                      <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                      <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
                         {{ message }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                       </div>
