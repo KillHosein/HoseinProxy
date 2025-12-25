@@ -1,29 +1,35 @@
 {% extends "layouts/base.html" %}
 
-{% block title %}داشبورد نیمه‌شب | HoseinProxy{% endblock %}
+{% block title %}داشبورد مدیریت | HoseinProxy{% endblock %}
 
 {% block content %}
-<!-- Vazirmatn Font (Ensure it's loaded) -->
+<!-- فونت وزیرمتن -->
 <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
 
 <style>
     :root {
-        --bg-dark: #020617;
-        --glass-bg: rgba(255, 255, 255, 0.03);
-        --glass-border: rgba(255, 255, 255, 0.08);
-        --text-main: #f1f5f9;
-        --text-muted: #94a3b8;
-        --primary-glow: rgba(139, 92, 246, 0.5);
+        /* پالت رنگی مدرن و تیره */
+        --bg-dark: #0f172a;
+        --card-bg: rgba(30, 41, 59, 0.4); /* شفافیت کمتر برای خوانایی */
+        --card-border: rgba(255, 255, 255, 0.08);
+        --card-hover-border: rgba(139, 92, 246, 0.3);
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+        --accent-primary: #8b5cf6; /* بنفش */
+        --accent-success: #10b981; /* سبز */
+        --accent-info: #06b6d4;    /* فیروزه‌ای */
+        --accent-danger: #ef4444;  /* قرمز */
+        --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
     }
 
-    /* Global Overrides for Dark Theme */
     body {
         font-family: 'Vazirmatn', sans-serif !important;
         background-color: var(--bg-dark) !important;
-        color: var(--text-main) !important;
+        color: var(--text-primary) !important;
+        overflow-x: hidden;
     }
 
-    /* Starfield Canvas */
+    /* پس‌زمینه متحرک */
     #starfield {
         position: fixed;
         top: 0;
@@ -31,473 +37,475 @@
         width: 100%;
         height: 100%;
         z-index: -1;
-        background: linear-gradient(to bottom, #020617 0%, #1e1b4b 100%);
+        background: radial-gradient(circle at top center, #1e293b 0%, #020617 80%);
         pointer-events: none;
     }
 
-    /* Bootstrap Card Override -> Glassmorphism */
-    .card {
-        background: var(--glass-bg) !important;
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid var(--glass-border) !important;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-        color: var(--text-main);
-        border-radius: 16px !important;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    /* استایل کارت‌ها */
+    .glass-card {
+        background: var(--card-bg);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--card-border);
+        border-radius: 16px;
+        box-shadow: var(--glass-shadow);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
     }
 
-    .card:hover {
-        border-color: rgba(167, 139, 250, 0.2) !important;
-        box-shadow: 0 0 20px rgba(124, 58, 237, 0.15) !important;
+    .glass-card:hover {
+        transform: translateY(-4px);
+        border-color: var(--card-hover-border);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    .card-header-clean {
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid var(--card-border);
+        padding: 1rem 1.5rem;
+    }
+
+    .card-body-clean {
+        padding: 1.5rem;
+    }
+
+    /* تایپوگرافی */
+    h1, h2, h3, h4, h5, h6 {
+        font-weight: 700;
+        letter-spacing: -0.5px;
+    }
+    
+    .text-glow {
+        text-shadow: 0 0 15px rgba(139, 92, 246, 0.3);
+    }
+
+    .label-muted {
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* جدول‌ها */
+    .table-custom {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0 8px; /* فاصله بین ردیف‌ها */
+    }
+
+    .table-custom thead th {
+        background: transparent;
+        color: var(--text-secondary);
+        font-weight: 600;
+        border: none;
+        padding: 0 1rem 0.5rem 1rem;
+        font-size: 0.9rem;
+    }
+
+    .table-custom tbody tr {
+        background: rgba(255, 255, 255, 0.02);
+        transition: background 0.2s ease;
+    }
+
+    .table-custom tbody tr:hover {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .table-custom td {
+        border: none;
+        padding: 1rem;
+        vertical-align: middle;
+        color: var(--text-primary);
+    }
+    
+    .table-custom td:first-child { border-top-right-radius: 12px; border-bottom-right-radius: 12px; }
+    .table-custom td:last-child { border-top-left-radius: 12px; border-bottom-left-radius: 12px; }
+
+    /* دکمه‌ها و ورودی‌ها */
+    .form-control, .form-select {
+        background-color: rgba(15, 23, 42, 0.8) !important;
+        border: 1px solid var(--card-border) !important;
+        color: #fff !important;
+        border-radius: 10px;
+        padding: 0.6rem 1rem;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: var(--accent-primary) !important;
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2) !important;
+    }
+
+    .btn-glow-primary {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        border: none;
+        color: white;
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        transition: all 0.3s ease;
+    }
+    .btn-glow-primary:hover {
+        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6);
         transform: translateY(-2px);
     }
 
-    .card-header {
-        border-bottom: 1px solid var(--glass-border) !important;
-        background: transparent !important;
-    }
-
-    /* Text Colors Override */
-    .text-body-emphasis { color: #fff !important; }
-    .text-muted { color: var(--text-muted) !important; }
-    .text-secondary { color: #cbd5e1 !important; }
-    
-    /* Inputs & Selects Dark Mode */
-    .form-control, .form-select {
-        background-color: rgba(15, 23, 42, 0.6) !important;
-        border: 1px solid var(--glass-border) !important;
-        color: #fff !important;
-    }
-    .form-control:focus, .form-select:focus {
-        background-color: rgba(15, 23, 42, 0.8) !important;
-        border-color: #8b5cf6 !important;
-        box-shadow: 0 0 10px rgba(139, 92, 246, 0.3) !important;
-    }
-    .input-group-text {
-        background-color: rgba(30, 41, 59, 0.6) !important;
-        border: 1px solid var(--glass-border) !important;
-        color: var(--text-muted) !important;
-    }
-
-    /* Tables Dark Mode */
-    .table {
-        color: var(--text-main) !important;
-        --bs-table-bg: transparent !important;
-        --bs-table-hover-bg: rgba(255, 255, 255, 0.05) !important;
-    }
-    .table thead th {
-        border-bottom: 1px solid var(--glass-border) !important;
-        color: var(--text-muted) !important;
-        background: rgba(0,0,0,0.2) !important;
-    }
-    .table td {
-        border-bottom: 1px solid var(--glass-border) !important;
-    }
-
-    /* Buttons Gradient */
-    .btn-primary {
-        background: linear-gradient(to right, #4f46e5, #7c3aed) !important;
-        border: none !important;
-        box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
-    }
-    .btn-primary:hover {
-        background: linear-gradient(to right, #4338ca, #6d28d9) !important;
-        transform: translateY(-1px);
-        box-shadow: 0 6px 20px rgba(124, 58, 237, 0.5);
-    }
-    .btn-success {
-        background: linear-gradient(to right, #059669, #10b981) !important;
-        border: none !important;
-    }
-    .btn-outline-secondary, .btn-light {
-        background: rgba(255,255,255,0.05) !important;
-        border: 1px solid var(--glass-border) !important;
-        color: #e2e8f0 !important;
-    }
-    .btn-outline-secondary:hover, .btn-light:hover {
-        background: rgba(255,255,255,0.1) !important;
-    }
-
-    /* Modal Dark */
-    .modal-content {
-        background: rgba(15, 23, 42, 0.95) !important;
-        backdrop-filter: blur(20px);
-        border: 1px solid var(--glass-border) !important;
-        color: white;
-    }
-    .modal-header, .modal-footer {
-        border-color: var(--glass-border) !important;
-    }
-    .btn-close {
-        filter: invert(1) grayscale(100%) brightness(200%);
-    }
-
-    /* Scrollbar */
-    ::-webkit-scrollbar { width: 8px; }
-    ::-webkit-scrollbar-track { background: #0f172a; }
-    ::-webkit-scrollbar-thumb { background: #4c1d95; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #6d28d9; }
-
-    /* Custom Classes from previous file */
-    .stat-icon-bg {
-        opacity: 0.05 !important;
-        color: white !important;
-    }
-    .badge {
+    .status-badge {
+        padding: 0.35em 0.8em;
+        border-radius: 50rem;
+        font-size: 0.75em;
+        font-weight: 700;
         backdrop-filter: blur(4px);
     }
-    
-    .status-dot.running { box-shadow: 0 0 10px rgba(34, 197, 94, 0.6); }
-    .status-dot.stopped { box-shadow: 0 0 10px rgba(239, 68, 68, 0.6); }
+    .status-badge.running { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .status-badge.stopped { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
 
-    /* Dropdown */
-    .dropdown-menu {
-        background-color: #1e293b !important;
-        border: 1px solid var(--glass-border) !important;
+    /* اسکرول بار زیبا */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.3); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(139, 92, 246, 0.6); }
+
+    /* ابزارهای کمکی */
+    .icon-box {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        font-size: 1.25rem;
     }
-    .dropdown-item { color: #cbd5e1 !important; }
-    .dropdown-item:hover { background-color: rgba(255,255,255,0.1) !important; }
+    .text-mono { font-family: 'Fira Code', monospace; letter-spacing: -0.5px; }
+
+    /* انیمیشن ورود */
+    .fade-in-up {
+        animation: fadeInUp 0.6s ease-out forwards;
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    @keyframes fadeInUp {
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.2s; }
+    .delay-3 { animation-delay: 0.3s; }
 </style>
 
-<!-- Canvas for Stars Background -->
+<!-- بوم پس‌زمینه -->
 <canvas id="starfield"></canvas>
 
-<!-- System Status Header -->
-<div class="d-flex justify-content-between align-items-center mb-4 pt-3 position-relative" style="z-index: 2;">
-    <div>
-        <h4 class="fw-bold mb-1 text-white text-glow">داشبورد مدیریتی</h4>
-        <p class="text-muted small mb-0">وضعیت سیستم و پروکسی‌ها در کهکشان شما</p>
-    </div>
-    <div class="d-flex gap-3 text-muted small bg-dark bg-opacity-50 px-3 py-2 rounded-pill shadow-sm border border-white border-opacity-10">
-        <div class="d-flex align-items-center">
-            <i class="fas fa-server me-2 text-cyan-400"></i>
-            <span id="uptime-display" class="text-cyan-100">در حال محاسبه...</span>
+<div class="container-fluid py-4 px-lg-5">
+    
+    <!-- هدر داشبورد -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-5 fade-in-up" style="position: relative; z-index: 2;">
+        <div>
+            <h2 class="fw-bold text-white mb-1">داشبورد مدیریتی</h2>
+            <p class="text-secondary mb-0">نمای کلی وضعیت سرور و پروکسی‌ها</p>
         </div>
-        <div class="vr bg-secondary"></div>
-        <div class="d-flex align-items-center">
-            <i class="fas fa-microchip me-2 text-purple-400"></i>
-            <span id="load-avg-display" class="text-purple-100">Load: -</span>
-        </div>
-    </div>
-</div>
-
-<!-- Mini Stats Row -->
-<div class="row g-4 mb-4 position-relative" style="z-index: 2;">
-    <!-- CPU Card -->
-    <div class="col-xl-3 col-md-6">
-        <div class="card h-100">
-            <div class="card-body">
-                <i class="fas fa-microchip stat-icon-bg"></i>
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <p class="text-uppercase text-muted small fw-bold mb-1">پردازنده (CPU)</p>
-                        <h3 class="fw-bold mb-0 text-white"><span id="cpu-usage">--</span><small class="fs-6 text-muted ms-1">%</small></h3>
-                    </div>
-                    <div class="badge bg-primary bg-opacity-25 text-white p-2 rounded">
-                        <i class="fas fa-bolt"></i>
-                    </div>
+        <div class="glass-card px-4 py-2 d-flex align-items-center gap-4 mt-3 mt-md-0">
+            <div class="d-flex align-items-center">
+                <div class="icon-box bg-info bg-opacity-10 text-info rounded-circle me-3" style="width: 36px; height: 36px; font-size: 1rem;">
+                    <i class="fas fa-clock"></i>
                 </div>
-                <div class="progress mt-3 bg-dark" style="height: 6px;">
-                    <div id="cpu-bar" class="progress-bar bg-gradient-to-r from-blue-500 to-cyan-400" role="progressbar" style="width: 0%; background: linear-gradient(90deg, #3b82f6, #06b6d4);"></div>
+                <div>
+                    <div class="text-secondary" style="font-size: 0.75rem;">آپتایم</div>
+                    <div id="uptime-display" class="fw-bold text-white small">...</div>
+                </div>
+            </div>
+            <div class="vr bg-secondary opacity-25"></div>
+            <div class="d-flex align-items-center">
+                <div class="icon-box bg-purple bg-opacity-10 text-purple rounded-circle me-3" style="width: 36px; height: 36px; font-size: 1rem; color: var(--accent-primary);">
+                    <i class="fas fa-tachometer-alt"></i>
+                </div>
+                <div>
+                    <div class="text-secondary" style="font-size: 0.75rem;">Load Avg</div>
+                    <div id="load-avg-display" class="fw-bold text-white small font-monospace">-</div>
                 </div>
             </div>
         </div>
     </div>
-    
-    <!-- RAM Card -->
-    <div class="col-xl-3 col-md-6">
-        <div class="card h-100">
-            <div class="card-body">
-                <i class="fas fa-memory stat-icon-bg"></i>
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <p class="text-uppercase text-muted small fw-bold mb-1">حافظه (RAM)</p>
-                        <h3 class="fw-bold mb-0 text-white"><span id="ram-usage">--</span><small class="fs-6 text-muted ms-1">%</small></h3>
+
+    <!-- ردیف کارت‌های وضعیت -->
+    <div class="row g-4 mb-5" style="position: relative; z-index: 2;">
+        <!-- CPU Card -->
+        <div class="col-xl-3 col-md-6 fade-in-up delay-1">
+            <div class="glass-card h-100 p-4">
+                <div class="d-flex justify-content-between mb-3">
+                    <div class="icon-box bg-primary bg-opacity-10 text-primary">
+                        <i class="fas fa-microchip"></i>
                     </div>
-                    <div class="badge bg-success bg-opacity-25 text-white p-2 rounded">
+                    <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-3 py-2">هسته</span>
+                </div>
+                <div class="label-muted mb-1">مصرف پردازنده</div>
+                <div class="d-flex align-items-end gap-2">
+                    <h2 class="mb-0 text-white fw-bold" id="cpu-usage">--</h2><span class="text-secondary mb-1">%</span>
+                </div>
+                <div class="progress mt-3 bg-dark bg-opacity-50" style="height: 6px; border-radius: 10px;">
+                    <div id="cpu-bar" class="progress-bar bg-gradient-to-r from-blue-500 to-indigo-500" style="width: 0%; background: linear-gradient(90deg, #3b82f6, #6366f1);"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- RAM Card -->
+        <div class="col-xl-3 col-md-6 fade-in-up delay-1">
+            <div class="glass-card h-100 p-4">
+                <div class="d-flex justify-content-between mb-3">
+                    <div class="icon-box bg-success bg-opacity-10 text-success">
                         <i class="fas fa-memory"></i>
                     </div>
+                     <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3 py-2">رم</span>
                 </div>
-                <div class="progress mt-3 bg-dark" style="height: 6px;">
-                    <div id="ram-bar" class="progress-bar" role="progressbar" style="width: 0%; background: linear-gradient(90deg, #10b981, #34d399);"></div>
+                <div class="label-muted mb-1">مصرف حافظه</div>
+                <div class="d-flex align-items-end gap-2">
+                    <h2 class="mb-0 text-white fw-bold" id="ram-usage">--</h2><span class="text-secondary mb-1">%</span>
                 </div>
-                <div class="mt-2 small text-muted">
-                    <span id="ram-used">--</span> / <span id="ram-total">--</span> GB
+                <div class="progress mt-3 bg-dark bg-opacity-50" style="height: 6px; border-radius: 10px;">
+                    <div id="ram-bar" class="progress-bar" style="width: 0%; background: linear-gradient(90deg, #10b981, #34d399);"></div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Network Card -->
-    <div class="col-xl-3 col-md-6">
-        <div class="card h-100">
-            <div class="card-body">
-                <i class="fas fa-network-wired stat-icon-bg"></i>
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <p class="text-uppercase text-muted small fw-bold mb-1">ترافیک مصرفی</p>
-                        <h4 class="fw-bold mb-0 text-white" style="font-size: 1.4rem;">
-                            <i class="fas fa-arrow-down text-cyan-400 fs-6 me-1"></i><span id="net-down-speed">0</span> <small class="text-muted fs-6">MB/s</small>
-                        </h4>
-                    </div>
-                    <div class="badge bg-info bg-opacity-25 text-white p-2 rounded">
-                        <i class="fas fa-wifi"></i>
-                    </div>
-                </div>
-                <div class="mt-2 small text-muted">
-                    مجموع دانلود: <span id="net-total-down" class="text-cyan-300">--</span>
+                <div class="mt-2 text-end text-secondary" style="font-size: 0.75rem;">
+                    <span id="ram-used" class="text-white">--</span> / <span id="ram-total">--</span> GB
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Active Proxies Card -->
-    <div class="col-xl-3 col-md-6">
-        <div class="card h-100">
-            <div class="card-body">
-                <i class="fas fa-server stat-icon-bg"></i>
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <p class="text-uppercase text-muted small fw-bold mb-1">پروکسی‌های فعال</p>
-                        <h3 class="fw-bold mb-0 text-white">{{ proxies|selectattr('status', 'equalto', 'running')|list|length }} <small class="fs-6 text-muted">/ {{ proxies|length }}</small></h3>
+        <!-- Network Card -->
+        <div class="col-xl-3 col-md-6 fade-in-up delay-2">
+            <div class="glass-card h-100 p-4">
+                <div class="d-flex justify-content-between mb-3">
+                    <div class="icon-box bg-info bg-opacity-10 text-info">
+                        <i class="fas fa-network-wired"></i>
                     </div>
-                    <div class="badge bg-warning bg-opacity-25 text-white p-2 rounded">
+                     <span class="badge bg-info bg-opacity-10 text-info rounded-pill px-3 py-2">شبکه</span>
+                </div>
+                <div class="label-muted mb-1">سرعت دانلود لحظه‌ای</div>
+                <div class="d-flex align-items-end gap-2">
+                    <h2 class="mb-0 text-white fw-bold text-mono" id="net-down-speed">0</h2>
+                    <span class="text-secondary mb-1">MB/s</span>
+                </div>
+                 <div class="mt-3 pt-2 border-top border-white border-opacity-10 d-flex justify-content-between small text-secondary">
+                    <span>مجموع مصرف:</span>
+                    <span id="net-total-down" class="text-info fw-bold">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Proxies Card -->
+        <div class="col-xl-3 col-md-6 fade-in-up delay-2">
+            <div class="glass-card h-100 p-4">
+                <div class="d-flex justify-content-between mb-3">
+                    <div class="icon-box bg-warning bg-opacity-10 text-warning">
                         <i class="fas fa-shield-alt"></i>
                     </div>
+                    <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill px-3 py-2">وضعیت</span>
                 </div>
-                <div class="mt-3 d-flex align-items-center small text-muted">
-                    <span class="status-dot running me-1"></span> {{ proxies|selectattr('status', 'equalto', 'running')|list|length }} فعال
-                    <span class="status-dot stopped me-1 ms-3"></span> {{ proxies|selectattr('status', 'equalto', 'stopped')|list|length }} متوقف
+                <div class="label-muted mb-1">پروکسی‌های فعال</div>
+                <div class="d-flex align-items-end gap-2">
+                    <h2 class="mb-0 text-white fw-bold">{{ proxies|selectattr('status', 'equalto', 'running')|list|length }}</h2>
+                    <span class="text-secondary mb-1">/ {{ proxies|length }} سرویس</span>
+                </div>
+                <div class="mt-3 d-flex gap-2">
+                    <span class="status-dot running me-1"></span>
+                    <small class="text-success">{{ proxies|selectattr('status', 'equalto', 'running')|list|length }} فعال</small>
+                    <span class="border-start border-secondary border-opacity-25 mx-1"></span>
+                    <small class="text-danger">{{ proxies|selectattr('status', 'equalto', 'stopped')|list|length }} متوقف</small>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Charts Row -->
-<div class="row mb-4 position-relative" style="z-index: 2;">
-    <div class="col-lg-6 mb-4 mb-lg-0">
-        <div class="card h-100">
-            <div class="card-header border-bottom-0 py-3">
-                <h5 class="mb-0 fw-bold fs-6 text-white"><i class="fas fa-chart-line me-2 text-primary"></i>منابع سیستم (زنده)</h5>
-            </div>
-            <div class="card-body pt-0">
-                <div style="position: relative; height: 280px; width: 100%;">
-                    <canvas id="systemChart"></canvas>
+    <!-- ردیف نمودارها -->
+    <div class="row g-4 mb-5 fade-in-up delay-3" style="position: relative; z-index: 2;">
+        <div class="col-lg-8">
+            <div class="glass-card h-100">
+                <div class="card-header-clean d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-white"><i class="fas fa-chart-line me-2 text-primary"></i>مانیتورینگ منابع</h5>
+                    <div class="small text-secondary"><i class="fas fa-circle text-success me-1" style="font-size: 8px;"></i>زنده</div>
                 </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-6">
-        <div class="card h-100">
-            <div class="card-header border-bottom-0 py-3">
-                <h5 class="mb-0 fw-bold fs-6 text-white"><i class="fas fa-chart-bar me-2 text-success"></i>ترافیک مصرفی (۷ روز اخیر)</h5>
-            </div>
-            <div class="card-body pt-0">
-                <div style="position: relative; height: 280px; width: 100%;">
-                    <canvas id="trafficChart"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Proxy List -->
-<div class="row mb-4 position-relative" style="z-index: 2;">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header border-bottom py-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
-                <h5 class="mb-0 fw-bold text-white"><i class="fas fa-list me-2 text-primary"></i>لیست پروکسی‌ها</h5>
-                
-                <div class="d-flex gap-2 align-items-center flex-wrap">
-                    <div class="input-group input-group-sm" style="width: 200px;">
-                        <span class="input-group-text"><i class="fas fa-search"></i></span>
-                        <input id="proxySearch" type="text" class="form-control" placeholder="جستجو (پورت/تگ/نام)">
+                <div class="card-body-clean">
+                    <div style="height: 300px; width: 100%;">
+                        <canvas id="systemChart"></canvas>
                     </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="glass-card h-100">
+                 <div class="card-header-clean">
+                    <h5 class="mb-0 text-white"><i class="fas fa-chart-bar me-2 text-info"></i>مصرف هفته اخیر</h5>
+                </div>
+                <div class="card-body-clean d-flex align-items-center justify-content-center">
+                    <div style="height: 300px; width: 100%;">
+                        <canvas id="trafficChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- بخش مدیریت پروکسی‌ها -->
+    <div class="row mb-5 fade-in-up delay-3" style="position: relative; z-index: 2;">
+        <div class="col-12">
+            <div class="glass-card">
+                <div class="card-header-clean py-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <h5 class="mb-0 fw-bold text-white"><i class="fas fa-list-ul me-2 text-primary"></i>لیست پروکسی‌ها</h5>
                     
-                    <select id="proxyStatusFilter" class="form-select form-select-sm" style="width: 130px;">
-                        <option value="">همه وضعیت‌ها</option>
-                        <option value="running">فعال</option>
-                        <option value="stopped">متوقف</option>
-                    </select>
+                    <div class="d-flex gap-2 align-items-center flex-wrap bg-dark bg-opacity-50 p-1 rounded-3 border border-white border-opacity-10">
+                        <div class="input-group input-group-sm border-0" style="width: 220px;">
+                            <span class="input-group-text bg-transparent border-0 text-secondary"><i class="fas fa-search"></i></span>
+                            <input id="proxySearch" type="text" class="form-control bg-transparent border-0 shadow-none text-white" placeholder="جستجو (پورت، نام)...">
+                        </div>
+                        <div class="vr bg-secondary opacity-25 my-1"></div>
+                        <select id="proxyStatusFilter" class="form-select form-select-sm bg-transparent border-0 shadow-none text-secondary" style="width: 120px;">
+                            <option value="">همه</option>
+                            <option value="running">فعال</option>
+                            <option value="stopped">متوقف</option>
+                        </select>
+                    </div>
 
                     <div class="d-flex gap-2">
-                         <button class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#bulkCreateModal">
+                        <button class="btn btn-outline-secondary btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#bulkCreateModal">
                             <i class="fas fa-layer-group me-1"></i> گروهی
                         </button>
-                        <button class="btn btn-primary btn-sm px-3" data-bs-toggle="modal" data-bs-target="#addProxyModal">
-                            <i class="fas fa-plus me-1"></i> افزودن
+                        <button class="btn btn-glow-primary btn-sm rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#addProxyModal">
+                            <i class="fas fa-plus me-1"></i> پروکسی جدید
                         </button>
                     </div>
                 </div>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table id="proxiesTable" class="table mb-0">
-                        <thead>
-                            <tr>
-                                <th class="ps-4">پورت</th>
-                                <th>نام / تگ</th>
-                                <th>وضعیت</th>
-                                <th>اتصالات</th>
-                                <th>ترافیک مصرفی</th>
-                                <th>حجم کل</th>
-                                <th>سکرت</th>
-                                <th class="text-end pe-4">عملیات</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for proxy in proxies %}
-                            <tr>
-                                <td class="ps-4 fw-bold font-monospace text-cyan-300" data-proxy-port="{{ proxy.port }}">{{ proxy.port }}</td>
-                                <td>
-                                    <div class="d-flex flex-column">
-                                        {% if proxy.name %}
-                                        <span class="fw-bold text-white">{{ proxy.name }}</span>
-                                        {% else %}
-                                        <span class="text-muted small">-</span>
-                                        {% endif %}
-                                        {% if proxy.tag %}
-                                        <span class="badge bg-secondary bg-opacity-25 text-white border border-secondary border-opacity-25 mt-1 align-self-start" data-proxy-tag="{{ proxy.tag }}">{{ proxy.tag }}</span>
-                                        {% endif %}
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="d-flex align-items-center">
-                                        {% if proxy.status == 'running' %}
-                                            <span class="status-dot running" data-proxy-status="running"></span> <span class="ms-2 small text-success fw-bold">فعال</span>
-                                        {% elif proxy.status == 'stopped' %}
-                                            <span class="status-dot stopped" data-proxy-status="stopped"></span> <span class="ms-2 small text-danger fw-bold">متوقف</span>
-                                        {% else %}
-                                            <span class="status-dot warning" data-proxy-status="{{ proxy.status }}"></span> <span class="ms-2 small text-warning fw-bold">{{ proxy.status }}</span>
-                                        {% endif %}
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="d-flex gap-2 align-items-center">
-                                        <span class="badge bg-dark border border-secondary border-opacity-25 text-white"><i class="fas fa-user me-1 text-primary"></i> <span id="proxy-users-{{ proxy.id }}" data-proxy-conn="{{ proxy.active_connections }}">{{ proxy.active_connections }}</span></span>
-                                        <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none small text-cyan-400" onclick="openProxyDetails({{ proxy.id|tojson }}, {{ proxy.port|tojson }})">جزئیات</button>
-                                    </div>
-                                </td>
-                                <td class="small font-monospace">
-                                    <div class="d-flex align-items-center text-white">
-                                        <span class="fw-bold me-1" id="proxy-download-rate-{{ proxy.id }}">0</span> GB
-                                    </div>
-                                </td>
-                                <td class="small" style="min-width: 140px;">
-                                    <div class="d-flex justify-content-between mb-1">
-                                        <span class="text-muted small">حجم:</span>
-                                        <span class="fw-bold text-white"><span id="proxy-quota-used-{{ proxy.id }}">-</span> / <span id="proxy-quota-total-{{ proxy.id }}">-</span> GB</span>
-                                    </div>
-                                    <div class="progress bg-dark" style="height: 6px;">
-                                        <div id="proxy-quota-bar-{{ proxy.id }}" class="progress-bar rounded-pill" role="progressbar" style="width: 0%"></div>
-                                    </div>
-                                    
-                                    {% if proxy.expiry_date %}
-                                    <div class="mt-2 d-flex align-items-center text-muted small">
-                                        <i class="far fa-calendar-alt me-1"></i> 
-                                        <span class="{{ 'text-danger fw-bold' if proxy.expiry_date < now else '' }}">
-                                            {{ proxy.expiry_date.strftime('%Y-%m-%d') }}
-                                        </span>
-                                    </div>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <div class="input-group input-group-sm" style="width: 130px;">
-                                        <input type="text" class="form-control font-monospace border-end-0 text-muted" value="{{ proxy.secret|truncate(10, True, '...') }}" readonly title="{{ proxy.secret }}">
-                                        <button class="btn btn-outline-secondary border-start-0" onclick="copyToClipboard({{ proxy.secret|tojson|forceescape }})">
-                                            <i class="far fa-copy"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                                <td class="text-end pe-4">
-                                    <div class="dropdown">
-                                        <button class="btn btn-light btn-sm rounded-circle shadow-sm" type="button" data-bs-toggle="dropdown">
-                                            <i class="fas fa-ellipsis-v text-muted"></i>
-                                        </button>
-                                        <ul class="dropdown-menu dropdown-menu-end shadow">
-                                            {% if proxy.status == 'running' %}
-                                            <li><a class="dropdown-item text-danger" href="{{ url_for('proxy.stop', id=proxy.id) }}"><i class="fas fa-pause me-2 w-20"></i>توقف</a></li>
+                
+                <div class="card-body-clean p-0">
+                    <div class="table-responsive px-3">
+                        <table id="proxiesTable" class="table-custom">
+                            <thead>
+                                <tr>
+                                    <th>پورت</th>
+                                    <th>نام / تگ</th>
+                                    <th>وضعیت</th>
+                                    <th class="text-center">اتصالات</th>
+                                    <th>حجم کل</th>
+                                    <th>لینک اتصال</th>
+                                    <th class="text-end">عملیات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for proxy in proxies %}
+                                <tr>
+                                    <td class="ps-3 fw-bold font-monospace text-info" data-proxy-port="{{ proxy.port }}" style="font-size: 1.1rem;">{{ proxy.port }}</td>
+                                    <td>
+                                        <div class="d-flex flex-column">
+                                            {% if proxy.name %}
+                                            <span class="fw-bold text-white mb-1">{{ proxy.name }}</span>
                                             {% else %}
-                                            <li><a class="dropdown-item text-success" href="{{ url_for('proxy.start', id=proxy.id) }}"><i class="fas fa-play me-2 w-20"></i>شروع</a></li>
+                                            <span class="text-secondary small fst-italic">- بدون نام -</span>
                                             {% endif %}
-                                            <li><a class="dropdown-item" href="{{ url_for('proxy.restart', id=proxy.id) }}"><i class="fas fa-sync-alt me-2 w-20"></i>ریستارت</a></li>
-                                            <li><a class="dropdown-item" href="{{ url_for('proxy.reset_quota', id=proxy.id) }}"><i class="fas fa-history me-2 w-20"></i>ریست حجم</a></li>
-                                            <li><hr class="dropdown-divider bg-secondary bg-opacity-25"></li>
-                                            <li><button class="dropdown-item" onclick="openProxyEdit({{ proxy.id|tojson }}, {{ proxy.port|tojson }}, {{ proxy.tag|tojson|forceescape }}, {{ ((proxy.quota_bytes / (1024*1024*1024))|round(2) if proxy.quota_bytes else 0)|tojson }}, {{ proxy.secret|tojson|forceescape }}, {{ proxy.status|tojson|forceescape }}, {{ proxy.username|tojson|forceescape }}, {{ proxy.password|tojson|forceescape }}, {{ proxy.proxy_ip|tojson|forceescape }}, {{ proxy.name|tojson|forceescape }})"><i class="fas fa-pen me-2 w-20"></i>ویرایش</button></li>
-                                            <li><button class="dropdown-item" onclick="showLink('{{ proxy.port }}', {{ proxy.secret|tojson|forceescape }}, {{ proxy.proxy_ip|tojson|forceescape }})"><i class="fas fa-link me-2 w-20"></i>لینک اتصال</button></li>
-                                            <li><hr class="dropdown-divider bg-secondary bg-opacity-25"></li>
-                                            <li><a class="dropdown-item text-danger" href="{{ url_for('proxy.delete', id=proxy.id) }}" onclick="return confirm('آیا مطمئن هستید؟')"><i class="fas fa-trash me-2 w-20"></i>حذف</a></li>
-                                        </ul>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="8" class="text-center py-5 text-muted">
-                                    <div class="d-flex flex-column align-items-center">
-                                        <div class="bg-dark bg-opacity-50 rounded-circle p-4 mb-3 border border-secondary border-opacity-25">
-                                            <i class="fas fa-server fa-3x text-secondary opacity-50"></i>
+                                            {% if proxy.tag %}
+                                            <div><span class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary border-opacity-10 rounded-2 fw-normal" data-proxy-tag="{{ proxy.tag }}">{{ proxy.tag }}</span></div>
+                                            {% endif %}
                                         </div>
-                                        <h5 class="text-white">هیچ پروکسی تعریف نشده است</h5>
-                                        <p class="small mb-3">برای شروع، یک پروکسی جدید ایجاد کنید.</p>
-                                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addProxyModal">
-                                            <i class="fas fa-plus me-1"></i> ایجاد پروکسی
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row position-relative" style="z-index: 2;">
-    <div class="col-lg-5 mb-4 mb-lg-0">
-        <div class="card h-100">
-            <div class="card-header border-bottom-0 py-3 d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 fw-bold fs-6 text-white"><i class="fas fa-bell me-2 text-warning"></i>آخرین هشدارها</h5>
-                <span class="badge bg-danger rounded-pill shadow-sm" id="alertsCount">0</span>
-            </div>
-            <div class="card-body p-0">
-                <ul class="list-group list-group-flush small bg-transparent" id="alertsList">
-                    <li class="list-group-item text-muted border-0 py-3 text-center bg-transparent">هشداری ثبت نشده است.</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-7">
-        <div class="card h-100">
-            <div class="card-header border-bottom-0 py-3">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <h5 class="mb-0 fw-bold fs-6 text-white"><i class="fas fa-history me-2 text-secondary"></i>گزارش فعالیت‌ها</h5>
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-light btn-sm border" onclick="updateActivityLogs()"><i class="fas fa-sync-alt"></i></button>
+                                    </td>
+                                    <td>
+                                        {% if proxy.status == 'running' %}
+                                            <span class="status-badge running" data-proxy-status="running">فعال</span>
+                                        {% elif proxy.status == 'stopped' %}
+                                            <span class="status-badge stopped" data-proxy-status="stopped">متوقف</span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark" data-proxy-status="{{ proxy.status }}">{{ proxy.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                         <div class="d-inline-flex align-items-center bg-dark bg-opacity-50 px-2 py-1 rounded-3 border border-white border-opacity-5 cursor-pointer hover-effect" onclick="openProxyDetails({{ proxy.id|tojson }}, {{ proxy.port|tojson }})">
+                                            <i class="fas fa-user-friends text-primary me-2 small"></i>
+                                            <span id="proxy-users-{{ proxy.id }}" class="text-white fw-bold small">{{ proxy.active_connections }}</span>
+                                        </div>
+                                    </td>
+                                    <td style="min-width: 150px;">
+                                        <div class="d-flex justify-content-between small mb-1">
+                                            <span class="text-secondary" id="proxy-quota-used-{{ proxy.id }}">-</span>
+                                            <span class="text-white fw-bold" id="proxy-quota-total-{{ proxy.id }}">- GB</span>
+                                        </div>
+                                        <div class="progress bg-dark bg-opacity-50" style="height: 4px;">
+                                            <div id="proxy-quota-bar-{{ proxy.id }}" class="progress-bar rounded-pill bg-gradient-to-r from-green-400 to-emerald-500" role="progressbar" style="width: 0%"></div>
+                                        </div>
+                                         {% if proxy.expiry_date %}
+                                        <div class="mt-1 d-flex align-items-center text-secondary" style="font-size: 0.7rem;">
+                                            <i class="far fa-clock me-1"></i> 
+                                            <span class="{{ 'text-danger fw-bold' if proxy.expiry_date < now else '' }}">
+                                                {{ proxy.expiry_date.strftime('%Y-%m-%d') }}
+                                            </span>
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                             <button class="btn btn-outline-secondary btn-sm border-0 text-secondary hover-text-white" onclick="copyToClipboard({{ proxy.secret|tojson|forceescape }})" title="کپی سکرت">
+                                                <i class="far fa-copy fa-lg"></i>
+                                            </button>
+                                            <button class="btn btn-outline-info btn-sm border-0 text-info" onclick="showLink('{{ proxy.port }}', {{ proxy.secret|tojson|forceescape }}, {{ proxy.proxy_ip|tojson|forceescape }})" title="لینک QR">
+                                                <i class="fas fa-qrcode fa-lg"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="dropdown">
+                                            <button class="btn btn-link text-secondary p-0" type="button" data-bs-toggle="dropdown">
+                                                <i class="fas fa-ellipsis-v"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end shadow-lg bg-dark border border-secondary border-opacity-25">
+                                                {% if proxy.status == 'running' %}
+                                                <li><a class="dropdown-item text-danger small" href="{{ url_for('proxy.stop', id=proxy.id) }}"><i class="fas fa-pause me-2"></i>توقف</a></li>
+                                                {% else %}
+                                                <li><a class="dropdown-item text-success small" href="{{ url_for('proxy.start', id=proxy.id) }}"><i class="fas fa-play me-2"></i>شروع</a></li>
+                                                {% endif %}
+                                                <li><a class="dropdown-item text-white small" href="{{ url_for('proxy.restart', id=proxy.id) }}"><i class="fas fa-sync-alt me-2"></i>ریستارت</a></li>
+                                                <li><hr class="dropdown-divider bg-secondary bg-opacity-25"></li>
+                                                <li><button class="dropdown-item text-white small" onclick="openProxyEdit({{ proxy.id|tojson }}, {{ proxy.port|tojson }}, {{ proxy.tag|tojson|forceescape }}, {{ ((proxy.quota_bytes / (1024*1024*1024))|round(2) if proxy.quota_bytes else 0)|tojson }}, {{ proxy.secret|tojson|forceescape }}, {{ proxy.status|tojson|forceescape }}, {{ proxy.username|tojson|forceescape }}, {{ proxy.password|tojson|forceescape }}, {{ proxy.proxy_ip|tojson|forceescape }}, {{ proxy.name|tojson|forceescape }})"><i class="fas fa-pen me-2"></i>ویرایش</button></li>
+                                                <li><a class="dropdown-item text-danger small" href="{{ url_for('proxy.delete', id=proxy.id) }}" onclick="return confirm('آیا مطمئن هستید؟')"><i class="fas fa-trash me-2"></i>حذف</a></li>
+                                            </ul>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-5">
+                                        <div class="d-flex flex-column align-items-center text-secondary opacity-50">
+                                            <i class="fas fa-ghost fa-3x mb-3"></i>
+                                            <p>هیچ پروکسی یافت نشد!</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
-            <div class="card-body p-0">
-                <ul class="list-group list-group-flush small bg-transparent" id="activityList">
-                    {% for log in logs %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center border-bottom-1 border-secondary border-opacity-10 py-3 bg-transparent text-white">
-                        <div class="d-flex align-items-center">
-                            <div class="bg-dark bg-opacity-50 border border-secondary border-opacity-25 rounded p-2 me-3 text-secondary">
-                                <i class="fas fa-terminal"></i>
-                            </div>
-                            <div>
-                                <div class="fw-bold text-white">{{ log.action }}</div>
-                                <div class="text-muted small">{{ log.details }}</div>
-                            </div>
-                        </div>
-                        <span class="text-muted small">{{ log.timestamp.strftime('%H:%M') }}</span>
-                    </li>
-                    {% endfor %}
-                </ul>
+        </div>
+    </div>
+
+    <!-- لاگ‌ها و اعلان‌ها -->
+    <div class="row fade-in-up delay-3" style="position: relative; z-index: 2;">
+        <div class="col-lg-5 mb-4 mb-lg-0">
+            <div class="glass-card h-100">
+                <div class="card-header-clean d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 text-white"><i class="fas fa-bell me-2 text-warning"></i>اعلان‌های سیستم</h6>
+                    <span class="badge bg-danger rounded-pill shadow-sm" id="alertsCount">0</span>
+                </div>
+                <div class="card-body-clean p-0">
+                     <ul class="list-group list-group-flush bg-transparent" id="alertsList">
+                        <li class="list-group-item text-secondary border-0 py-4 text-center bg-transparent">هشداری ثبت نشده است.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-7">
+            <div class="glass-card h-100">
+                <div class="card-header-clean d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 text-white"><i class="fas fa-history me-2 text-secondary"></i>گزارش فعالیت‌ها</h6>
+                    <button class="btn btn-sm btn-link text-secondary p-0" onclick="updateActivityLogs()"><i class="fas fa-sync-alt"></i></button>
+                </div>
+                <div class="card-body-clean p-0">
+                    <ul class="list-group list-group-flush bg-transparent" id="activityList">
+                        <!-- Activity items filled by JS -->
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
@@ -506,37 +514,37 @@
 <!-- Bulk Create Modal -->
 <div class="modal fade" id="bulkCreateModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">ساخت گروهی پروکسی</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-content glass-card border-0">
+            <div class="modal-header border-bottom border-secondary border-opacity-10">
+                <h5 class="modal-title text-white">ساخت گروهی پروکسی</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form action="{{ url_for('proxy.bulk_create') }}" method="POST">
                 <div class="modal-body">
-                    <div class="alert alert-info small border-0 bg-info bg-opacity-10 text-info">
+                    <div class="alert alert-info small bg-info bg-opacity-10 text-info border-0 rounded-3">
                         <i class="fas fa-info-circle me-1"></i>
                         پروکسی‌ها به صورت متوالی از پورت شروع ساخته می‌شوند.
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-muted">پورت شروع</label>
+                        <label class="form-label text-secondary small">پورت شروع</label>
                         <input type="number" name="start_port" class="form-control" required placeholder="مثلاً 20000">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-muted">تعداد پروکسی</label>
+                        <label class="form-label text-secondary small">تعداد پروکسی</label>
                         <input type="number" name="count" class="form-control" required min="1" max="50" value="10">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-muted">تگ (مشترک)</label>
+                        <label class="form-label text-secondary small">تگ (مشترک)</label>
                         <input type="text" name="tag" class="form-control" placeholder="تگ...">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-muted">پیشوند نام (اختیاری)</label>
+                        <label class="form-label text-secondary small">پیشوند نام (اختیاری)</label>
                         <input type="text" name="name_prefix" class="form-control" placeholder="مثلاً: کاربر">
                     </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer border-top border-secondary border-opacity-10">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
-                    <button type="submit" class="btn btn-success">شروع ساخت</button>
+                    <button type="submit" class="btn btn-glow-primary">شروع ساخت</button>
                 </div>
             </form>
         </div>
@@ -546,66 +554,58 @@
 <!-- Add Proxy Modal -->
 <div class="modal fade" id="addProxyModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">افزودن پروکسی جدید</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-content glass-card border-0">
+            <div class="modal-header border-bottom border-secondary border-opacity-10">
+                <h5 class="modal-title text-white">افزودن پروکسی جدید</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form action="{{ url_for('proxy.add') }}" method="POST">
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label text-muted">شماره پورت</label>
-                        <input type="number" name="port" class="form-control" required placeholder="مثلاً 443">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label text-muted">آی‌پی اتصال (Bind IP)</label>
-                        <input type="text" name="proxy_ip" class="form-control" placeholder="0.0.0.0 (پیش‌فرض)">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label text-muted">نام پروکسی (اختیاری)</label>
-                        <input type="text" name="name" class="form-control" placeholder="مثلاً: کاربر ۱">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label text-muted">نوع پروکسی</label>
-                        <select name="proxy_type" id="proxyType" class="form-select" onchange="toggleProxyFields()">
-                            <option value="standard">استاندارد</option>
-                            <option value="dd">DD</option>
-                            <option value="tls">TLS</option>
-                        </select>
-                    </div>
-                    <div class="mb-3 d-none" id="tlsDomainField">
-                        <label class="form-label text-muted">دامنه TLS</label>
-                        <input type="text" name="tls_domain" class="form-control" value="google.com">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label text-muted">سکرت (Secret)</label>
-                        <div class="input-group">
-                            <input type="text" name="secret" id="newSecret" class="form-control" placeholder="تولید خودکار در صورت خالی بودن">
-                            <button class="btn btn-outline-secondary" type="button" onclick="generateSecret()">تولید تصادفی</button>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small">شماره پورت</label>
+                            <input type="number" name="port" class="form-control" required placeholder="مثلاً 443">
                         </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label text-muted">تگ تبلیغاتی (اختیاری)</label>
-                        <input type="text" name="tag" class="form-control" placeholder="تگ...">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label text-muted">تعداد Worker</label>
-                        <input type="number" name="workers" class="form-control" value="1" min="1" max="4">
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label text-muted">سقف حجم (GB)</label>
-                            <input type="number" name="quota_gb" class="form-control" min="0" step="0.1" placeholder="۰ = نامحدود">
+                         <div class="col-md-6">
+                            <label class="form-label text-secondary small">نوع پروکسی</label>
+                            <select name="proxy_type" id="proxyType" class="form-select" onchange="toggleProxyFields()">
+                                <option value="standard">استاندارد</option>
+                                <option value="dd">DD</option>
+                                <option value="tls">TLS</option>
+                            </select>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label text-muted">اعتبار زمانی (روز)</label>
-                            <input type="number" name="expiry_days" class="form-control" min="0" placeholder="۰ = نامحدود">
+                        <div class="col-12">
+                             <label class="form-label text-secondary small">آی‌پی اتصال (Bind IP)</label>
+                             <input type="text" name="proxy_ip" class="form-control font-monospace" placeholder="0.0.0.0 (پیش‌فرض)">
+                        </div>
+                         <div class="col-12">
+                            <label class="form-label text-secondary small">نام پروکسی</label>
+                            <input type="text" name="name" class="form-control" placeholder="نام کاربر...">
+                        </div>
+                        <div class="col-12 d-none" id="tlsDomainField">
+                            <label class="form-label text-secondary small">دامنه TLS</label>
+                            <input type="text" name="tls_domain" class="form-control" value="google.com">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label text-secondary small">سکرت (Secret)</label>
+                            <div class="input-group">
+                                <input type="text" name="secret" id="newSecret" class="form-control font-monospace text-secondary" placeholder="خالی = تولید خودکار">
+                                <button class="btn btn-outline-secondary" type="button" onclick="generateSecret()">تاس</button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small">تگ</label>
+                            <input type="text" name="tag" class="form-control" placeholder="تبلیغات...">
+                        </div>
+                         <div class="col-md-6">
+                             <label class="form-label text-secondary small">سقف حجم (GB)</label>
+                             <input type="number" name="quota_gb" class="form-control" min="0" step="0.1" placeholder="۰ = نامحدود">
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer border-top border-secondary border-opacity-10">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
-                    <button type="submit" class="btn btn-primary">ایجاد پروکسی</button>
+                    <button type="submit" class="btn btn-glow-primary">ایجاد پروکسی</button>
                 </div>
             </form>
         </div>
@@ -615,86 +615,67 @@
 <!-- Edit Proxy Modal -->
 <div class="modal fade" id="editProxyModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">ویرایش پروکسی</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-content glass-card border-0">
+            <div class="modal-header border-bottom border-secondary border-opacity-10">
+                <h5 class="modal-title text-white">ویرایش پروکسی</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form id="editProxyForm" method="POST">
                 <div class="modal-body">
-                    <div class="alert alert-warning small border-0 bg-warning bg-opacity-10 text-warning">
+                    <div class="alert alert-warning small bg-warning bg-opacity-10 text-warning border-0 rounded-3 mb-4">
                         <i class="fas fa-exclamation-triangle me-1"></i>
-                        تغییر پورت، سکرت یا آی‌پی باعث <b>بازسازی کانتینر</b> می‌شود.
+                        هشدار: تغییر پورت، سکرت یا آی‌پی باعث <b>ریستارت شدن</b> کانتینر می‌شود.
                     </div>
                     
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label text-muted">شماره پورت</label>
+                            <label class="form-label text-secondary small">شماره پورت</label>
                             <input type="number" name="port" id="editProxyPort" class="form-control" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label text-muted">آی‌پی اتصال (Bind IP)</label>
-                            <input type="text" name="proxy_ip" id="editProxyIP" class="form-control" placeholder="0.0.0.0">
+                            <label class="form-label text-secondary small">آی‌پی اتصال</label>
+                            <input type="text" name="proxy_ip" id="editProxyIP" class="form-control font-monospace" placeholder="0.0.0.0">
                         </div>
                         
-                        <div class="col-md-12">
-                            <label class="form-label text-muted">سکرت (Secret)</label>
+                        <div class="col-12">
+                            <label class="form-label text-secondary small">سکرت</label>
                             <div class="input-group">
-                                <input type="text" name="secret" id="editProxySecret" class="form-control font-monospace">
+                                <input type="text" name="secret" id="editProxySecret" class="form-control font-monospace text-secondary">
                                 <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('editProxySecret').value = generateRandomHex()">
-                                    <i class="fas fa-dice"></i>
+                                    <i class="fas fa-sync"></i>
                                 </button>
                             </div>
                         </div>
                         
                         <div class="col-md-6">
-                            <label class="form-label text-muted">نام پروکسی</label>
+                            <label class="form-label text-secondary small">نام پروکسی</label>
                             <input type="text" name="name" id="editProxyName" class="form-control">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label text-muted">تگ</label>
-                            <input type="text" name="tag" id="editProxyTag" class="form-control">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">وضعیت</label>
+                             <label class="form-label text-secondary small">وضعیت</label>
                             <select name="status" id="editProxyStatus" class="form-select">
-                                <option value="running">فعال (Running)</option>
-                                <option value="stopped">متوقف (Stopped)</option>
+                                <option value="running">فعال</option>
+                                <option value="stopped">متوقف</option>
                             </select>
                         </div>
-                        
-                        <div class="col-md-12">
-                            <hr class="my-2 border-secondary border-opacity-25">
-                            <h6 class="text-secondary small mb-3">اطلاعات کاربری (SOCKS5)</h6>
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">نام کاربری</label>
-                            <input type="text" name="username" id="editProxyUser" class="form-control">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">رمز عبور</label>
-                            <input type="text" name="password" id="editProxyPass" class="form-control">
-                        </div>
 
-                        <div class="col-md-12">
-                            <hr class="my-2 border-secondary border-opacity-25">
-                            <h6 class="text-secondary small mb-3">محدودیت‌ها</h6>
+                         <div class="col-12 mt-4">
+                            <h6 class="text-white small border-bottom border-secondary border-opacity-25 pb-2 mb-3">تنظیمات پیشرفته</h6>
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label text-muted">سقف حجم (GB)</label>
+                            <label class="form-label text-secondary small">محدودیت حجم (GB)</label>
                             <input type="number" name="quota_gb" id="editProxyQuota" class="form-control" min="0" step="0.1">
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">تمدید اعتبار (روز)</label>
+                         <div class="col-md-6">
+                            <label class="form-label text-secondary small">اعتبار زمانی (روز)</label>
                             <input type="number" name="expiry_days" id="editProxyExpiry" class="form-control" min="0">
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
-                    <button type="submit" class="btn btn-primary">ذخیره تغییرات</button>
+                <div class="modal-footer border-top border-secondary border-opacity-10">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">لغو</button>
+                    <button type="submit" class="btn btn-glow-primary">ذخیره تغییرات</button>
                 </div>
             </form>
         </div>
@@ -704,67 +685,72 @@
 <!-- Details Modal -->
 <div class="modal fade" id="proxyDetailsModal" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">جزئیات پروکسی: <span id="detailsPort" class="font-monospace text-cyan-300"></span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-content glass-card border-0">
+            <div class="modal-header border-bottom border-secondary border-opacity-10">
+                <h5 class="modal-title text-white">جزئیات پروکسی <span id="detailsPort" class="font-monospace text-info mx-2"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="row g-3">
-                    <div class="col-lg-5">
-                        <div class="card h-100">
-                            <div class="card-header border-bottom-0 py-3 d-flex justify-content-between align-items-center">
-                                <h6 class="mb-0 fw-bold text-white"><i class="fas fa-users me-2 text-primary"></i>کاربران متصل</h6>
-                                <input id="connIpFilter" class="form-control form-control-sm border-0" style="max-width: 150px;" placeholder="فیلتر IP...">
+                <div class="row g-4">
+                    <div class="col-lg-4">
+                         <div class="card bg-transparent border border-secondary border-opacity-10 h-100">
+                            <div class="card-header border-bottom border-secondary border-opacity-10 py-3 d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0 text-white small"><i class="fas fa-users me-2 text-primary"></i>کاربران آنلاین</h6>
+                                <input id="connIpFilter" class="form-control form-control-sm bg-dark border-secondary border-opacity-25 text-white" style="max-width: 100px; font-size: 0.7rem;" placeholder="فیلتر IP">
                             </div>
                             <div class="card-body p-0">
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-hover mb-0">
-                                        <thead>
+                                <div class="table-responsive" style="max-height: 300px;">
+                                    <table class="table table-sm table-hover mb-0 text-white small">
+                                        <thead class="text-secondary">
                                             <tr>
-                                                <th>IP</th>
-                                                <th>کشور</th>
-                                                <th>زمان</th>
+                                                <th class="ps-3 border-0">IP</th>
+                                                <th class="border-0">کشور</th>
+                                                <th class="border-0">مدت</th>
                                             </tr>
                                         </thead>
                                         <tbody id="connectionsTable">
-                                            <tr><td colspan="3" class="text-center text-muted py-3">در حال دریافت...</td></tr>
+                                            <tr><td colspan="3" class="text-center text-muted py-3">در حال بارگذاری...</td></tr>
                                         </tbody>
                                     </table>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-7">
-                        <div class="card mb-3">
-                            <div class="card-header border-bottom-0 py-3">
-                                <h6 class="mb-0 fw-bold text-white"><i class="fas fa-chart-line me-2 text-danger"></i>نمودار اتصال‌ها (۱ ساعت اخیر)</h6>
-                            </div>
-                            <div class="card-body pt-0">
-                                <div style="position: relative; height: 200px; width: 100%;">
-                                    <canvas id="connectionsChart"></canvas>
+                    <div class="col-lg-8">
+                        <div class="row g-4">
+                             <div class="col-12">
+                                <div class="card bg-transparent border border-secondary border-opacity-10">
+                                    <div class="card-header border-0 py-3">
+                                        <h6 class="mb-0 text-white small"><i class="fas fa-wave-square me-2 text-danger"></i>ترافیک لحظه‌ای</h6>
+                                    </div>
+                                    <div class="card-body pt-0">
+                                        <div style="position: relative; height: 180px; width: 100%;">
+                                            <canvas id="connectionsChart"></canvas>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                        <div class="card">
-                            <div class="card-header border-bottom-0 py-3 d-flex justify-content-between align-items-center">
-                                <h6 class="mb-0 fw-bold text-white"><i class="fas fa-chart-bar me-2 text-success"></i>تاریخچه مصرف</h6>
-                                <select id="usageGranularity" class="form-select form-select-sm border-0" style="max-width: 120px;">
-                                    <option value="hourly">ساعتی</option>
-                                    <option value="daily" selected>روزانه</option>
-                                    <option value="monthly">ماهانه</option>
-                                </select>
-                            </div>
-                            <div class="card-body pt-0">
-                                <div style="position: relative; height: 200px; width: 100%;">
-                                    <canvas id="usageChart"></canvas>
+                             </div>
+                             <div class="col-12">
+                                 <div class="card bg-transparent border border-secondary border-opacity-10">
+                                    <div class="card-header border-0 py-3 d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0 text-white small"><i class="fas fa-history me-2 text-success"></i>تاریخچه مصرف</h6>
+                                        <select id="usageGranularity" class="form-select form-select-sm bg-dark text-white border-secondary border-opacity-25" style="max-width: 100px;">
+                                            <option value="hourly">ساعتی</option>
+                                            <option value="daily" selected>روزانه</option>
+                                        </select>
+                                    </div>
+                                    <div class="card-body pt-0">
+                                        <div style="position: relative; height: 180px; width: 100%;">
+                                            <canvas id="usageChart"></canvas>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer border-top border-secondary border-opacity-10">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
             </div>
         </div>
@@ -777,12 +763,12 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    // --- Starfield Animation ---
+    // --- تنظیمات گرافیکی بوم ستاره‌ها (Starfield) ---
     const canvas = document.getElementById('starfield');
     const ctx = canvas.getContext('2d');
     let width, height;
     let stars = [];
-    const numStars = 100;
+    const numStars = 150; // تعداد ستاره‌ها
 
     function resizeCanvas() {
         width = window.innerWidth;
@@ -795,10 +781,10 @@
         reset() {
             this.x = Math.random() * width;
             this.y = Math.random() * height;
-            this.size = Math.random() * 2 + 0.1;
-            this.speed = Math.random() * 0.2 + 0.05;
-            this.opacity = Math.random();
-            this.fadeDirection = Math.random() > 0.5 ? 0.01 : -0.01;
+            this.size = Math.random() * 1.5 + 0.5; // ستاره‌های کوچک‌تر و ظریف‌تر
+            this.speed = Math.random() * 0.1 + 0.02; // سرعت کمتر برای آرامش بیشتر
+            this.opacity = Math.random() * 0.8;
+            this.fadeDirection = Math.random() > 0.5 ? 0.005 : -0.005;
         }
         update() {
             this.y -= this.speed;
@@ -823,21 +809,28 @@
     resizeCanvas(); initStars(); animateStars();
 
 
-    // --- Dashboard Scripts ---
+    // --- منطق داشبورد ---
+    
+    // کپی در کلیپ بورد
     function copyToClipboard(text) {
         navigator.clipboard.writeText(text);
-        Swal.fire({
+        const Toast = Swal.mixin({
             toast: true,
             position: 'top-end',
-            icon: 'success',
-            title: 'کپی شد!',
             showConfirmButton: false,
-            timer: 1500,
+            timer: 2000,
+            timerProgressBar: true,
             background: '#1e293b',
-            color: '#fff'
+            color: '#fff',
+            didOpen: (toast) => {
+                toast.addEventListener('mouseenter', Swal.stopTimer)
+                toast.addEventListener('mouseleave', Swal.resumeTimer)
+            }
         });
+        Toast.fire({ icon: 'success', title: 'کپی شد' });
     }
 
+    // تولید سکرت
     function generateSecret() {
         const type = document.getElementById('proxyType').value;
         const hex = [...Array(32)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
@@ -849,7 +842,8 @@
         }
         document.getElementById('newSecret').value = secret;
     }
-
+    
+    // مدیریت فیلدها بر اساس نوع پروکسی
     function toggleProxyFields() {
         const type = document.getElementById('proxyType').value;
         const tlsField = document.getElementById('tlsDomainField');
@@ -857,143 +851,112 @@
         else tlsField.classList.add('d-none');
     }
 
+    // نمایش لینک اتصال
     function showLink(port, secret, proxyIp) {
         const serverIp = proxyIp || '{{ server_ip }}' || window.location.hostname;
-        const serverDomain = '{{ server_domain }}';
-        let ipLink = `tg://proxy?server=${serverIp}&port=${port}&secret=${secret}`;
-        let domainLink = serverDomain ? `tg://proxy?server=${serverDomain}&port=${port}&secret=${secret}` : null;
+        const link = `tg://proxy?server=${serverIp}&port=${port}&secret=${secret}`;
         
-        let htmlContent = `
-            <label class="form-label text-white">اتصال با IP:</label>
-            <div class="input-group mb-3">
-                <input type="text" class="form-control text-center font-monospace bg-dark text-white border-secondary" value="${ipLink}" readonly>
-                <button class="btn btn-outline-secondary" onclick="copyToClipboard('${ipLink}')"><i class="far fa-copy"></i></button>
-                <a href="${ipLink}" class="btn btn-primary"><i class="fas fa-paper-plane"></i></a>
-            </div>
-        `;
-        if (domainLink) {
-            htmlContent += `
-                <hr class="bg-secondary">
-                <label class="form-label text-white">اتصال با دامنه:</label>
-                <div class="input-group mb-3">
-                    <input type="text" class="form-control text-center font-monospace bg-dark text-white border-secondary" value="${domainLink}" readonly>
-                    <button class="btn btn-outline-secondary" onclick="copyToClipboard('${domainLink}')"><i class="far fa-copy"></i></button>
-                    <a href="${domainLink}" class="btn btn-success"><i class="fas fa-paper-plane"></i></a>
-                </div>
-            `;
-        }
         Swal.fire({
-            title: 'لینک اتصال',
-            html: htmlContent,
+            title: '<h5 class="text-white">لینک اتصال</h5>',
+            html: `
+                <div class="mb-3">
+                    <div class="input-group">
+                         <input type="text" class="form-control bg-dark text-white border-secondary border-opacity-25 font-monospace text-center" value="${link}" readonly>
+                         <button class="btn btn-outline-primary" onclick="copyToClipboard('${link}')"><i class="fas fa-copy"></i></button>
+                    </div>
+                </div>
+                <div class="d-grid">
+                    <a href="${link}" class="btn btn-glow-primary"><i class="fab fa-telegram-plane me-2"></i>اتصال به تلگرام</a>
+                </div>
+            `,
+            background: '#0f172a',
             showConfirmButton: false,
             showCloseButton: true,
-            width: '600px',
-            background: '#0f172a',
-            color: '#fff',
-            customClass: { popup: 'border border-secondary' }
+            customClass: { popup: 'border border-secondary border-opacity-25 rounded-4' }
         });
     }
 
-    // Chart Options Dark Theme
+    // تنظیمات سراسری نمودارها
     Chart.defaults.font.family = 'Vazirmatn';
-    Chart.defaults.color = '#cbd5e1';
+    Chart.defaults.color = '#94a3b8';
     Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
+    Chart.defaults.scale.grid.color = 'rgba(255, 255, 255, 0.05)';
 
-    // System Monitor Chart
+    // نمودار منابع سیستم
     const sysCtx = document.getElementById('systemChart').getContext('2d');
-    const gradientCpu = sysCtx.createLinearGradient(0, 0, 0, 400);
-    gradientCpu.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
-    gradientCpu.addColorStop(1, 'rgba(59, 130, 246, 0.05)');
-
-    const gradientRam = sysCtx.createLinearGradient(0, 0, 0, 400);
-    gradientRam.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
-    gradientRam.addColorStop(1, 'rgba(16, 185, 129, 0.05)');
-
     const systemChart = new Chart(sysCtx, {
         type: 'line',
         data: {
             labels: Array(20).fill(''),
             datasets: [{
-                label: 'CPU %',
+                label: 'CPU',
                 data: Array(20).fill(0),
-                borderColor: '#3b82f6',
-                backgroundColor: gradientCpu,
+                borderColor: '#8b5cf6', // بنفش
+                backgroundColor: (ctx) => {
+                    const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 300);
+                    gradient.addColorStop(0, 'rgba(139, 92, 246, 0.4)');
+                    gradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
+                    return gradient;
+                },
                 tension: 0.4,
                 fill: true,
                 pointRadius: 0,
                 borderWidth: 2
             }, {
-                label: 'RAM %',
+                label: 'RAM',
                 data: Array(20).fill(0),
-                borderColor: '#10b981',
-                backgroundColor: gradientRam,
+                borderColor: '#10b981', // سبز
+                backgroundColor: 'transparent',
                 tension: 0.4,
-                fill: true,
                 pointRadius: 0,
-                borderWidth: 2
+                borderWidth: 2,
+                borderDash: [5, 5]
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { 
-                legend: { position: 'top', align: 'end', labels: { color: '#e2e8f0' } },
-                tooltip: {
-                    mode: 'index',
-                    intersect: false,
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                    titleColor: '#fff',
-                    bodyColor: '#cbd5e1',
-                    borderColor: 'rgba(255,255,255,0.1)',
-                    borderWidth: 1
-                }
-            },
-            scales: { 
-                y: { beginAtZero: true, max: 100, grid: { color: 'rgba(255,255,255,0.05)' } },
-                x: { display: false }
-            },
-            animation: false
+            plugins: { legend: { display: true, position: 'top', align: 'end' }, tooltip: { mode: 'index', intersect: false } },
+            scales: { y: { beginAtZero: true, max: 100 }, x: { display: false } },
+            animation: false,
+            interaction: { mode: 'nearest', axis: 'x', intersect: false }
         }
     });
 
-    // Traffic Chart
+    // نمودار ترافیک
     const trafficCtx = document.getElementById('trafficChart').getContext('2d');
     const trafficChart = new Chart(trafficCtx, {
         type: 'bar',
         data: {
-                labels: [],
-                datasets: [{
-                    label: 'ترافیک مصرفی (MB)',
-                    data: [],
-                    backgroundColor: '#06b6d4',
-                    borderRadius: 4
-                }]
-            },
+            labels: [],
+            datasets: [{
+                label: 'دانلود (GB)',
+                data: [],
+                backgroundColor: '#06b6d4',
+                borderRadius: 4,
+                barThickness: 12
+            }]
+        },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { position: 'top', align: 'end' } },
-            scales: { 
-                y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
-                x: { grid: { display: false } }
-            }
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true }, x: { grid: { display: false } } }
         }
     });
 
+    // متغیرهای سراسری
     let currentProxyId = null;
-    let connectionsChart = null;
-    let usageChart = null;
+    let connectionsChart, usageChart;
     let lastAlertId = 0;
-    let proxyDetailsModal = null;
-    let editProxyModal = null;
-    let lastNetSent = null;
-    let lastNetRecv = null;
-    let lastTime = Date.now();
+    let proxyDetailsModal, editProxyModal;
+    let lastNetSent = null, lastNetRecv = null, lastTime = Date.now();
 
     function generateRandomHex() {
         return [...Array(32)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
     }
 
+    // باز کردن مودال ویرایش
     function openProxyEdit(id, port, tag, quotaGb, secret, status, user, pass, ip, name) {
         const form = document.getElementById('editProxyForm');
         form.action = `/proxy/update/${id}`;
@@ -1001,26 +964,23 @@
         document.getElementById('editProxyPort').value = port;
         document.getElementById('editProxyName').value = name || '';
         document.getElementById('editProxyTag').value = tag || '';
-        document.getElementById('editProxyQuota').value = quotaGb && quotaGb > 0 ? quotaGb : '';
+        document.getElementById('editProxyQuota').value = quotaGb > 0 ? quotaGb : '';
         document.getElementById('editProxySecret').value = secret || '';
         document.getElementById('editProxyStatus').value = status || 'running';
-        document.getElementById('editProxyUser').value = user || '';
-        document.getElementById('editProxyPass').value = pass || '';
         document.getElementById('editProxyIP').value = ip || '';
         
-        if (!editProxyModal) {
-            editProxyModal = new bootstrap.Modal(document.getElementById('editProxyModal'));
-        }
+        if (!editProxyModal) editProxyModal = new bootstrap.Modal(document.getElementById('editProxyModal'));
         editProxyModal.show();
     }
 
+    // باز کردن مودال جزئیات
     function openProxyDetails(proxyId, port) {
         currentProxyId = proxyId;
         document.getElementById('detailsPort').innerText = port;
         if (!proxyDetailsModal) {
             proxyDetailsModal = new bootstrap.Modal(document.getElementById('proxyDetailsModal'));
-            document.getElementById('usageGranularity').addEventListener('change', () => { if (currentProxyId) updateUsageHistory(currentProxyId); });
-            document.getElementById('connIpFilter').addEventListener('input', () => { if (currentProxyId) updateLiveConnections(currentProxyId); });
+            document.getElementById('usageGranularity').addEventListener('change', () => { if(currentProxyId) updateUsageHistory(currentProxyId); });
+            document.getElementById('connIpFilter').addEventListener('input', () => { if(currentProxyId) updateLiveConnections(currentProxyId); });
         }
         proxyDetailsModal.show();
         ensureDetailsCharts();
@@ -1031,81 +991,87 @@
 
     function ensureDetailsCharts() {
         if (!connectionsChart) {
-            const ctx = document.getElementById('connectionsChart').getContext('2d');
-            connectionsChart = new Chart(ctx, {
+            connectionsChart = new Chart(document.getElementById('connectionsChart'), {
                 type: 'line',
-                data: { labels: [], datasets: [{ label: 'اتصال فعال', data: [], borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.2)', tension: 0.35, fill: true, pointRadius: 0 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true }, x: { display: false } }, animation: false }
+                data: { labels: [], datasets: [{ label: 'اتصال', data: [], borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.2)', fill: true, tension: 0.4, pointRadius: 0 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { beginAtZero: true } }, animation: false }
             });
         }
         if (!usageChart) {
-            const ctx = document.getElementById('usageChart').getContext('2d');
-            usageChart = new Chart(ctx, {
+            usageChart = new Chart(document.getElementById('usageChart'), {
                 type: 'bar',
-                data: { labels: [], datasets: [{ label: 'ترافیک (MB)', data: [], backgroundColor: '#10b981', borderRadius: 2 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true }, x: { display: false } } }
+                data: { labels: [], datasets: [{ label: 'MB', data: [], backgroundColor: '#10b981', borderRadius: 2 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { beginAtZero: true } } }
             });
         }
     }
-    
+
     function formatUptime(seconds) {
         const d = Math.floor(seconds / (3600*24));
         const h = Math.floor(seconds % (3600*24) / 3600);
         const m = Math.floor(seconds % 3600 / 60);
-        if (d > 0) return `${d} روز, ${h} ساعت`;
-        return `${h} ساعت, ${m} دقیقه`;
+        return d > 0 ? `${d} روز` : `${h}:${m}`;
     }
 
-    // --- Data Update Functions ---
+    // --- توابع بروزرسانی داده‌ها (Ajax) ---
+    
     function updateSystemStats() {
         fetch('/api/stats').then(r => r.json()).then(data => {
+            // بروزرسانی مقادیر متنی
             document.getElementById('cpu-usage').innerText = data.cpu;
             document.getElementById('ram-usage').innerText = data.mem_percent;
             document.getElementById('ram-used').innerText = data.mem_used;
             document.getElementById('ram-total').innerText = data.mem_total;
-            document.getElementById('cpu-bar').style.width = data.cpu + '%';
-            document.getElementById('ram-bar').style.width = data.mem_percent + '%';
-            if (data.uptime) document.getElementById('uptime-display').innerText = formatUptime(data.uptime);
-            if (data.load_avg) document.getElementById('load-avg-display').innerText = `Load: ${data.load_avg[0]}`;
+            if(data.uptime) document.getElementById('uptime-display').innerText = formatUptime(data.uptime);
+            if(data.load_avg) document.getElementById('load-avg-display').innerText = data.load_avg[0];
 
+            // محاسبه سرعت شبکه
             const now = Date.now();
             const timeDiff = (now - lastTime) / 1000;
             if (lastNetSent !== null && timeDiff > 0) {
-                const recvDiff = (data.net_recv - lastNetRecv) * 1024 * 1024;
-                const downSpeed = (recvDiff / timeDiff) / (1024 * 1024);
-                document.getElementById('net-down-speed').innerText = downSpeed.toFixed(2);
+                const recvDiff = (data.net_recv - lastNetRecv) * 1024 * 1024; // تبدیل به بایت (فرض بر این است که API مگابایت می‌دهد یا اصلاح شود)
+                // اگر API بایت برمی‌گرداند، ضرب در 1024 نکنید. اینجا فرض بر فرمت قبلی است.
+                // با فرض اینکه API عدد خام (MB) می‌دهد:
+                const mbDiff = data.net_recv - lastNetRecv;
+                const speed = mbDiff / timeDiff; // MB/s
+                document.getElementById('net-down-speed').innerText = Math.max(0, speed).toFixed(2);
             }
             lastNetSent = data.net_sent; lastNetRecv = data.net_recv; lastTime = now;
             document.getElementById('net-total-down').innerText = Math.round(data.net_recv / 1024) + " GB";
 
+            // بروزرسانی پراگرس بارها
+            document.getElementById('cpu-bar').style.width = data.cpu + '%';
+            document.getElementById('ram-bar').style.width = data.mem_percent + '%';
+
+            // بروزرسانی نمودار
             const chartData = systemChart.data;
-            chartData.datasets[0].data.shift(); chartData.datasets[1].data.shift();
-            chartData.datasets[0].data.push(data.cpu); chartData.datasets[1].data.push(data.mem_percent);
+            chartData.datasets[0].data.shift(); chartData.datasets[0].data.push(data.cpu);
+            chartData.datasets[1].data.shift(); chartData.datasets[1].data.push(data.mem_percent);
             systemChart.update();
-        });
+        }).catch(err => console.error(err));
     }
 
     function updateProxyStats() {
         fetch('/api/proxies').then(r => r.json()).then(data => {
             data.forEach(proxy => {
-                const usersEl = document.getElementById(`proxy-users-${proxy.id}`);
-                const dlRateEl = document.getElementById(`proxy-download-rate-${proxy.id}`);
-                const qUsedEl = document.getElementById(`proxy-quota-used-${proxy.id}`);
-                const qTotalEl = document.getElementById(`proxy-quota-total-${proxy.id}`);
-                const qBarEl = document.getElementById(`proxy-quota-bar-${proxy.id}`);
+                const els = {
+                    conn: document.getElementById(`proxy-users-${proxy.id}`),
+                    quotaUsed: document.getElementById(`proxy-quota-used-${proxy.id}`),
+                    quotaTotal: document.getElementById(`proxy-quota-total-${proxy.id}`),
+                    quotaBar: document.getElementById(`proxy-quota-bar-${proxy.id}`)
+                };
                 
-                if (usersEl) { usersEl.innerText = proxy.active_connections; usersEl.setAttribute('data-proxy-conn', proxy.active_connections); }
-                if (dlRateEl) dlRateEl.innerText = proxy.download_rate_mbps != null ? proxy.download_rate_mbps : 0;
+                if (els.conn) els.conn.innerText = proxy.active_connections;
                 
                 if (proxy.quota_mb && proxy.quota_mb > 0) {
-                    const quotaGb = (proxy.quota_mb / 1024).toFixed(2);
-                    const usedGb = (proxy.quota_used_mb / 1024).toFixed(2);
-                    if (qUsedEl) qUsedEl.innerText = usedGb;
-                    if (qTotalEl) qTotalEl.innerText = quotaGb;
-                    if (qBarEl) {
-                        const pct = Math.max(0, Math.min(100, (proxy.quota_used_mb / proxy.quota_mb) * 100));
-                        qBarEl.style.width = `${pct}%`;
-                        qBarEl.className = 'progress-bar rounded-pill ' + (pct >= 90 ? 'bg-danger' : pct >= 75 ? 'bg-warning' : 'bg-success');
+                    const used = proxy.quota_used_mb || 0;
+                    const pct = Math.min(100, (used / proxy.quota_mb) * 100);
+                    
+                    if (els.quotaUsed) els.quotaUsed.innerText = (used/1024).toFixed(2);
+                    if (els.quotaTotal) els.quotaTotal.innerText = (proxy.quota_mb/1024).toFixed(2) + ' GB';
+                    if (els.quotaBar) {
+                        els.quotaBar.style.width = `${pct}%`;
+                        els.quotaBar.className = `progress-bar rounded-pill ${pct > 90 ? 'bg-danger' : pct > 70 ? 'bg-warning' : 'bg-success'}`;
                     }
                 }
             });
@@ -1122,36 +1088,39 @@
     }
 
     function applyProxyFilters() {
-        const search = (document.getElementById('proxySearch')?.value || '').trim().toLowerCase();
-        const status = (document.getElementById('proxyStatusFilter')?.value || '').trim().toLowerCase();
+        const search = (document.getElementById('proxySearch')?.value || '').toLowerCase();
+        const status = (document.getElementById('proxyStatusFilter')?.value || '').toLowerCase();
+        
         document.querySelectorAll('#proxiesTable tbody tr').forEach(tr => {
             const portEl = tr.querySelector('[data-proxy-port]');
             if (!portEl) return;
-            const port = (portEl.getAttribute('data-proxy-port') || '').toLowerCase();
+            
+            const port = portEl.getAttribute('data-proxy-port').toLowerCase();
             const tag = (tr.querySelector('[data-proxy-tag]')?.getAttribute('data-proxy-tag') || '').toLowerCase();
-            const rowStatus = (tr.querySelector('[data-proxy-status]')?.getAttribute('data-proxy-status') || '').toLowerCase();
-            let visible = true;
-            if (search && !(port.includes(search) || tag.includes(search))) visible = false;
-            if (status && rowStatus !== status) visible = false;
-            tr.style.display = visible ? '' : 'none';
+            const st = (tr.querySelector('[data-proxy-status]')?.getAttribute('data-proxy-status') || '').toLowerCase();
+            
+            const matchesSearch = port.includes(search) || tag.includes(search);
+            const matchesStatus = !status || st === status;
+            
+            tr.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
         });
     }
 
     function updateLiveConnections(proxyId) {
-        const f = (document.getElementById('connIpFilter')?.value || '').trim();
-        let query = f ? (/^[0-9\.:]+$/.test(f) ? `ip=${encodeURIComponent(f)}` : `country=${encodeURIComponent(f)}`) : '';
-        fetch(`/api/proxy/${proxyId}/connections${query ? '?' + query : ''}`).then(r => r.json()).then(data => {
+        const filter = document.getElementById('connIpFilter')?.value || '';
+        const q = filter ? `?ip=${encodeURIComponent(filter)}` : '';
+        fetch(`/api/proxy/${proxyId}/connections${q}`).then(r => r.json()).then(data => {
             const tbody = document.getElementById('connectionsTable');
             if (!tbody) return;
             if (!data.items || data.items.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted py-3">اتصالی وجود ندارد.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="3" class="text-center text-secondary py-3 small">هیچ کاربری متصل نیست.</td></tr>`;
                 return;
             }
-            tbody.innerHTML = data.items.map(it => `
+            tbody.innerHTML = data.items.map(i => `
                 <tr class="text-white">
-                    <td class="font-monospace" dir="ltr">${it.ip}</td>
-                    <td>${it.country || '-'}</td>
-                    <td class="font-monospace" dir="ltr">${it.connected_for || '-'}</td>
+                    <td class="font-monospace text-info">${i.ip}</td>
+                    <td class="text-secondary">${i.country || '-'}</td>
+                    <td class="font-monospace small">${i.connected_for || '-'}</td>
                 </tr>
             `).join('');
         });
@@ -1169,7 +1138,7 @@
 
     function updateUsageHistory(proxyId) {
         const g = document.getElementById('usageGranularity')?.value || 'daily';
-        fetch(`/api/proxy/${proxyId}/usage_history?granularity=${encodeURIComponent(g)}&days=30`).then(r => r.json()).then(data => {
+        fetch(`/api/proxy/${proxyId}/usage_history?granularity=${g}&days=30`).then(r => r.json()).then(data => {
             if (usageChart) {
                 usageChart.data.labels = data.labels || [];
                 usageChart.data.datasets[0].data = data.download_mb || [];
@@ -1180,63 +1149,67 @@
 
     function updateAlerts() {
         fetch(`/api/alerts?since_id=${lastAlertId}`).then(r => r.json()).then(items => {
-            if (!items || items.length === 0) return;
+            if (!items || !items.length) return;
             const list = document.getElementById('alertsList');
             items.forEach(a => {
                 lastAlertId = Math.max(lastAlertId, a.id);
                 const li = document.createElement('li');
-                li.className = 'list-group-item d-flex justify-content-between align-items-start border-bottom-1 border-secondary border-opacity-10 py-2 bg-transparent text-white';
-                li.innerHTML = `
-                    <div class="ms-2 me-auto">
-                        <div class="fw-bold">${a.message}</div>
-                        <span class="text-muted small">#${a.id}</span>
-                    </div>
-                    <span class="badge bg-danger rounded-pill">${a.severity}</span>
-                `;
-                if (list && list.firstElementChild && list.firstElementChild.classList.contains('text-muted')) list.innerHTML = '';
+                li.className = 'list-group-item d-flex justify-content-between align-items-center bg-transparent border-bottom border-secondary border-opacity-10 text-white small py-2';
+                li.innerHTML = `<span>${a.message}</span><span class="badge bg-danger rounded-pill ms-2">${a.severity}</span>`;
+                
+                if(list.firstElementChild?.classList.contains('text-center')) list.innerHTML = '';
                 list.prepend(li);
-                Swal.fire({ toast: true, position: 'top-end', icon: 'warning', title: a.message, showConfirmButton: false, timer: 2500, background: '#1e293b', color: '#fff' });
+                
+                Swal.fire({ toast: true, position: 'bottom-start', icon: 'warning', title: a.message, showConfirmButton: false, timer: 3000, background: '#1e293b', color: '#fff' });
             });
-            const countEl = document.getElementById('alertsCount');
-            if (countEl && list) countEl.innerText = list.children.length;
+            document.getElementById('alertsCount').innerText = list.children.length;
         });
     }
 
     function updateActivityLogs() {
-        fetch(`/api/activity?limit=10`).then(r => r.json()).then(items => {
+        fetch('/api/activity?limit=10').then(r => r.json()).then(items => {
             const list = document.getElementById('activityList');
             if (!list) return;
-            if (!items || items.length === 0) {
-                list.innerHTML = `<li class="list-group-item text-muted border-0 text-center py-3 bg-transparent">موردی یافت نشد.</li>`;
+            if (!items.length) {
+                list.innerHTML = `<li class="list-group-item text-secondary border-0 text-center py-3 bg-transparent small">موردی یافت نشد.</li>`;
                 return;
             }
             list.innerHTML = items.map(it => `
-                <li class="list-group-item d-flex justify-content-between align-items-center border-bottom-1 border-secondary border-opacity-10 py-3 bg-transparent text-white">
-                    <div class="d-flex align-items-center">
-                        <div class="bg-dark bg-opacity-50 border border-secondary border-opacity-25 rounded p-2 me-3 text-secondary">
-                            <i class="fas fa-terminal"></i>
+                <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent border-bottom border-secondary border-opacity-10 py-3">
+                    <div class="d-flex align-items-center overflow-hidden">
+                        <div class="rounded-circle bg-dark border border-secondary border-opacity-25 p-2 me-3 text-secondary d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                            <i class="fas fa-terminal small"></i>
                         </div>
-                        <div>
-                            <div class="fw-bold">${it.action}</div>
-                            <div class="text-muted small">${it.details || ''}</div>
+                        <div class="text-truncate">
+                            <div class="text-white small fw-bold text-truncate">${it.action}</div>
+                            <div class="text-secondary small text-truncate" style="font-size: 0.75rem;">${it.details || ''}</div>
                         </div>
                     </div>
-                    <span class="text-muted small">${new Date(it.timestamp).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span class="text-secondary small font-monospace ms-2" style="font-size: 0.7rem;">
+                        ${new Date(it.timestamp).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
                 </li>
             `).join('');
         });
     }
 
-    // Init
+    // رویدادهای اولیه
     document.getElementById('proxySearch')?.addEventListener('input', applyProxyFilters);
     document.getElementById('proxyStatusFilter')?.addEventListener('change', applyProxyFilters);
 
+    // تایمرها
     setInterval(updateSystemStats, 2000);
     setInterval(updateProxyStats, 5000);
     setInterval(updateAlerts, 5000);
     setInterval(updateTrafficHistory, 60000);
-    setInterval(() => { if (currentProxyId && proxyDetailsModal && document.getElementById('proxyDetailsModal')?.classList.contains('show')) { updateLiveConnections(currentProxyId); updateConnectionsHistory(currentProxyId); } }, 5000);
-    
+    setInterval(() => {
+        if (currentProxyId && proxyDetailsModal && document.getElementById('proxyDetailsModal').classList.contains('show')) {
+            updateLiveConnections(currentProxyId);
+            updateConnectionsHistory(currentProxyId);
+        }
+    }, 5000);
+
+    // اجرا در بارگذاری
     updateSystemStats();
     updateProxyStats();
     updateTrafficHistory();
