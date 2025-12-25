@@ -67,14 +67,13 @@ def add():
                 ports_config = {'443/tcp': (proxy_ip, port)}
 
             container = docker_client.containers.run(
-                'seriyps/mtproto-proxy',
+                'telegrammessenger/proxy',
                 detach=True,
                 ports=ports_config,
                 environment={
                     'SECRET': secret,
                     'TAG': tag,
-                    'WORKERS': workers,
-                    'PORT': '443'
+                    'WORKERS': workers
                 },
                 restart_policy={"Name": "always"},
                 name=f"mtproto_{port}"
@@ -140,14 +139,13 @@ def bulk_create():
         try:
             secret = secrets.token_hex(16)
             container = docker_client.containers.run(
-                'seriyps/mtproto-proxy',
+                'telegrammessenger/proxy',
                 detach=True,
                 ports={'443/tcp': current_port},
                 environment={
                     'SECRET': secret,
                     'TAG': tag,
-                    'WORKERS': 1,
-                    'PORT': '443'
+                    'WORKERS': 1
                 },
                 restart_policy={"Name": "always"},
                 name=f"mtproto_{current_port}"
@@ -304,14 +302,13 @@ def update(id):
                          ports_config = {'443/tcp': (proxy.proxy_ip, proxy.port)}
 
                      container = docker_client.containers.run(
-                        'seriyps/mtproto-proxy',
+                        'telegrammessenger/proxy',
                         detach=True,
                         ports=ports_config,
                         environment={
                             'SECRET': proxy.secret,
                             'TAG': proxy.tag,
-                            'WORKERS': proxy.workers,
-                            'PORT': '443'
+                            'WORKERS': proxy.workers
                         },
                         restart_policy={"Name": "always"},
                         name=f"mtproto_{proxy.port}"
