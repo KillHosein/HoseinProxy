@@ -3,28 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>سامانه احراز هویت | HoseinProxy</title>
+    <title>کنسول ورود امن | HoseinProxy Enterprise</title>
     <!-- Bootstrap 5 RTL -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
-    <!-- Google Fonts (Vazirmatn) -->
+    <!-- Google Fonts -->
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
         :root {
-            --bg-core: #0b0f19;
-            --glass-panel: rgba(20, 30, 48, 0.75);
-            --border-light: rgba(255, 255, 255, 0.08);
-            --accent-gold: #cfb53b; /* طلایی مات برای حس مدیریت */
-            --primary-tech: #3b82f6;
-            --text-primary: #ffffff;
-            --text-secondary: #94a3b8;
+            --bg-deep: #02040a;
+            --glass-surface: rgba(13, 17, 28, 0.75);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --primary-accent: #0ea5e9; 
+            --primary-glow: rgba(14, 165, 233, 0.25);
+            --text-heading: #f8fafc;
+            --text-body: #94a3b8;
+            --success-color: #10b981;
+            --error-color: #ef4444;
         }
 
         body {
             font-family: 'Vazirmatn', sans-serif;
-            background-color: var(--bg-core);
+            background-color: var(--bg-deep);
             margin: 0;
             padding: 0;
             height: 100vh;
@@ -33,296 +35,509 @@
             justify-content: center;
             overflow: hidden;
             position: relative;
+            user-select: none;
         }
 
-        /* --- پس‌زمینه متحرک حرفه‌ای --- */
-        #tech-canvas {
+        /* --- بوم شبکه عصبی --- */
+        #neural-canvas {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             z-index: 0;
-            background: radial-gradient(circle at center, #1a2332 0%, #000000 100%);
+            background: radial-gradient(circle at 50% 50%, #0f172a 0%, #000000 100%);
         }
 
-        /* --- کارت ورود سازمانی --- */
-        .login-card {
-            background: var(--glass-panel);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--border-light);
-            border-top: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 16px;
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            max-width: 400px;
-            padding: 45px 35px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+            height: 100%;
+            background: linear-gradient(to bottom, transparent 50%, rgba(14, 165, 233, 0.02) 51%, transparent 52%);
+            background-size: 100% 8px;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* --- کارت لاگین --- */
+        .login-wrapper {
             position: relative;
             z-index: 10;
+            width: 100%;
+            max-width: 440px;
+            padding: 20px;
+        }
+
+        .login-card {
+            background: var(--glass-surface);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid var(--border-subtle);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 45px 35px;
+            box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.8);
+            animation: cardEntrance 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* افکت نوری لبه بالا */
+        .login-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary-accent), transparent);
+            opacity: 0.5;
+        }
+
+        @keyframes cardEntrance {
+            from { opacity: 0; transform: translateY(30px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* هدر برند */
+        .brand-container {
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            align-items: center;
+            margin-bottom: 30px;
         }
 
-        /* لوگو و سربرگ */
-        .header-section {
-            text-align: center;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            padding-bottom: 20px;
-            margin-bottom: 10px;
-        }
-
-        .brand-logo {
-            font-size: 2.5rem;
-            color: var(--primary-tech);
-            background: rgba(59, 130, 246, 0.1);
-            width: 70px;
-            height: 70px;
-            border-radius: 18px;
+        .logo-box {
+            width: 72px;
+            height: 72px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 15px;
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+            margin-bottom: 15px;
+            color: var(--primary-accent);
+            font-size: 2rem;
+            box-shadow: 0 0 40px var(--primary-glow);
+            position: relative;
+        }
+        
+        .logo-box::after {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 22px;
+            background: linear-gradient(45deg, var(--primary-accent), transparent, var(--primary-accent));
+            opacity: 0.2;
+            z-index: -1;
+            filter: blur(5px);
         }
 
-        .brand-name {
-            font-size: 1.4rem;
+        .brand-title {
+            font-size: 1.6rem;
             font-weight: 800;
-            color: var(--text-primary);
-            letter-spacing: 0.5px;
+            color: var(--text-heading);
             margin: 0;
+            letter-spacing: -0.5px;
         }
 
-        .brand-slogan {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            margin-top: 5px;
+        .brand-badge {
+            font-size: 0.7rem;
+            background: rgba(14, 165, 233, 0.08);
+            color: var(--primary-accent);
+            padding: 4px 12px;
+            border-radius: 50px;
+            margin-top: 8px;
+            border: 1px solid rgba(14, 165, 233, 0.15);
+            font-family: monospace;
+            letter-spacing: 1px;
         }
 
-        /* هوش مصنوعی - نسخه رسمی */
-        .system-status-bar {
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid var(--border-light);
-            border-radius: 8px;
+        /* ترمینال وضعیت */
+        .status-terminal {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 10px;
             padding: 10px 15px;
+            margin-bottom: 25px;
+            border-right: 3px solid var(--success-color);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            font-size: 0.8rem;
+            font-family: 'Vazirmatn', monospace;
         }
 
-        .status-text {
-            color: var(--text-secondary);
-            font-family: 'Courier New', Courier, monospace;
-            font-weight: bold;
+        .status-content {
+            font-size: 0.75rem;
+            color: var(--text-body);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .refresh-btn {
+        .status-indicator {
+            width: 6px;
+            height: 6px;
+            background-color: var(--success-color);
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 8px;
+            box-shadow: 0 0 8px var(--success-color);
+            animation: pulse 1.5s infinite;
+        }
+
+        .btn-refresh-ai {
             background: none;
             border: none;
-            color: var(--primary-tech);
+            color: var(--primary-accent);
+            font-size: 0.85rem;
             cursor: pointer;
-            transition: 0.3s;
-            padding: 4px;
+            padding: 5px;
+            transition: transform 0.3s;
+            opacity: 0.8;
         }
         
-        .refresh-btn:hover {
-            color: #fff;
-        }
+        .btn-refresh-ai:hover { transform: rotate(180deg); opacity: 1; color: #fff; }
 
         /* فرم‌ها */
-        .form-group {
+        .input-group-modern {
             position: relative;
             margin-bottom: 20px;
         }
 
         .form-control {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: var(--text-primary);
-            padding: 14px 15px;
-            padding-right: 45px; /* فضای آیکون */
-            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-heading);
+            padding: 15px 16px;
+            padding-left: 45px; /* آیکون چپ */
+            padding-right: 16px;
+            border-radius: 12px;
             font-size: 0.95rem;
-            transition: all 0.3s;
+            width: 100%;
+            transition: all 0.2s;
+        }
+        
+        /* کلاس برای ورودی رمز عبور که دکمه چشم دارد */
+        .password-input {
+            padding-right: 45px;
         }
 
         .form-control:focus {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: var(--primary-tech);
-            box-shadow: none;
+            background: rgba(255, 255, 255, 0.04);
+            border-color: var(--primary-accent);
+            box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
             outline: none;
         }
 
-        .input-icon {
+        .form-control.valid { border-color: rgba(16, 185, 129, 0.5); }
+        
+        .input-icon-left {
             position: absolute;
-            right: 15px;
+            left: 16px;
             top: 50%;
             transform: translateY(-50%);
-            color: var(--text-secondary);
-            font-size: 1.1rem;
-            transition: 0.3s;
+            color: var(--text-body);
+            transition: 0.2s;
             pointer-events: none;
         }
 
-        .form-control:focus ~ .input-icon {
-            color: var(--primary-tech);
+        .form-control:focus ~ .input-icon-left {
+            color: var(--primary-accent);
         }
 
-        .form-label-fixed {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            font-weight: 500;
-        }
-
-        /* دکمه ورود */
-        .btn-auth {
-            background: var(--primary-tech);
-            color: white;
-            border: none;
-            width: 100%;
-            padding: 14px;
-            border-radius: 10px;
-            font-weight: 600;
-            font-size: 1rem;
+        .toggle-password {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-body);
             cursor: pointer;
-            transition: background 0.3s, transform 0.2s;
+            transition: 0.2s;
+            padding: 5px;
+        }
+
+        .toggle-password:hover { color: var(--text-heading); }
+
+        .form-label-top {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-body);
+            margin-bottom: 8px;
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* چک باکس سفارشی */
+        .custom-checkbox-container {
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 10px;
+            margin-bottom: 25px;
+            cursor: pointer;
+            user-select: none;
         }
 
-        .btn-auth:hover {
-            background: #2563eb;
-            transform: translateY(-1px);
+        .custom-checkbox-container input {
+            display: none;
         }
 
-        /* فوتر */
-        .footer-links {
-            margin-top: 15px;
-            text-align: center;
-            font-size: 0.8rem;
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            color: var(--text-secondary);
-        }
-
-        .footer-links a {
-            color: var(--text-secondary);
-            text-decoration: none;
+        .checkmark {
+            width: 18px;
+            height: 18px;
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-subtle);
+            border-radius: 5px;
+            margin-left: 10px;
+            position: relative;
             transition: 0.2s;
         }
 
-        .footer-links a:hover {
-            color: var(--primary-tech);
+        .custom-checkbox-container input:checked ~ .checkmark {
+            background-color: var(--primary-accent);
+            border-color: var(--primary-accent);
+            box-shadow: 0 0 10px var(--primary-glow);
         }
 
-        .copyright {
-            text-align: center;
-            margin-top: 25px;
+        .checkmark::after {
+            content: "";
+            position: absolute;
+            display: none;
+            left: 6px;
+            top: 2px;
+            width: 5px;
+            height: 10px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        .custom-checkbox-container input:checked ~ .checkmark::after {
+            display: block;
+        }
+
+        .checkbox-label {
+            font-size: 0.85rem;
+            color: var(--text-body);
+        }
+
+        /* دکمه ورود */
+        .btn-primary-glow {
+            background: linear-gradient(135deg, var(--primary-accent), #0284c7);
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 15px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 10px 25px -5px rgba(14, 165, 233, 0.4);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-primary-glow:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px -5px rgba(14, 165, 233, 0.5);
+        }
+
+        .btn-primary-glow:active { transform: scale(0.98); }
+
+        /* لودینگ دکمه */
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            display: none;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .btn-loading .btn-text { display: none; }
+        .btn-loading .spinner { display: block; }
+
+        /* فوتر */
+        .card-footer-custom {
+            margin-top: 30px;
+            border-top: 1px solid var(--border-subtle);
+            padding-top: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             font-size: 0.75rem;
-            color: rgba(255,255,255,0.2);
-            font-family: sans-serif;
-            letter-spacing: 0.5px;
+            color: var(--text-body);
+        }
+
+        .footer-link {
+            color: var(--text-body);
+            text-decoration: none;
+            transition: 0.2s;
+        }
+        
+        .footer-link:hover { color: var(--primary-accent); }
+
+        .server-time {
+            font-family: monospace;
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid var(--border-subtle);
         }
 
         /* Alerts */
         .alert {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.2);
+            background: rgba(220, 38, 38, 0.1);
+            border: 1px solid rgba(220, 38, 38, 0.2);
             color: #fca5a5;
             font-size: 0.85rem;
-            border-radius: 8px;
+            border-radius: 10px;
             padding: 12px;
             margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
     </style>
 </head>
 <body>
 
-    <!-- بوم متحرک شبکه -->
-    <canvas id="tech-canvas"></canvas>
+    <!-- بوم شبکه عصبی -->
+    <canvas id="neural-canvas"></canvas>
+    <div class="scan-line"></div>
 
-    <div class="login-card">
-        
-        <div class="header-section">
-            <div class="brand-logo">
-                <i class="fas fa-shield-halved"></i>
-            </div>
-            <h1 class="brand-name">HoseinProxy</h1>
-            <p class="brand-slogan">سامانه مدیریت یکپارچه سرور</p>
-        </div>
-
-        <!-- نوار وضعیت سیستم -->
-        <div class="system-status-bar">
-            <div class="d-flex align-items-center">
-                <i class="fas fa-server me-2 text-success" style="font-size: 0.7rem;"></i>
-                <span id="ai-response" class="status-text">وضعیت کلی سرویس‌ها: نرمال</span>
-            </div>
-            <button id="ai-btn" class="refresh-btn" title="بروزرسانی وضعیت">
-                <i class="fas fa-rotate"></i>
-            </button>
-        </div>
-
-        <!-- پیام‌های خطا/موفقیت -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class="alert alert-{{ category }}">
-                {{ message }}
-              </div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
-
-        <form method="POST">
-            <div class="form-group">
-                <label class="form-label-fixed">شناسه کاربری</label>
-                <input type="text" name="username" class="form-control" placeholder="مثال: admin" required autofocus autocomplete="off">
-                <i class="far fa-user input-icon"></i>
+    <div class="login-wrapper">
+        <div class="login-card">
+            
+            <div class="brand-container">
+                <div class="logo-box">
+                    <i class="fas fa-network-wired"></i>
+                </div>
+                <h1 class="brand-title">HoseinProxy</h1>
+                <div class="brand-badge">ENTERPRISE GATEWAY</div>
             </div>
 
-            <div class="form-group">
-                <label class="form-label-fixed">رمز عبور</label>
-                <input type="password" name="password" class="form-control" placeholder="••••••••" required>
-                <i class="fas fa-lock input-icon"></i>
+            <!-- وضعیت سیستم -->
+            <div class="status-terminal">
+                <div class="d-flex align-items-center" style="width: 85%;">
+                    <span class="status-indicator"></span>
+                    <span id="ai-response" class="status-content">System: Online | Node: IR-Tehran-01</span>
+                </div>
+                <button id="ai-btn" class="btn-refresh-ai" title="اسکن امنیتی">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
             </div>
 
-            <button type="submit" class="btn-auth">
-                <i class="fas fa-arrow-right-to-bracket"></i>
-                احراز هویت و ورود
-            </button>
-        </form>
+            <!-- پیام‌ها -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert alert-{{ category }}">
+                    <i class="fas fa-info-circle"></i>
+                    {{ message }}
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
 
-        <div class="footer-links">
-            <a href="https://t.me/KillHosein" target="_blank">پشتیبانی فنی</a>
-            <span>|</span>
-            <a href="#">قوانین و مقررات</a>
-        </div>
-        
-        <div class="copyright">
-            Designed by @KillHosein &copy; 2024
+            <form method="POST" id="loginForm">
+                <div class="input-group-modern">
+                    <label class="form-label-top">شناسه مدیریت</label>
+                    <input type="text" name="username" class="form-control" placeholder="Admin ID" required autofocus autocomplete="off" id="userInput">
+                    <i class="fas fa-user-shield input-icon-left"></i>
+                </div>
+
+                <div class="input-group-modern">
+                    <label class="form-label-top">
+                        کلید دسترسی
+                        <a href="#" class="footer-link" style="font-size: 0.75rem;">فراموشی رمز؟</a>
+                    </label>
+                    <input type="password" name="password" class="form-control password-input" placeholder="Access Key" required id="passInput">
+                    <i class="fas fa-key input-icon-left"></i>
+                    <i class="far fa-eye toggle-password" id="togglePass"></i>
+                </div>
+
+                <label class="custom-checkbox-container">
+                    <input type="checkbox" name="remember">
+                    <span class="checkmark"></span>
+                    <span class="checkbox-label">ذخیره نشست امنیتی (Remember Session)</span>
+                </label>
+
+                <button type="submit" class="btn-primary-glow" id="submitBtn">
+                    <span class="btn-text">احراز هویت و ورود</span>
+                    <div class="spinner"></div>
+                </button>
+            </form>
+
+            <div class="card-footer-custom">
+                <div>
+                    <span class="server-time" id="serverClock">00:00:00 UTC</span>
+                </div>
+                <div style="opacity: 0.6;">
+                    v2.4.0-Stable
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Logic for Gemini API Integration -->
+    <!-- Gemini & UI Logic -->
     <script type="module">
         import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 
+        // --- Logic: Password Toggle ---
+        const togglePass = document.getElementById('togglePass');
+        const passInput = document.getElementById('passInput');
+        
+        togglePass.addEventListener('click', function () {
+            const type = passInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passInput.setAttribute('type', type);
+            this.classList.toggle('fa-eye');
+            this.classList.toggle('fa-eye-slash');
+        });
+
+        // --- Logic: Input Validation Visuals ---
+        const userInput = document.getElementById('userInput');
+        userInput.addEventListener('input', function() {
+            if(this.value.length > 3) {
+                this.classList.add('valid');
+            } else {
+                this.classList.remove('valid');
+            }
+        });
+
+        // --- Logic: Live Server Clock ---
+        function updateClock() {
+            const now = new Date();
+            const timeString = now.toISOString().split('T')[1].split('.')[0] + ' UTC';
+            document.getElementById('serverClock').innerText = timeString;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // --- Logic: Button Loading ---
+        const loginForm = document.getElementById('loginForm');
+        const submitBtn = document.getElementById('submitBtn');
+
+        loginForm.addEventListener('submit', function() {
+            // جلوگیری از ارسال فرم برای دمو (در محیط واقعی این خط را حذف کنید)
+            // e.preventDefault(); 
+            submitBtn.classList.add('btn-loading');
+            submitBtn.disabled = true;
+        });
+
+        // --- Logic: Gemini AI ---
         const aiBtn = document.getElementById('ai-btn');
         const aiResponse = document.getElementById('ai-response');
         const aiIcon = aiBtn.querySelector('i');
         
-        // افکت تایپ متن
-        function typeText(element, text, speed = 30) {
+        function typeText(element, text, speed = 20) {
             element.innerHTML = "";
             let i = 0;
             function type() {
@@ -336,9 +551,9 @@
         }
 
         aiBtn.addEventListener('click', async () => {
-            const apiKey = ""; // کلید API در محیط اجرا تزریق می‌شود
+            const apiKey = ""; // API Key Injected
             
-            aiResponse.innerText = "در حال دریافت گزارش...";
+            aiResponse.innerText = "Running Diagnostics...";
             aiResponse.style.color = "#94a3b8";
             aiIcon.classList.add('fa-spin');
             aiBtn.disabled = true;
@@ -347,19 +562,18 @@
                 const genAI = new GoogleGenerativeAI(apiKey);
                 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-09-2025" });
 
-                // پرامپت برای دریافت یک گزارش وضعیت رسمی و فنی
-                const prompt = "Generate a very short, formal Persian system status message for a server admin panel. E.g., 'All services are operational'. Do not use emojis. Max 6 words.";
+                const prompt = "Generate a very short, highly technical status log for a proxy server. E.g. 'Latency: 20ms | Packets: Stable'. Max 6 words.";
 
                 const result = await model.generateContent(prompt);
                 const text = result.response.text();
 
-                aiResponse.style.color = "#4ade80"; // سبز روشن
+                aiResponse.style.color = "#10b981"; 
                 typeText(aiResponse, text);
                 
             } catch (error) {
                 console.error(error);
-                aiResponse.innerText = "خطا در برقراری ارتباط";
-                aiResponse.style.color = "#f87171"; 
+                aiResponse.innerText = "Connection Error: Retry";
+                aiResponse.style.color = "#f43f5e"; 
             } finally {
                 aiIcon.classList.remove('fa-spin');
                 aiBtn.disabled = false;
@@ -367,27 +581,40 @@
         });
     </script>
 
-    <!-- انیمیشن شبکه ذرات (Network Particles) -->
+    <!-- انیمیشن شبکه عصبی هوشمند (Neural Mesh v2) -->
     <script>
-        const canvas = document.getElementById('tech-canvas');
+        const canvas = document.getElementById('neural-canvas');
         const ctx = canvas.getContext('2d');
         
         let width, height;
         let particles = [];
-        
-        // تنظیمات شبکه
+        let mouse = { x: null, y: null };
+
         const config = {
-            particleCount: 80,
-            connectionRadius: 120,
-            particleColor: 'rgba(59, 130, 246, 0.6)', // آبی تکنولوژی
-            lineColor: 'rgba(59, 130, 246, 0.15)',
-            speed: 0.3
+            count: 70,
+            color: 'rgba(14, 165, 233, 0.7)', 
+            lineColor: 'rgba(14, 165, 233, 0.12)',
+            radius: 2,
+            speed: 0.4,
+            connectionDist: 140,
+            mouseDist: 250,
+            pulseSpeed: 0.02
         };
+
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.x;
+            mouse.y = e.y;
+        });
+
+        window.addEventListener('mouseleave', () => {
+            mouse.x = null;
+            mouse.y = null;
+        });
 
         function resize() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
-            config.particleCount = width < 768 ? 40 : 80;
+            config.count = width < 768 ? 40 : 70;
         }
 
         class Particle {
@@ -396,29 +623,54 @@
                 this.y = Math.random() * height;
                 this.vx = (Math.random() - 0.5) * config.speed;
                 this.vy = (Math.random() - 0.5) * config.speed;
-                this.size = Math.random() * 2 + 1;
+                this.baseSize = Math.random() * config.radius + 1;
+                this.size = this.baseSize;
+                this.pulseDir = 1;
+                this.isPulsing = Math.random() > 0.8; // 20% particles pulse
             }
 
             update() {
                 this.x += this.vx;
                 this.y += this.vy;
 
-                // حرکت برگشتی از لبه‌ها
                 if (this.x < 0 || this.x > width) this.vx *= -1;
                 if (this.y < 0 || this.y > height) this.vy *= -1;
+
+                // Mouse interaction
+                if (mouse.x != null) {
+                    let dx = mouse.x - this.x;
+                    let dy = mouse.y - this.y;
+                    let distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < config.mouseDist) {
+                        const force = (config.mouseDist - distance) / config.mouseDist;
+                        const directionX = (dx / distance) * force * 1.5; 
+                        const directionY = (dy / distance) * force * 1.5;
+                        this.x += directionX;
+                        this.y += directionY;
+                    }
+                }
+
+                // Pulsing effect
+                if (this.isPulsing) {
+                    this.size += config.pulseSpeed * this.pulseDir;
+                    if (this.size > this.baseSize * 1.8 || this.size < this.baseSize) {
+                        this.pulseDir *= -1;
+                    }
+                }
             }
 
             draw() {
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fillStyle = config.particleColor;
+                ctx.fillStyle = this.isPulsing ? '#38bdf8' : config.color; // Pulsing ones are brighter
                 ctx.fill();
             }
         }
 
         function init() {
             particles = [];
-            for (let i = 0; i < config.particleCount; i++) {
+            for (let i = 0; i < config.count; i++) {
                 particles.push(new Particle());
             }
         }
@@ -426,22 +678,20 @@
         function animate() {
             ctx.clearRect(0, 0, width, height);
             
-            // رسم و آپدیت ذرات
             particles.forEach((p, index) => {
                 p.update();
                 p.draw();
                 
-                // رسم خطوط اتصال
                 for (let j = index + 1; j < particles.length; j++) {
                     const p2 = particles[j];
                     const dx = p.x - p2.x;
                     const dy = p.y - p2.y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
 
-                    if (dist < config.connectionRadius) {
+                    if (dist < config.connectionDist) {
                         ctx.beginPath();
                         ctx.strokeStyle = config.lineColor;
-                        ctx.lineWidth = 1 - (dist / config.connectionRadius);
+                        ctx.lineWidth = 1 - (dist / config.connectionDist);
                         ctx.moveTo(p.x, p.y);
                         ctx.lineTo(p2.x, p2.y);
                         ctx.stroke();
@@ -452,16 +702,10 @@
             requestAnimationFrame(animate);
         }
 
-        // تعامل با حرکت موس (اختیاری: جذب ذرات)
-        window.addEventListener('resize', () => {
-            resize();
-            init();
-        });
-
+        window.addEventListener('resize', () => { resize(); init(); });
         resize();
         init();
         animate();
-
     </script>
 </body>
 </html>

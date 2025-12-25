@@ -165,7 +165,7 @@ After=network.target docker.service
 User=root
 WorkingDirectory=$PANEL_DIR
 Environment="PATH=$PANEL_DIR/venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=$PANEL_DIR/venv/bin/gunicorn -w 2 -b 0.0.0.0:5000 "run:app"
+ExecStart=$PANEL_DIR/venv/bin/gunicorn -w 2 -b 127.0.0.1:5000 "run:app"
 Restart=always
 RestartSec=5
 
