@@ -130,11 +130,11 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <span class="badge bg-info text-dark"><i class="fas fa-users"></i> {{ proxy.active_connections }}</span>
+                                    <span class="badge bg-info text-dark"><i class="fas fa-users"></i> <span id="proxy-users-{{ proxy.id }}">{{ proxy.active_connections }}</span></span>
                                 </td>
                                 <td class="small">
-                                    <i class="fas fa-arrow-down text-success"></i> {{ (proxy.download / (1024*1024))|round(2) }} MB <br>
-                                    <i class="fas fa-arrow-up text-primary"></i> {{ (proxy.upload / (1024*1024))|round(2) }} MB
+                                    <i class="fas fa-arrow-down text-success"></i> <span id="proxy-download-{{ proxy.id }}">{{ (proxy.download / (1024*1024))|round(2) }}</span> MB <br>
+                                    <i class="fas fa-arrow-up text-primary"></i> <span id="proxy-upload-{{ proxy.id }}">{{ (proxy.upload / (1024*1024))|round(2) }}</span> MB
                                 </td>
                                 <td>
                                     <div class="input-group input-group-sm" style="max-width: 150px;">
@@ -405,6 +405,23 @@
             });
     }
 
+    // Fetch Proxy Stats (Real-time)
+    function updateProxyStats() {
+        fetch('/api/proxies')
+            .then(response => response.json())
+            .then(data => {
+                data.forEach(proxy => {
+                    const usersEl = document.getElementById(`proxy-users-${proxy.id}`);
+                    const downloadEl = document.getElementById(`proxy-download-${proxy.id}`);
+                    const uploadEl = document.getElementById(`proxy-upload-${proxy.id}`);
+                    
+                    if (usersEl) usersEl.innerText = proxy.active_connections;
+                    if (downloadEl) downloadEl.innerText = proxy.download;
+                    if (uploadEl) uploadEl.innerText = proxy.upload;
+                });
+            });
+    }
+
     // Fetch History Stats
     function updateTrafficHistory() {
         fetch('/api/history')
@@ -419,7 +436,9 @@
 
     // Init
     setInterval(updateSystemStats, 2000);
+    setInterval(updateProxyStats, 2000);
     updateSystemStats();
+    updateProxyStats();
     updateTrafficHistory(); // Call once on load
 
 </script>

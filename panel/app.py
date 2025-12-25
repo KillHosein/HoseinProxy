@@ -174,7 +174,11 @@ def update_docker_stats():
                     proxies = Proxy.query.filter(Proxy.container_id != None).all()
                     
                     # Get all network connections once to save resources
-                    all_connections = psutil.net_connections(kind='tcp')
+                    try:
+                        all_connections = psutil.net_connections(kind='tcp')
+                    except Exception as psutil_error:
+                        # print(f"Psutil Error: {psutil_error}")
+                        all_connections = []
                     
                     for p in proxies:
                         try:
@@ -230,7 +234,7 @@ def update_docker_stats():
         except Exception as e:
             print(f"Stats Loop Error: {e}")
         
-        time.sleep(10) # Run every 10 seconds
+        time.sleep(3) # Run every 3 seconds for real-time feel
 
 # Start background thread
 stats_thread = threading.Thread(target=update_docker_stats, daemon=True)
@@ -316,6 +320,21 @@ def settings():
 @login_required
 def api_stats():
     return jsonify(get_system_metrics())
+
+@app.route('/api/proxies')
+@login_required
+def api_proxies():
+    proxies = Proxy.query.all()
+    data = []
+    for p in proxies:
+        data.append({
+            'id': p.id,
+            'status': p.status,
+            'active_connections': p.active_connections,
+            'upload': round(p.upload / (1024*1024), 2),
+            'download': round(p.download / (1024*1024), 2)
+        })
+    return jsonify(data)
 
 @app.route('/api/history')
 @login_required
