@@ -65,10 +65,15 @@ systemctl start docker
 
 # Configure Nginx
 echo "[*] Configuring Nginx Reverse Proxy..."
-rm -f /etc/nginx/sites-enabled/default
+# Remove default Nginx config if it exists
+if [ -f /etc/nginx/sites-enabled/default ]; then
+    echo "   Removing default Nginx site..."
+    rm -f /etc/nginx/sites-enabled/default
+fi
+
 cat > /etc/nginx/sites-available/hoseinproxy <<EOF
 server {
-    listen 80;
+    listen 80 default_server;
     server_name _;
 
     location / {
@@ -76,11 +81,19 @@ server {
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 }
 EOF
+
 ln -sf /etc/nginx/sites-available/hoseinproxy /etc/nginx/sites-enabled/
+
+echo "[*] Verifying Nginx configuration..."
+nginx -t
+
+echo "[*] Restarting Nginx..."
 systemctl restart nginx
+
 
 # Create venv
 echo "[*] Setting up Python Environment..."
