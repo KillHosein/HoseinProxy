@@ -236,12 +236,28 @@ def update_docker_stats():
 stats_thread = threading.Thread(target=update_docker_stats, daemon=True)
 stats_thread.start()
 
-# Ensure DB is created
+# Ensure DB is created and migrated
 with app.app_context():
     try:
         db.create_all()
-    except:
-        pass
+        
+        # Simple Migration: Check for active_connections column
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        columns = [c['name'] for c in inspector.get_columns('proxy')]
+        if 'active_connections' not in columns:
+            print("Migrating DB: Adding active_connections column...")
+            with db.engine.connect() as conn:
+                conn.execute(text('ALTER TABLE proxy ADD COLUMN active_connections INTEGER DEFAULT 0'))
+                conn.commit()
+                
+        # Check for ProxyStats table (created by create_all, but just in case)
+        if not inspector.has_table('proxy_stats'):
+             # create_all should handle this, but explicit check doesn't hurt
+             pass
+             
+    except Exception as e:
+        print(f"DB Init Error: {e}")
 
 # --- Routes ---
 
