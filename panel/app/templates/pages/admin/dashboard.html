@@ -35,115 +35,150 @@
 
     /* استایل کارت‌ها */
     .glass-card {
-        background: var(--card-bg);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid var(--card-border);
-        border-radius: 16px;
-        box-shadow: var(--glass-shadow);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        overflow: hidden;
+        background: rgba(30, 41, 59, 0.6);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 24px;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
     .glass-card:hover {
-        transform: translateY(-4px);
-        border-color: var(--card-hover-border);
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+        transform: translateY(-5px) scale(1.01);
+        border-color: rgba(139, 92, 246, 0.5);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
     }
 
     .card-header-clean {
         background: rgba(255, 255, 255, 0.03);
-        border-bottom: 1px solid var(--card-border);
-        padding: 1rem 1.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 1.25rem 1.75rem;
     }
-    .card-body-clean { padding: 1.5rem; }
+    .card-body-clean { padding: 1.75rem; }
 
     /* دکمه‌های عملیات */
     .btn-action {
-        width: 32px;
-        height: 32px;
+        width: 36px;
+        height: 36px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        border-radius: 8px;
+        border-radius: 10px;
         transition: all 0.2s;
         border: 1px solid transparent;
         color: white;
         text-decoration: none;
+        background: rgba(255, 255, 255, 0.05);
     }
-    .btn-action:hover { transform: scale(1.1); color: white; }
-    .btn-action-primary { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border-color: rgba(59, 130, 246, 0.3); }
-    .btn-action-success { background: rgba(16, 185, 129, 0.2); color: #34d399; border-color: rgba(16, 185, 129, 0.3); }
-    .btn-action-warning { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); }
-    .btn-action-danger  { background: rgba(239, 68, 68, 0.2); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
-    .btn-action-info    { background: rgba(6, 182, 212, 0.2); color: #22d3ee; border-color: rgba(6, 182, 212, 0.3); }
+    .btn-action:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    .btn-action-primary { background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.3)); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .btn-action-success { background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.3)); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .btn-action-warning { background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.3)); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .btn-action-danger  { background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.3)); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .btn-action-info    { background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(8, 145, 178, 0.3)); color: #67e8f9; border: 1px solid rgba(6, 182, 212, 0.3); }
 
     /* جدول واکنش‌گرا (تبدیل به کارت در موبایل) */
-    .table-custom { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+    .table-custom { width: 100%; border-collapse: separate; border-spacing: 0 12px; }
     .table-custom thead th {
-        background: transparent; color: var(--text-secondary); font-weight: 600; border: none; padding: 0 1rem 0.5rem 1rem;
+        background: transparent; color: var(--text-secondary); font-weight: 700; border: none; padding: 0 1.5rem 0.75rem 1.5rem; letter-spacing: 0.5px; font-size: 0.85rem; text-transform: uppercase;
     }
-    .table-custom tbody tr { background: rgba(255, 255, 255, 0.02); transition: background 0.2s ease; }
-    .table-custom tbody tr:hover { background: rgba(255, 255, 255, 0.05); }
-    .table-custom td { border: none; padding: 1rem; vertical-align: middle; color: var(--text-primary); }
-    .table-custom td:first-child { border-top-right-radius: 12px; border-bottom-right-radius: 12px; }
-    .table-custom td:last-child { border-top-left-radius: 12px; border-bottom-left-radius: 12px; }
+    .table-custom tbody tr { 
+        background: rgba(30, 41, 59, 0.4); 
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .table-custom tbody tr:hover { 
+        background: rgba(30, 41, 59, 0.7); 
+        transform: scale(1.005);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .table-custom td { border: none; padding: 1.25rem 1.5rem; vertical-align: middle; color: var(--text-primary); border-top: 1px solid rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.02); }
+    .table-custom td:first-child { border-top-right-radius: 16px; border-bottom-right-radius: 16px; border-right: 1px solid rgba(255,255,255,0.02); border-left: none; }
+    .table-custom td:last-child { border-top-left-radius: 16px; border-bottom-left-radius: 16px; border-left: 1px solid rgba(255,255,255,0.02); border-right: none; }
 
     @media (max-width: 991px) {
         .table-custom { display: block; }
         .table-custom thead { display: none; }
-        .table-custom tbody { display: block; }
+        .table-custom tbody { display: grid; gap: 1rem; }
         .table-custom tbody tr {
-            display: block;
-            margin-bottom: 1rem;
-            border: 1px solid var(--card-border);
-            border-radius: 16px;
-            padding: 1rem;
-            background: rgba(30, 41, 59, 0.6);
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 1.5rem;
+            background: rgba(30, 41, 59, 0.7);
         }
         .table-custom td {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 0.75rem 0;
+            border: none;
             border-bottom: 1px solid rgba(255,255,255,0.05);
             text-align: left;
+            width: 100%;
         }
-        .table-custom td:last-child { border-bottom: none; padding-bottom: 0; }
-        .table-custom td:first-child { padding-top: 0; }
+        .table-custom td:last-child { border-bottom: none; padding-bottom: 0; padding-top: 1rem; justify-content: center; }
+        .table-custom td:first-child { padding-top: 0; border-radius: 0; }
         .table-custom td::before {
             content: attr(data-label);
-            float: right;
-            font-weight: bold;
+            font-weight: 600;
             color: var(--text-secondary);
-            font-size: 0.9rem;
-            margin-left: 10px;
+            font-size: 0.85rem;
         }
-        /* مخفی کردن دکمه‌های اضافی در موبایل اگر فضا کم بود */
-        .desktop-only { display: none !important; }
     }
 
     /* سایر استایل‌ها */
     .icon-box { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 12px; font-size: 1.25rem; }
     .form-control, .form-select {
-        background-color: rgba(15, 23, 42, 0.8) !important;
-        border: 1px solid var(--card-border) !important;
-        color: #fff !important;
-        border-radius: 10px;
+        background-color: rgba(15, 23, 42, 0.6) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        color: #e2e8f0 !important;
+        border-radius: 12px;
+        padding: 0.6rem 1rem;
+        transition: all 0.3s ease;
     }
     .form-control:focus, .form-select:focus {
-        background-color: rgba(15, 23, 42, 0.95) !important;
-        border-color: var(--accent-primary) !important;
-        box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1) !important;
+        background-color: rgba(15, 23, 42, 0.9) !important;
+        border-color: rgba(139, 92, 246, 0.5) !important;
+        box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.15) !important;
         color: #fff !important;
     }
     .btn-glow-primary {
-        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-        border: none; color: white;
-        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+        border: none;
+        color: white;
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4), 0 0 0 2px rgba(99, 102, 241, 0.1);
+        transition: all 0.3s ease;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        border-radius: 12px;
+        padding: 0.6rem 1.5rem;
     }
-    .status-badge { padding: 0.35em 0.8em; border-radius: 50rem; font-size: 0.75em; font-weight: 700; }
-    .status-badge.running { background: rgba(16, 185, 129, 0.2); color: #34d399; }
-    .status-badge.stopped { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+    .btn-glow-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.6), 0 0 0 4px rgba(99, 102, 241, 0.2);
+        background: linear-gradient(135deg, #4f46e5 0%, #9333ea 100%);
+    }
+    
+    .status-badge {
+        padding: 0.5em 1em;
+        border-radius: 12px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    .status-badge.running { 
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.3)); 
+        color: #6ee7b7; 
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .status-badge.stopped { 
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.3)); 
+        color: #fca5a5; 
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
     
     .list-group-item { transition: background 0.2s; }
     .list-group-item:hover { background: rgba(255,255,255,0.02) !important; }
@@ -344,6 +379,8 @@
                                     {% endif %}
                                     
                                     <a href="{{ url_for('proxy.restart', id=proxy.id) }}" class="btn btn-action btn-action-warning" title="ریستارت"><i class="fas fa-sync-alt"></i></a>
+                                    
+                                    <a href="{{ url_for('proxy.reset_quota', id=proxy.id) }}" class="btn btn-action btn-action-info" title="ریست حجم"><i class="fas fa-history"></i></a>
                                     
                                     <button class="btn btn-action btn-action-primary" onclick="openProxyEdit({{ proxy.id|tojson }}, {{ proxy.port|tojson }}, {{ proxy.tag|tojson|forceescape }}, {{ ((proxy.quota_bytes / (1024*1024*1024))|round(2) if proxy.quota_bytes else 0)|tojson }}, {{ proxy.secret|tojson|forceescape }}, {{ proxy.status|tojson|forceescape }}, {{ proxy.username|tojson|forceescape }}, {{ proxy.password|tojson|forceescape }}, {{ proxy.proxy_ip|tojson|forceescape }}, {{ proxy.name|tojson|forceescape }})" title="ویرایش">
                                         <i class="fas fa-pen"></i>
