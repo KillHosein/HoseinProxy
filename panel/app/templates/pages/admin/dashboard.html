@@ -286,7 +286,7 @@
                                 <td class="small" style="min-width: 140px;">
                                     <div class="d-flex justify-content-between mb-1">
                                         <span class="text-muted small">حجم:</span>
-                                        <span class="fw-bold text-body-emphasis"><span id="proxy-quota-used-{{ proxy.id }}">-</span> / <span id="proxy-quota-total-{{ proxy.id }}">-</span> MB</span>
+                                        <span class="fw-bold text-body-emphasis"><span id="proxy-quota-used-{{ proxy.id }}">-</span> / <span id="proxy-quota-total-{{ proxy.id }}">-</span> GB</span>
                                     </div>
                                     <div class="progress" style="height: 6px; background-color: var(--bs-gray-200);">
                                         <div id="proxy-quota-bar-{{ proxy.id }}" class="progress-bar rounded-pill" role="progressbar" style="width: 0%"></div>
@@ -321,6 +321,7 @@
                                             <li><a class="dropdown-item text-success" href="{{ url_for('proxy.start', id=proxy.id) }}"><i class="fas fa-play me-2 w-20"></i>شروع</a></li>
                                             {% endif %}
                                             <li><a class="dropdown-item" href="{{ url_for('proxy.restart', id=proxy.id) }}"><i class="fas fa-sync-alt me-2 w-20"></i>ریستارت</a></li>
+                                            <li><a class="dropdown-item" href="{{ url_for('proxy.reset_quota', id=proxy.id) }}"><i class="fas fa-history me-2 w-20"></i>ریست حجم</a></li>
                                             <li><hr class="dropdown-divider"></li>
                                             <li><button class="dropdown-item" onclick="openProxyEdit({{ proxy.id|tojson }}, {{ proxy.port|tojson }}, {{ proxy.tag|tojson|forceescape }}, {{ ((proxy.quota_bytes / (1024*1024*1024))|round(2) if proxy.quota_bytes else 0)|tojson }}, {{ proxy.secret|tojson|forceescape }}, {{ proxy.status|tojson|forceescape }}, {{ proxy.username|tojson|forceescape }}, {{ proxy.password|tojson|forceescape }}, {{ proxy.proxy_ip|tojson|forceescape }}, {{ proxy.name|tojson|forceescape }})"><i class="fas fa-pen me-2 w-20"></i>ویرایش</button></li>
 
@@ -757,6 +758,14 @@
 
     // System Monitor Chart (Real-time)
     const sysCtx = document.getElementById('systemChart').getContext('2d');
+    const gradientCpu = sysCtx.createLinearGradient(0, 0, 0, 400);
+    gradientCpu.addColorStop(0, 'rgba(13, 110, 253, 0.4)');
+    gradientCpu.addColorStop(1, 'rgba(13, 110, 253, 0.05)');
+
+    const gradientRam = sysCtx.createLinearGradient(0, 0, 0, 400);
+    gradientRam.addColorStop(0, 'rgba(25, 135, 84, 0.4)');
+    gradientRam.addColorStop(1, 'rgba(25, 135, 84, 0.05)');
+
     const systemChart = new Chart(sysCtx, {
         type: 'line',
         data: {
@@ -765,35 +774,60 @@
                 label: 'CPU %',
                 data: Array(20).fill(0),
                 borderColor: '#0d6efd',
-                backgroundColor: 'rgba(13, 110, 253, 0.05)',
+                backgroundColor: gradientCpu,
                 tension: 0.4,
                 fill: true,
-                pointRadius: 0
+                pointRadius: 0,
+                borderWidth: 2
             }, {
                 label: 'RAM %',
                 data: Array(20).fill(0),
                 borderColor: '#198754',
-                backgroundColor: 'rgba(25, 135, 84, 0.05)',
+                backgroundColor: gradientRam,
                 tension: 0.4,
                 fill: true,
-                pointRadius: 0
+                pointRadius: 0,
+                borderWidth: 2
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { position: 'top', align: 'end' } },
-            scales: { 
-                y: { beginAtZero: true, max: 100, grid: { borderDash: [2, 4] } },
-                x: { grid: { display: false } }
+            plugins: { 
+                legend: { position: 'top', align: 'end' },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    titleColor: '#000',
+                    bodyColor: '#000',
+                    borderColor: '#ddd',
+                    borderWidth: 1
+                }
             },
-            interaction: { mode: 'index', intersect: false },
+            scales: { 
+                y: { 
+                    beginAtZero: true, 
+                    max: 100, 
+                    grid: { color: 'rgba(0,0,0,0.05)', borderDash: [2, 4] },
+                    ticks: { font: { family: 'Vazirmatn' } }
+                },
+                x: { 
+                    grid: { display: false },
+                    ticks: { display: false }
+                }
+            },
+            interaction: { mode: 'nearest', axis: 'x', intersect: false },
             animation: false
         }
     });
 
     // Traffic History Chart (Bar)
     const trafficCtx = document.getElementById('trafficChart').getContext('2d');
+    const gradientTraffic = trafficCtx.createLinearGradient(0, 0, 0, 400);
+    gradientTraffic.addColorStop(0, '#198754');
+    gradientTraffic.addColorStop(1, '#20c997');
+
     const trafficChart = new Chart(trafficCtx, {
         type: 'bar',
         data: {
@@ -801,17 +835,36 @@
                 datasets: [{
                     label: 'ترافیک مصرفی (MB)',
                     data: [],
-                    backgroundColor: '#198754',
-                    borderRadius: 4
+                    backgroundColor: gradientTraffic,
+                    borderRadius: 8,
+                    barPercentage: 0.6,
+                    categoryPercentage: 0.8
                 }]
             },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { position: 'top', align: 'end' } },
+            plugins: { 
+                legend: { position: 'top', align: 'end' },
+                tooltip: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    titleColor: '#000',
+                    bodyColor: '#000',
+                    borderColor: '#ddd',
+                    borderWidth: 1,
+                    displayColors: false
+                }
+            },
             scales: { 
-                y: { beginAtZero: true, grid: { borderDash: [2, 4] } },
-                x: { grid: { display: false } }
+                y: { 
+                    beginAtZero: true, 
+                    grid: { color: 'rgba(0,0,0,0.05)', borderDash: [2, 4] },
+                    ticks: { font: { family: 'Vazirmatn' } }
+                },
+                x: { 
+                    grid: { display: false },
+                    ticks: { font: { family: 'Vazirmatn' } }
+                }
             }
         }
     });
