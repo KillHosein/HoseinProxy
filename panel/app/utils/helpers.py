@@ -73,7 +73,10 @@ def _format_duration(seconds):
 
 def _quota_usage_bytes(proxy):
     if not proxy.quota_start:
-        return None
+        # Fallback for proxies without quota_start (e.g. unlimited ones created before update)
+        # Return total usage
+        return int(proxy.upload or 0) + int(proxy.download or 0)
+    
     used_upload = max(0, int(proxy.upload) - int(proxy.quota_base_upload or 0))
     used_download = max(0, int(proxy.download) - int(proxy.quota_base_download or 0))
     return used_upload + used_download

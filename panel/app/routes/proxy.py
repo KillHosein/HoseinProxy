@@ -88,7 +88,7 @@ def add():
                 container_id=container.id,
                 status="running",
                 quota_bytes=quota_bytes,
-                quota_start=datetime.utcnow() if quota_bytes > 0 else None,
+                quota_start=datetime.utcnow(),
                 expiry_date=expiry_date,
                 proxy_ip=proxy_ip
             )
@@ -244,12 +244,12 @@ def update(id):
         if quota_bytes != proxy.quota_bytes:
             proxy.quota_bytes = quota_bytes
             changes.append(f"Quota: {quota_bytes}")
-            if quota_bytes > 0 and not proxy.quota_start:
+            
+            # Ensure quota tracking is active even for unlimited
+            if not proxy.quota_start:
                 proxy.quota_start = datetime.utcnow()
                 proxy.quota_base_upload = int(proxy.upload or 0)
                 proxy.quota_base_download = int(proxy.download or 0)
-            elif quota_bytes == 0:
-                proxy.quota_start = None
                 
         if expiry_days is not None:
              proxy.expiry_date = expiry_date
