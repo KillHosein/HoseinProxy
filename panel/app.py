@@ -196,32 +196,51 @@ def update_docker_stats():
                             # Method 2: Fallback to /proc/net/dev inside container if Docker stats fail or return 0
                             if rx == 0 and tx == 0:
                                 try:
-                                    # Try reading directly from Host /proc (Faster & More Reliable)
-                                    pid = container.attrs.get('State', {}).get('Pid')
-                                    if pid and os.path.exists(f"/proc/{pid}/net/dev"):
-                                        with open(f"/proc/{pid}/net/dev", "r") as f:
-                                            output_str = f.read()
-                                            for line in output_str.split('\n'):
-                                                if ':' in line:
-                                                    parts = line.split(':')
-                                                    iface_name = parts[0].strip()
-                                                    if iface_name == 'lo': continue
-                                                    values = parts[1].split()
-                                                    if len(values) >= 9:
-                                                        rx += int(values[0])
-                                                        tx += int(values[8])
-                                    else:
-                                        # Fallback to docker exec if not accessible (e.g. running in container)
-                                        # Try simple cat first
-                                        exit_code, output = container.exec_run("cat /proc/net/dev")
-                                        if exit_code != 0:
-                                             # Try ip command if cat fails
-                                             exit_code, output = container.exec_run("ip -s link")
-                                             
-                                        if exit_code == 0:
-                                            output_str = output.decode('utf-8')
-                                            # Parse cat /proc/net/dev output
-                                            if "Receive" in output_str or "Inter-" in output_str:
+                                    # Method 2a: IPTables (Most accurate for Docker if running as root)
+                                    if sys.platform.startswith('linux'):
+                                        # Get Container IP
+                                        container_ip = container.attrs.get('NetworkSettings', {}).get('IPAddress')
+                                        if not container_ip:
+                                            nets = container.attrs.get('NetworkSettings', {}).get('Networks', {})
+                                            if nets:
+                                                container_ip = list(nets.values())[0].get('IPAddress')
+                                        
+                                        if container_ip:
+                                            # Read FORWARD chain
+                                            cmd = "iptables -nvx -L FORWARD"
+                                            output = subprocess.check_output(cmd, shell=True).decode()
+                                            
+                                            ipt_rx = 0
+                                            ipt_tx = 0
+                                            
+                                            for line in output.split('\n'):
+                                                if container_ip in line:
+                                                    parts = line.split()
+                                                    if len(parts) >= 8:
+                                                        try:
+                                                            # Format: pkts bytes target prot opt in out source destination
+                                                            b = int(parts[1])
+                                                            src = parts[7]
+                                                            dst = parts[8]
+                                                            
+                                                            if dst == container_ip:
+                                                                ipt_rx += b
+                                                            elif src == container_ip:
+                                                                ipt_tx += b
+                                                        except:
+                                                            pass
+                                            
+                                            if ipt_rx > 0 or ipt_tx > 0:
+                                                rx = ipt_rx
+                                                tx = ipt_tx
+
+                                    # Method 2b: /proc/net/dev (Fallback if IPTables fails or returns 0)
+                                    if rx == 0 and tx == 0:
+                                        # Try reading directly from Host /proc (Faster & More Reliable)
+                                        pid = container.attrs.get('State', {}).get('Pid')
+                                        if pid and os.path.exists(f"/proc/{pid}/net/dev"):
+                                            with open(f"/proc/{pid}/net/dev", "r") as f:
+                                                output_str = f.read()
                                                 for line in output_str.split('\n'):
                                                     if ':' in line:
                                                         parts = line.split(':')
@@ -231,12 +250,25 @@ def update_docker_stats():
                                                         if len(values) >= 9:
                                                             rx += int(values[0])
                                                             tx += int(values[8])
-                                            # Parse ip -s link output
-                                            elif "RX:" in output_str:
-                                                 # This is harder to parse without regex, sticking to /proc/net/dev usually best
-                                                 pass
+                                        else:
+                                            # Fallback to docker exec
+                                            exit_code, output = container.exec_run("cat /proc/net/dev")
+                                            if exit_code != 0:
+                                                 exit_code, output = container.exec_run("ip -s link")
+                                                 
+                                            if exit_code == 0:
+                                                output_str = output.decode('utf-8')
+                                                if "Receive" in output_str or "Inter-" in output_str:
+                                                    for line in output_str.split('\n'):
+                                                        if ':' in line:
+                                                            parts = line.split(':')
+                                                            iface_name = parts[0].strip()
+                                                            if iface_name == 'lo': continue
+                                                            values = parts[1].split()
+                                                            if len(values) >= 9:
+                                                                rx += int(values[0])
+                                                                tx += int(values[8])
                                 except Exception as e2:
-                                    # print(f"Fallback Stats Error: {e2}")
                                     pass
 
                             p.download = rx
@@ -276,6 +308,19 @@ def update_docker_stats():
                                                 count = c_count
                                 except Exception as e_ss:
                                     # print(f"SS/Conntrack Error: {e_ss}")
+                                    pass
+
+                            p.active_connections = count
+                                
+                            # Method 4: Netstat (Classic tool)
+                            if count == 0 and sys.platform.startswith('linux'):
+                                try:
+                                    # netstat -tn | grep :PORT | grep ESTABLISHED
+                                    cmd = f"netstat -tn 2>/dev/null | grep ':{p.port} ' | grep ESTABLISHED | wc -l"
+                                    output = subprocess.check_output(cmd, shell=True).decode().strip()
+                                    if output.isdigit():
+                                        count = int(output)
+                                except:
                                     pass
 
                             p.active_connections = count
