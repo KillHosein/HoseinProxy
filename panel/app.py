@@ -219,6 +219,8 @@ def _ensure_db_initialized():
                 ('quota_base_upload', 'ALTER TABLE proxy ADD COLUMN quota_base_upload BIGINT DEFAULT 0'),
                 ('quota_base_download', 'ALTER TABLE proxy ADD COLUMN quota_base_download BIGINT DEFAULT 0'),
                 ('expiry_date', 'ALTER TABLE proxy ADD COLUMN expiry_date DATETIME'),
+                ('telegram_chat_id', 'ALTER TABLE proxy ADD COLUMN telegram_chat_id VARCHAR(50)'),
+                ('created_at', 'ALTER TABLE proxy ADD COLUMN created_at DATETIME'),
             ]
             with db.engine.connect() as conn:
                 for col, stmt in migrations:
