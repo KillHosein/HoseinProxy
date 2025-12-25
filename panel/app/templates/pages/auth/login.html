@@ -2,542 +2,403 @@
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
+    <!-- تنظیمات ویوپورت برای موبایل: جلوگیری از زوم ناخواسته و تنظیم مقیاس -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>کنسول ورود امن | HoseinProxy Enterprise</title>
+    <title>درگاه امنیتی فوق پیشرفته | HoseinProxy Elite</title>
     <!-- Bootstrap 5 RTL -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
     <!-- Google Fonts -->
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
         :root {
-            --bg-deep: #02040a;
-            --glass-surface: rgba(13, 17, 28, 0.75);
-            --border-subtle: rgba(255, 255, 255, 0.08);
-            --primary-accent: #0ea5e9; 
-            --primary-glow: rgba(14, 165, 233, 0.25);
-            --text-heading: #f8fafc;
-            --text-body: #94a3b8;
-            --success-color: #10b981;
-            --error-color: #ef4444;
+            --bg-void: #030508;
+            --panel-bg: rgba(10, 14, 23, 0.9); /* کمی تیره‌تر برای موبایل */
+            --border-neon: rgba(0, 242, 254, 0.4);
+            --primary: #00f2fe; 
+            --secondary: #4facfe;
+            --text-main: #e2e8f0;
+            --text-dim: #64748b;
+            --dev-color: #ff0055;
+        }
+
+        * {
+            box-sizing: border-box;
+            outline: none;
         }
 
         body {
             font-family: 'Vazirmatn', sans-serif;
-            background-color: var(--bg-deep);
+            background-color: var(--bg-void);
             margin: 0;
             padding: 0;
+            /* استفاده از dvh برای موبایل‌های جدید */
             height: 100vh;
+            height: 100dvh; 
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
+            overflow: hidden; /* جلوگیری از اسکرول اضافه */
             position: relative;
-            user-select: none;
+            color: var(--text-main);
         }
 
-        /* --- بوم شبکه عصبی --- */
-        #neural-canvas {
-            position: absolute;
+        /* --- پس‌زمینه شبکه ثابت (Fixed) --- */
+        #matrix-canvas {
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             z-index: 0;
-            background: radial-gradient(circle at 50% 50%, #0f172a 0%, #000000 100%);
+            background: radial-gradient(circle at 50% 50%, #0f1521 0%, #000000 100%);
         }
 
-        .scan-line {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(to bottom, transparent 50%, rgba(14, 165, 233, 0.02) 51%, transparent 52%);
-            background-size: 100% 8px;
-            pointer-events: none;
+        .global-scan-line {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 3px;
+            background: linear-gradient(90deg, transparent, rgba(0, 242, 254, 0.5), transparent);
+            animation: globalScan 8s linear infinite;
             z-index: 1;
+            opacity: 0.3;
+            pointer-events: none;
         }
+        @keyframes globalScan { 0% { top: -10%; } 100% { top: 110%; } }
 
-        /* --- کارت لاگین --- */
+        /* --- کانتینر اصلی --- */
         .login-wrapper {
             position: relative;
             z-index: 10;
             width: 100%;
-            max-width: 440px;
-            padding: 20px;
+            padding: 15px;
+            display: flex;
+            justify-content: center;
         }
 
         .login-card {
-            background: var(--glass-surface);
-            backdrop-filter: blur(30px);
-            -webkit-backdrop-filter: blur(30px);
-            border: 1px solid var(--border-subtle);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 24px;
-            padding: 45px 35px;
-            box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.8);
-            animation: cardEntrance 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+            background: var(--panel-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-neon);
+            /* کلیپ پث فقط در دسکتاپ اعمال شود تا در موبایل فضای زیاد نگیرد */
+            clip-path: polygon(
+                20px 0, 100% 0, 
+                100% calc(100% - 20px), calc(100% - 20px) 100%, 
+                0 100%, 0 20px
+            );
+            padding: 2px;
+            box-shadow: 0 0 60px rgba(0, 242, 254, 0.1);
             position: relative;
-            overflow: hidden;
+            width: 100%;
+            max-width: 450px;
+            transition: transform 0.3s ease;
         }
 
-        /* افکت نوری لبه بالا */
-        .login-card::before {
-            content: '';
+        .card-inner {
+            background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.5));
+            clip-path: polygon(
+                20px 0, 100% 0, 
+                100% calc(100% - 20px), calc(100% - 20px) 100%, 
+                0 100%, 0 20px
+            );
+            padding: 30px 25px; /* پدینگ بهینه شده */
+        }
+
+        /* ریسپانسیو برای موبایل */
+        @media (max-width: 576px) {
+            .login-card, .card-inner {
+                clip-path: none; /* حذف گوشه‌های بریده در موبایل برای فضای بیشتر */
+                border-radius: 15px;
+            }
+            .card-inner {
+                padding: 25px 20px;
+            }
+            .brand-title {
+                font-size: 1.5rem !important;
+            }
+            .logo-display {
+                width: 60px !important;
+                height: 60px !important;
+            }
+            .logo-icon {
+                font-size: 2rem !important;
+            }
+        }
+
+        /* تزئینات */
+        .corner-decor {
             position: absolute;
-            top: 0; left: 0; width: 100%; height: 2px;
-            background: linear-gradient(90deg, transparent, var(--primary-accent), transparent);
-            opacity: 0.5;
+            width: 10px;
+            height: 10px;
+            background: var(--primary);
+            z-index: 12;
+            box-shadow: 0 0 10px var(--primary);
         }
+        .tl { top: 0; left: 0; }
+        .br { bottom: 0; right: 0; }
 
-        @keyframes cardEntrance {
-            from { opacity: 0; transform: translateY(30px) scale(0.98); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        /* هدر برند */
-        .brand-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-bottom: 30px;
-        }
-
-        .logo-box {
-            width: 72px;
-            height: 72px;
-            background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
-            border: 1px solid var(--border-subtle);
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 15px;
-            color: var(--primary-accent);
-            font-size: 2rem;
-            box-shadow: 0 0 40px var(--primary-glow);
-            position: relative;
-        }
+        /* هدر */
+        .brand-section { text-align: center; margin-bottom: 25px; }
         
-        .logo-box::after {
-            content: '';
-            position: absolute;
-            inset: -2px;
-            border-radius: 22px;
-            background: linear-gradient(45deg, var(--primary-accent), transparent, var(--primary-accent));
-            opacity: 0.2;
-            z-index: -1;
-            filter: blur(5px);
+        .logo-display {
+            width: 80px; height: 80px;
+            margin: 0 auto 10px;
+            position: relative;
+            display: flex; align-items: center; justify-content: center;
         }
+
+        .logo-circle {
+            position: absolute; width: 100%; height: 100%;
+            border: 2px dashed var(--border-neon);
+            border-radius: 50%;
+            animation: spinSlow 20s linear infinite;
+        }
+
+        .logo-icon {
+            font-size: 2.5rem; color: var(--primary);
+            text-shadow: 0 0 15px var(--primary);
+            z-index: 2;
+        }
+        @keyframes spinSlow { to { transform: rotate(360deg); } }
 
         .brand-title {
-            font-size: 1.6rem;
-            font-weight: 800;
-            color: var(--text-heading);
-            margin: 0;
-            letter-spacing: -0.5px;
-        }
-
-        .brand-badge {
-            font-size: 0.7rem;
-            background: rgba(14, 165, 233, 0.08);
-            color: var(--primary-accent);
-            padding: 4px 12px;
-            border-radius: 50px;
-            margin-top: 8px;
-            border: 1px solid rgba(14, 165, 233, 0.15);
-            font-family: monospace;
+            font-family: 'Share Tech Mono', 'Vazirmatn', monospace;
+            font-size: 1.8rem;
             letter-spacing: 1px;
+            margin: 0;
+            background: linear-gradient(to right, #fff, var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
         }
 
-        /* ترمینال وضعیت */
-        .status-terminal {
-            background: rgba(0, 0, 0, 0.4);
-            border-radius: 10px;
-            padding: 10px 15px;
-            margin-bottom: 25px;
-            border-right: 3px solid var(--success-color);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+        .brand-subtitle {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.75rem; color: var(--text-dim);
+            letter-spacing: 2px; margin-top: 5px;
+        }
+
+        /* ترمینال */
+        .ai-terminal {
+            background: rgba(0, 0, 0, 0.6);
+            border-left: 2px solid var(--primary);
+            padding: 8px 12px;
+            margin-bottom: 20px;
             font-family: 'Vazirmatn', monospace;
+            font-size: 0.8rem;
+            display: flex; align-items: center; justify-content: space-between;
+            border-radius: 4px;
         }
-
-        .status-content {
-            font-size: 0.75rem;
-            color: var(--text-body);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+        .terminal-text { color: #10b981; text-shadow: 0 0 5px rgba(16, 185, 129, 0.4); }
+        .ai-refresh {
+            background: none; border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-dim); padding: 4px 10px;
+            cursor: pointer; transition: 0.3s; font-size: 0.7rem;
+            border-radius: 4px;
         }
-
-        .status-indicator {
-            width: 6px;
-            height: 6px;
-            background-color: var(--success-color);
-            border-radius: 50%;
-            display: inline-block;
-            margin-left: 8px;
-            box-shadow: 0 0 8px var(--success-color);
-            animation: pulse 1.5s infinite;
-        }
-
-        .btn-refresh-ai {
-            background: none;
-            border: none;
-            color: var(--primary-accent);
-            font-size: 0.85rem;
-            cursor: pointer;
-            padding: 5px;
-            transition: transform 0.3s;
-            opacity: 0.8;
-        }
-        
-        .btn-refresh-ai:hover { transform: rotate(180deg); opacity: 1; color: #fff; }
+        .ai-refresh:hover { color: var(--primary); border-color: var(--primary); }
 
         /* فرم‌ها */
-        .input-group-modern {
-            position: relative;
-            margin-bottom: 20px;
-        }
-
-        .form-control {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--border-subtle);
-            color: var(--text-heading);
-            padding: 15px 16px;
-            padding-left: 45px; /* آیکون چپ */
-            padding-right: 16px;
-            border-radius: 12px;
-            font-size: 0.95rem;
-            width: 100%;
-            transition: all 0.2s;
-        }
+        .cyber-input-group { position: relative; margin-bottom: 15px; }
         
-        /* کلاس برای ورودی رمز عبور که دکمه چشم دارد */
-        .password-input {
-            padding-right: 45px;
+        .cyber-label {
+            display: block; font-size: 0.75rem; color: var(--primary);
+            margin-bottom: 4px; font-family: 'Share Tech Mono', 'Vazirmatn';
+            letter-spacing: 1px; text-transform: uppercase;
         }
 
-        .form-control:focus {
-            background: rgba(255, 255, 255, 0.04);
-            border-color: var(--primary-accent);
-            box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
-            outline: none;
-        }
-
-        .form-control.valid { border-color: rgba(16, 185, 129, 0.5); }
-        
-        .input-icon-left {
-            position: absolute;
-            left: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-body);
-            transition: 0.2s;
-            pointer-events: none;
-        }
-
-        .form-control:focus ~ .input-icon-left {
-            color: var(--primary-accent);
-        }
-
-        .toggle-password {
-            position: absolute;
-            right: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-body);
-            cursor: pointer;
-            transition: 0.2s;
-            padding: 5px;
-        }
-
-        .toggle-password:hover { color: var(--text-heading); }
-
-        .form-label-top {
-            display: block;
-            font-size: 0.85rem;
-            color: var(--text-body);
-            margin-bottom: 8px;
-            font-weight: 500;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        /* چک باکس سفارشی */
-        .custom-checkbox-container {
-            display: flex;
-            align-items: center;
-            margin-bottom: 25px;
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .custom-checkbox-container input {
-            display: none;
-        }
-
-        .checkmark {
-            width: 18px;
-            height: 18px;
-            background-color: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-subtle);
-            border-radius: 5px;
-            margin-left: 10px;
-            position: relative;
-            transition: 0.2s;
-        }
-
-        .custom-checkbox-container input:checked ~ .checkmark {
-            background-color: var(--primary-accent);
-            border-color: var(--primary-accent);
-            box-shadow: 0 0 10px var(--primary-glow);
-        }
-
-        .checkmark::after {
-            content: "";
-            position: absolute;
-            display: none;
-            left: 6px;
-            top: 2px;
-            width: 5px;
-            height: 10px;
-            border: solid white;
-            border-width: 0 2px 2px 0;
-            transform: rotate(45deg);
-        }
-
-        .custom-checkbox-container input:checked ~ .checkmark::after {
-            display: block;
-        }
-
-        .checkbox-label {
-            font-size: 0.85rem;
-            color: var(--text-body);
-        }
-
-        /* دکمه ورود */
-        .btn-primary-glow {
-            background: linear-gradient(135deg, var(--primary-accent), #0284c7);
-            color: white;
-            border: none;
+        .cyber-input {
             width: 100%;
-            padding: 15px;
-            border-radius: 12px;
-            font-weight: 700;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 10px 25px -5px rgba(14, 165, 233, 0.4);
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
+            background: rgba(5, 10, 20, 0.6);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            padding: 12px 15px;
+            padding-left: 40px;
+            font-family: 'Share Tech Mono', sans-serif;
+            transition: 0.3s;
+            border-radius: 6px;
+            font-size: 1rem; /* سایز مناسب برای موبایل (جلوگیری از زوم) */
         }
 
-        .btn-primary-glow:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 15px 30px -5px rgba(14, 165, 233, 0.5);
+        .cyber-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
+            background: rgba(0, 242, 254, 0.05);
         }
 
-        .btn-primary-glow:active { transform: scale(0.98); }
-
-        /* لودینگ دکمه */
-        .spinner {
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
-            display: none;
+        .input-icon {
+            position: absolute; left: 12px; bottom: 12px;
+            color: var(--text-dim); transition: 0.3s;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .cyber-input:focus ~ .input-icon { color: var(--primary); }
 
-        .btn-loading .btn-text { display: none; }
-        .btn-loading .spinner { display: block; }
+        /* دکمه */
+        .btn-cyber-submit {
+            position: relative; width: 100%; padding: 14px;
+            background: rgba(0, 242, 254, 0.05);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            font-family: 'Share Tech Mono', 'Vazirmatn';
+            font-size: 1.1rem; font-weight: bold;
+            cursor: pointer; overflow: hidden;
+            transition: 0.3s; margin-top: 10px;
+            text-transform: uppercase; letter-spacing: 2px;
+            border-radius: 6px;
+        }
+        .btn-cyber-submit::before {
+            content: ''; position: absolute; top: 0; left: -100%;
+            width: 100%; height: 100%; background: var(--primary);
+            transition: 0.4s; z-index: -1;
+        }
+        .btn-cyber-submit:hover { color: #000; box-shadow: 0 0 20px var(--primary); }
+        .btn-cyber-submit:hover::before { left: 0; }
+        /* استایل تاچ برای موبایل */
+        .btn-cyber-submit:active { transform: scale(0.98); }
 
         /* فوتر */
-        .card-footer-custom {
-            margin-top: 30px;
-            border-top: 1px solid var(--border-subtle);
-            padding-top: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.75rem;
-            color: var(--text-body);
+        .cyber-footer {
+            margin-top: 25px; padding-top: 15px;
+            border-top: 1px dashed rgba(255,255,255,0.1);
+            display: flex; flex-direction: column;
+            gap: 15px; align-items: center;
         }
 
-        .footer-link {
-            color: var(--text-body);
+        .dev-badge {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 0, 85, 0.3);
+            padding: 8px 25px; /* فضای لمس بیشتر */
+            border-radius: 6px;
             text-decoration: none;
-            transition: 0.2s;
+            display: flex; align-items: center; gap: 10px;
+            transition: 0.3s; position: relative; overflow: hidden;
         }
-        
-        .footer-link:hover { color: var(--primary-accent); }
-
-        .server-time {
-            font-family: monospace;
-            background: rgba(0,0,0,0.3);
-            padding: 2px 6px;
-            border-radius: 4px;
-            border: 1px solid var(--border-subtle);
+        .dev-badge:hover, .dev-badge:active {
+            border-color: var(--dev-color);
+            box-shadow: 0 0 15px rgba(255, 0, 85, 0.3);
         }
 
-        /* Alerts */
+        .dev-role {
+            font-size: 0.65rem; color: var(--text-dim);
+            text-transform: uppercase; letter-spacing: 1px;
+            display: block; margin-bottom: 2px;
+        }
+        .dev-name {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1rem; color: var(--dev-color);
+            font-weight: bold; text-shadow: 0 0 5px rgba(255, 0, 85, 0.5);
+        }
+
+        .system-info {
+            width: 100%; display: flex; justify-content: space-between;
+            font-size: 0.7rem; color: var(--text-dim); font-family: monospace;
+        }
+
+        /* هشدارها */
         .alert {
-            background: rgba(220, 38, 38, 0.1);
-            border: 1px solid rgba(220, 38, 38, 0.2);
-            color: #fca5a5;
-            font-size: 0.85rem;
-            border-radius: 10px;
-            padding: 12px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            background: rgba(255, 50, 50, 0.1);
+            border-left: 3px solid #ff3232;
+            color: #ff8080; font-size: 0.8rem;
+            margin-bottom: 15px; padding: 10px;
+            border-radius: 4px;
         }
 
+        /* مخفی کردن کیبورد وقتی روی بوم کلیک میشه */
+        canvas { touch-action: none; }
     </style>
 </head>
 <body>
 
-    <!-- بوم شبکه عصبی -->
-    <canvas id="neural-canvas"></canvas>
-    <div class="scan-line"></div>
+    <canvas id="matrix-canvas"></canvas>
+    <div class="global-scan-line"></div>
 
     <div class="login-wrapper">
+        <div class="corner-decor tl d-none d-sm-block"></div>
+        <div class="corner-decor br d-none d-sm-block"></div>
+
         <div class="login-card">
-            
-            <div class="brand-container">
-                <div class="logo-box">
-                    <i class="fas fa-network-wired"></i>
-                </div>
-                <h1 class="brand-title">HoseinProxy</h1>
-                <div class="brand-badge">ENTERPRISE GATEWAY</div>
-            </div>
-
-            <!-- وضعیت سیستم -->
-            <div class="status-terminal">
-                <div class="d-flex align-items-center" style="width: 85%;">
-                    <span class="status-indicator"></span>
-                    <span id="ai-response" class="status-content">System: Online | Node: IR-Tehran-01</span>
-                </div>
-                <button id="ai-btn" class="btn-refresh-ai" title="اسکن امنیتی">
-                    <i class="fas fa-sync-alt"></i>
-                </button>
-            </div>
-
-            <!-- پیام‌ها -->
-            {% with messages = get_flashed_messages(with_categories=true) %}
-              {% if messages %}
-                {% for category, message in messages %}
-                  <div class="alert alert-{{ category }}">
-                    <i class="fas fa-info-circle"></i>
-                    {{ message }}
-                  </div>
-                {% endfor %}
-              {% endif %}
-            {% endwith %}
-
-            <form method="POST" id="loginForm">
-                <div class="input-group-modern">
-                    <label class="form-label-top">شناسه مدیریت</label>
-                    <input type="text" name="username" class="form-control" placeholder="Admin ID" required autofocus autocomplete="off" id="userInput">
-                    <i class="fas fa-user-shield input-icon-left"></i>
+            <div class="card-inner">
+                
+                <div class="brand-section">
+                    <div class="logo-display">
+                        <div class="logo-circle"></div>
+                        <i class="fas fa-fingerprint logo-icon"></i>
+                    </div>
+                    <h1 class="brand-title">HoseinProxy</h1>
+                    <div class="brand-subtitle">SECURE ACCESS TERMINAL</div>
                 </div>
 
-                <div class="input-group-modern">
-                    <label class="form-label-top">
-                        کلید دسترسی
-                        <a href="#" class="footer-link" style="font-size: 0.75rem;">فراموشی رمز؟</a>
-                    </label>
-                    <input type="password" name="password" class="form-control password-input" placeholder="Access Key" required id="passInput">
-                    <i class="fas fa-key input-icon-left"></i>
-                    <i class="far fa-eye toggle-password" id="togglePass"></i>
+                <div class="ai-terminal">
+                    <div>
+                        <span style="color:var(--primary); margin-right:5px;">></span>
+                        <span id="ai-response" class="terminal-text">System Init... OK</span>
+                    </div>
+                    <button id="ai-btn" class="ai-refresh">SCAN</button>
                 </div>
 
-                <label class="custom-checkbox-container">
-                    <input type="checkbox" name="remember">
-                    <span class="checkmark"></span>
-                    <span class="checkbox-label">ذخیره نشست امنیتی (Remember Session)</span>
-                </label>
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="alert alert-{{ category }}">
+                        {{ message }}
+                      </div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
 
-                <button type="submit" class="btn-primary-glow" id="submitBtn">
-                    <span class="btn-text">احراز هویت و ورود</span>
-                    <div class="spinner"></div>
-                </button>
-            </form>
+                <form method="POST">
+                    <div class="cyber-input-group">
+                        <label class="cyber-label">User Identifier</label>
+                        <input type="text" name="username" class="cyber-input" required autocomplete="off">
+                        <i class="fas fa-user-shield input-icon"></i>
+                    </div>
 
-            <div class="card-footer-custom">
-                <div>
-                    <span class="server-time" id="serverClock">00:00:00 UTC</span>
+                    <div class="cyber-input-group">
+                        <label class="cyber-label">Access Token</label>
+                        <input type="password" name="password" class="cyber-input" required>
+                        <i class="fas fa-key input-icon"></i>
+                    </div>
+
+                    <button type="submit" class="btn-cyber-submit">
+                        <i class="fas fa-unlock-alt me-2"></i> Authenticate
+                    </button>
+                </form>
+
+                <div class="cyber-footer">
+                    <a href="https://t.me/KillHosein" target="_blank" class="dev-badge">
+                        <i class="fas fa-code" style="color:var(--text-dim)"></i>
+                        <div>
+                            <span class="dev-role">System Architect</span>
+                            <span class="dev-name">@KillHosein</span>
+                        </div>
+                    </a>
+
+                    <div class="system-info">
+                        <span id="clock">00:00:00 Z</span>
+                        <span>Ver: 3.1.0-M</span>
+                    </div>
                 </div>
-                <div style="opacity: 0.6;">
-                    v2.4.0-Stable
-                </div>
+
             </div>
         </div>
     </div>
 
-    <!-- Gemini & UI Logic -->
     <script type="module">
         import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 
-        // --- Logic: Password Toggle ---
-        const togglePass = document.getElementById('togglePass');
-        const passInput = document.getElementById('passInput');
-        
-        togglePass.addEventListener('click', function () {
-            const type = passInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            passInput.setAttribute('type', type);
-            this.classList.toggle('fa-eye');
-            this.classList.toggle('fa-eye-slash');
-        });
-
-        // --- Logic: Input Validation Visuals ---
-        const userInput = document.getElementById('userInput');
-        userInput.addEventListener('input', function() {
-            if(this.value.length > 3) {
-                this.classList.add('valid');
-            } else {
-                this.classList.remove('valid');
-            }
-        });
-
-        // --- Logic: Live Server Clock ---
         function updateClock() {
             const now = new Date();
-            const timeString = now.toISOString().split('T')[1].split('.')[0] + ' UTC';
-            document.getElementById('serverClock').innerText = timeString;
+            document.getElementById('clock').innerText = now.toISOString().split('T')[1].split('.')[0] + ' Z';
         }
         setInterval(updateClock, 1000);
         updateClock();
 
-        // --- Logic: Button Loading ---
-        const loginForm = document.getElementById('loginForm');
-        const submitBtn = document.getElementById('submitBtn');
-
-        loginForm.addEventListener('submit', function() {
-            // جلوگیری از ارسال فرم برای دمو (در محیط واقعی این خط را حذف کنید)
-            // e.preventDefault(); 
-            submitBtn.classList.add('btn-loading');
-            submitBtn.disabled = true;
-        });
-
-        // --- Logic: Gemini AI ---
         const aiBtn = document.getElementById('ai-btn');
         const aiResponse = document.getElementById('ai-response');
-        const aiIcon = aiBtn.querySelector('i');
         
-        function typeText(element, text, speed = 20) {
+        function typeText(element, text, speed = 30) {
             element.innerHTML = "";
             let i = 0;
             function type() {
@@ -551,70 +412,69 @@
         }
 
         aiBtn.addEventListener('click', async () => {
-            const apiKey = ""; // API Key Injected
-            
-            aiResponse.innerText = "Running Diagnostics...";
-            aiResponse.style.color = "#94a3b8";
-            aiIcon.classList.add('fa-spin');
+            const apiKey = ""; 
+            aiResponse.innerText = "Scanning...";
+            aiResponse.style.color = "#64748b";
             aiBtn.disabled = true;
-
             try {
                 const genAI = new GoogleGenerativeAI(apiKey);
                 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-09-2025" });
-
-                const prompt = "Generate a very short, highly technical status log for a proxy server. E.g. 'Latency: 20ms | Packets: Stable'. Max 6 words.";
-
+                const prompt = "Generate a short terminal status: 'ROOT ACCESS: GRANTED'. Max 4 words.";
                 const result = await model.generateContent(prompt);
                 const text = result.response.text();
-
                 aiResponse.style.color = "#10b981"; 
                 typeText(aiResponse, text);
-                
             } catch (error) {
                 console.error(error);
-                aiResponse.innerText = "Connection Error: Retry";
-                aiResponse.style.color = "#f43f5e"; 
+                aiResponse.innerText = "LINK ERROR";
+                aiResponse.style.color = "#ff3232";
             } finally {
-                aiIcon.classList.remove('fa-spin');
                 aiBtn.disabled = false;
             }
         });
     </script>
 
-    <!-- انیمیشن شبکه عصبی هوشمند (Neural Mesh v2) -->
     <script>
-        const canvas = document.getElementById('neural-canvas');
+        const canvas = document.getElementById('matrix-canvas');
         const ctx = canvas.getContext('2d');
         
         let width, height;
         let particles = [];
+        // اضافه کردن پوزیشن تاچ برای موبایل
         let mouse = { x: null, y: null };
 
         const config = {
-            count: 70,
-            color: 'rgba(14, 165, 233, 0.7)', 
-            lineColor: 'rgba(14, 165, 233, 0.12)',
-            radius: 2,
-            speed: 0.4,
-            connectionDist: 140,
-            mouseDist: 250,
-            pulseSpeed: 0.02
+            count: 60,
+            color: '#00f2fe',
+            lineColor: 'rgba(0, 242, 254, 0.1)',
+            radius: 1.5,
+            speed: 0.3,
+            dist: 130
         };
 
-        window.addEventListener('mousemove', (e) => {
-            mouse.x = e.x;
-            mouse.y = e.y;
-        });
-
-        window.addEventListener('mouseleave', () => {
-            mouse.x = null;
-            mouse.y = null;
-        });
+        // هندل کردن تاچ و موس
+        ['mousemove', 'touchmove'].forEach(evt => 
+            window.addEventListener(evt, e => {
+                if(e.touches) {
+                    mouse.x = e.touches[0].clientX;
+                    mouse.y = e.touches[0].clientY;
+                } else {
+                    mouse.x = e.clientX;
+                    mouse.y = e.clientY;
+                }
+            }, {passive: true})
+        );
+        
+        ['mouseleave', 'touchend'].forEach(evt => 
+            window.addEventListener(evt, () => { mouse.x = null; mouse.y = null; })
+        );
 
         function resize() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
-            config.count = width < 768 ? 40 : 70;
+            // کاهش تعداد ذرات در موبایل برای عملکرد بهتر
+            config.count = width < 768 ? 35 : 60;
+            config.dist = width < 768 ? 100 : 130;
         }
 
         class Particle {
@@ -623,82 +483,56 @@
                 this.y = Math.random() * height;
                 this.vx = (Math.random() - 0.5) * config.speed;
                 this.vy = (Math.random() - 0.5) * config.speed;
-                this.baseSize = Math.random() * config.radius + 1;
-                this.size = this.baseSize;
-                this.pulseDir = 1;
-                this.isPulsing = Math.random() > 0.8; // 20% particles pulse
             }
-
             update() {
                 this.x += this.vx;
                 this.y += this.vy;
+                if(this.x < 0 || this.x > width) this.vx *= -1;
+                if(this.y < 0 || this.y > height) this.vy *= -1;
 
-                if (this.x < 0 || this.x > width) this.vx *= -1;
-                if (this.y < 0 || this.y > height) this.vy *= -1;
-
-                // Mouse interaction
                 if (mouse.x != null) {
                     let dx = mouse.x - this.x;
                     let dy = mouse.y - this.y;
-                    let distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    if (distance < config.mouseDist) {
-                        const force = (config.mouseDist - distance) / config.mouseDist;
-                        const directionX = (dx / distance) * force * 1.5; 
-                        const directionY = (dy / distance) * force * 1.5;
-                        this.x += directionX;
-                        this.y += directionY;
-                    }
-                }
-
-                // Pulsing effect
-                if (this.isPulsing) {
-                    this.size += config.pulseSpeed * this.pulseDir;
-                    if (this.size > this.baseSize * 1.8 || this.size < this.baseSize) {
-                        this.pulseDir *= -1;
+                    let distance = Math.sqrt(dx*dx + dy*dy);
+                    if (distance < 200) {
+                        this.x -= dx * 0.02; // کاهش سرعت واکنش برای نرمی بیشتر
+                        this.y -= dy * 0.02;
                     }
                 }
             }
-
             draw() {
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fillStyle = this.isPulsing ? '#38bdf8' : config.color; // Pulsing ones are brighter
+                ctx.arc(this.x, this.y, config.radius, 0, Math.PI * 2);
+                ctx.fillStyle = config.color;
                 ctx.fill();
             }
         }
 
         function init() {
             particles = [];
-            for (let i = 0; i < config.count; i++) {
-                particles.push(new Particle());
-            }
+            for(let i=0; i<config.count; i++) particles.push(new Particle());
         }
 
         function animate() {
             ctx.clearRect(0, 0, width, height);
-            
-            particles.forEach((p, index) => {
+            particles.forEach((p, i) => {
                 p.update();
                 p.draw();
-                
-                for (let j = index + 1; j < particles.length; j++) {
-                    const p2 = particles[j];
-                    const dx = p.x - p2.x;
-                    const dy = p.y - p2.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-
-                    if (dist < config.connectionDist) {
+                for(let j=i+1; j<particles.length; j++){
+                    let p2 = particles[j];
+                    let dx = p.x - p2.x;
+                    let dy = p.y - p2.y;
+                    let d = Math.sqrt(dx*dx + dy*dy);
+                    if(d < config.dist){
                         ctx.beginPath();
-                        ctx.strokeStyle = config.lineColor;
-                        ctx.lineWidth = 1 - (dist / config.connectionDist);
+                        ctx.strokeStyle = `rgba(0, 242, 254, ${1 - d/config.dist})`;
+                        ctx.lineWidth = 0.5;
                         ctx.moveTo(p.x, p.y);
                         ctx.lineTo(p2.x, p2.y);
                         ctx.stroke();
                     }
                 }
             });
-
             requestAnimationFrame(animate);
         }
 
