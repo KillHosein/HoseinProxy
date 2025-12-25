@@ -8,6 +8,7 @@ import time
 import subprocess
 import tarfile
 import shutil
+import requests
 import ipaddress
 from collections import defaultdict, deque
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
@@ -101,6 +102,9 @@ class Proxy(db.Model):
     quota_start = db.Column(db.DateTime, nullable=True)
     quota_base_upload = db.Column(db.BigInteger, default=0)
     quota_base_download = db.Column(db.BigInteger, default=0)
+    expiry_date = db.Column(db.DateTime, nullable=True)
+    telegram_chat_id = db.Column(db.String(50), nullable=True) # Per-user chat ID override if needed later, but for now we use global settings
+
 
 class ProxyStats(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -124,6 +128,13 @@ class Alert(db.Model):
     message = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     resolved = db.Column(db.Boolean, default=False)
+
+class BlockedIP(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    ip_address = db.Column(db.String(50), unique=True, nullable=False)
+    reason = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 _db_initialized = False
 _db_init_lock = threading.Lock()
@@ -207,6 +218,7 @@ def _ensure_db_initialized():
                 ('quota_start', 'ALTER TABLE proxy ADD COLUMN quota_start DATETIME'),
                 ('quota_base_upload', 'ALTER TABLE proxy ADD COLUMN quota_base_upload BIGINT DEFAULT 0'),
                 ('quota_base_download', 'ALTER TABLE proxy ADD COLUMN quota_base_download BIGINT DEFAULT 0'),
+                ('expiry_date', 'ALTER TABLE proxy ADD COLUMN expiry_date DATETIME'),
             ]
             with db.engine.connect() as conn:
                 for col, stmt in migrations:
@@ -267,6 +279,19 @@ def _quota_usage_bytes(proxy):
     used_download = max(0, int(proxy.download) - int(proxy.quota_base_download or 0))
     return used_upload + used_download
 
+def _send_telegram_alert(message):
+    try:
+        bot_token = get_setting('telegram_bot_token')
+        chat_id = get_setting('telegram_chat_id')
+        if not bot_token or not chat_id:
+            return
+        
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        data = {"chat_id": chat_id, "text": message}
+        requests.post(url, json=data, timeout=5)
+    except Exception as e:
+        print(f"Telegram Alert Error: {e}")
+
 def _maybe_emit_alert(proxy_id, severity, message, key, cooldown_seconds=60):
     now = datetime.utcnow()
     with _alerts_lock:
@@ -278,11 +303,89 @@ def _maybe_emit_alert(proxy_id, severity, message, key, cooldown_seconds=60):
         alert = Alert(proxy_id=proxy_id, severity=severity, message=message)
         db.session.add(alert)
         db.session.commit()
+        
+        # Send Telegram notification for warnings/errors
+        if severity in ['warning', 'error', 'critical']:
+            _send_telegram_alert(f"⚠️ Alert [{severity.upper()}]\n{message}")
+            
     except Exception:
         try:
             db.session.rollback()
         except Exception:
             pass
+
+
+def _check_proxy_limits(proxies):
+    now = datetime.utcnow()
+    for p in proxies:
+        if p.status != 'running':
+            continue
+            
+        should_stop = False
+        reason = ""
+        
+        # Check Expiry
+        if p.expiry_date and now > p.expiry_date:
+            should_stop = True
+            reason = "Expired"
+            
+        # Check Quota
+        elif p.quota_bytes and p.quota_bytes > 0:
+            used = _quota_usage_bytes(p) or 0
+            if used >= p.quota_bytes:
+                should_stop = True
+                reason = "Quota Exceeded"
+        
+        if should_stop:
+            print(f"Stopping proxy {p.port} due to {reason}")
+            try:
+                if docker_client and p.container_id:
+                    container = docker_client.containers.get(p.container_id)
+                    container.stop()
+                p.status = "stopped"
+                log_activity("Auto-Stop", f"Proxy {p.port} stopped due to {reason}")
+                _maybe_emit_alert(p.id, "warning", f"پروکسی {p.port} به دلیل {reason} متوقف شد.", f"autostop:{p.id}")
+            except Exception as e:
+                print(f"Error auto-stopping proxy {p.port}: {e}")
+
+def _apply_firewall_rule(ip, action='block'):
+    """Applies iptables rule for a specific IP"""
+    if not sys.platform.startswith('linux'):
+        return
+        
+    try:
+        # Check if rule exists
+        check_cmd = f"iptables -C INPUT -s {ip} -j DROP"
+        rule_exists = subprocess.call(check_cmd.split(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
+        
+        if action == 'block':
+            if not rule_exists:
+                # Add DROP rule to INPUT and FORWARD chains
+                subprocess.check_call(f"iptables -I INPUT -s {ip} -j DROP", shell=True)
+                subprocess.check_call(f"iptables -I FORWARD -s {ip} -j DROP", shell=True)
+                # print(f"Blocked IP {ip}")
+        elif action == 'unblock':
+            if rule_exists:
+                # Remove rule (might need loop if duplicates exist, but -D removes one)
+                try:
+                    subprocess.check_call(f"iptables -D INPUT -s {ip} -j DROP", shell=True)
+                    subprocess.check_call(f"iptables -D FORWARD -s {ip} -j DROP", shell=True)
+                except:
+                    pass
+                # print(f"Unblocked IP {ip}")
+    except Exception as e:
+        print(f"Firewall Error ({action} {ip}): {e}")
+
+def _sync_firewall():
+    """Syncs DB blocked IPs with iptables on startup"""
+    if not sys.platform.startswith('linux'):
+        return
+    try:
+        blocked = BlockedIP.query.all()
+        for b in blocked:
+            _apply_firewall_rule(b.ip_address, 'block')
+    except:
+        pass
 
 # --- Background Task for Stats ---
 def update_docker_stats():
@@ -294,6 +397,7 @@ def update_docker_stats():
                 _ensure_db_initialized()
                 inspector = inspect(db.engine)
                 if inspector.has_table("proxy"):
+                    _sync_firewall()
                     break
         except:
             time.sleep(2)
@@ -315,56 +419,169 @@ def update_docker_stats():
                     
                     for p in proxies:
                         try:
-                            # 1. Update Traffic Stats
-                            container = docker_client.containers.get(p.container_id)
-                            stats = container.stats(stream=False)
-                            networks = stats.get('networks', {})
+                            # 1. Try internal stats first (Most accurate for MTProto Proxy)
+                            # MTProto proxy usually exposes stats on http://container_ip:8888/stats
+                            internal_stats_found = False
+                            if sys.platform.startswith('linux'):
+                                try:
+                                    container_ip = container.attrs.get('NetworkSettings', {}).get('IPAddress')
+                                    if not container_ip:
+                                         nets = container.attrs.get('NetworkSettings', {}).get('Networks', {})
+                                         if nets:
+                                             container_ip = list(nets.values())[0].get('IPAddress')
+                                    
+                                    if container_ip:
+                                        # Try port 8888 (standard)
+                                        resp = requests.get(f"http://{container_ip}:8888/stats", timeout=1)
+                                        if resp.status_code == 200:
+                                            # Default MTProto Proxy stats format (not JSON, simple text)
+                                            # Or sometimes JSON if using other images.
+                                            # Official one returns text like:
+                                            # active_connections 1
+                                            # ...
+                                            # But let's check what keys are there.
+                                            # Official telegrammessenger/proxy might not expose bytes per direction easily via stats.
+                                            # But let's assume if user says "Equal", they rely on interface stats.
+                                            pass
+                                except:
+                                    pass
+
+                            # 2. Interface Stats (Docker API / IPTables)
                             rx = 0
                             tx = 0
-                            for iface, data in networks.items():
-                                rx += data.get('rx_bytes', 0)
-                                tx += data.get('tx_bytes', 0)
                             
+                            # Method: IPTables with Port Detection (Best for distinguishing Client Upload)
+                            iptables_success = False
+                            if sys.platform.startswith('linux'):
+                                try:
+                                    container_ip = container.attrs.get('NetworkSettings', {}).get('IPAddress')
+                                    if not container_ip:
+                                        nets = container.attrs.get('NetworkSettings', {}).get('Networks', {})
+                                        if nets:
+                                            container_ip = list(nets.values())[0].get('IPAddress')
+                                    
+                                    if container_ip:
+                                        cmd = "iptables -nvx -L FORWARD"
+                                        output = subprocess.check_output(cmd, shell=True).decode()
+                                        
+                                        ipt_client_upload = 0   # dst=container dpt=port
+                                        ipt_total_tx = 0        # src=container (All outgoing)
+                                        ipt_total_rx = 0        # dst=container (All incoming)
+                                        
+                                        for line in output.split('\n'):
+                                            if container_ip in line:
+                                                parts = line.split()
+                                                if len(parts) >= 8:
+                                                    try:
+                                                        b = int(parts[1])
+                                                        src = parts[7]
+                                                        dst = parts[8]
+                                                        
+                                                        if dst == container_ip:
+                                                            ipt_total_rx += b
+                                                            # Check if this rule targets the proxy port
+                                                            if f"dpt:{p.port}" in line:
+                                                                ipt_client_upload += b
+                                                        elif src == container_ip:
+                                                            ipt_total_tx += b
+                                                    except:
+                                                        pass
+                                        
+                                        if ipt_total_rx > 0 or ipt_total_tx > 0:
+                                            # Heuristic:
+                                            # Client Upload = ipt_client_upload (Traffic hitting the proxy port)
+                                            # Client Download = Total TX - Client Upload (Traffic leaving container minus traffic sent to web/DC)
+                                            # Wait, Total TX = Client Download + Web Upload.
+                                            # And Web Upload (to DC) is roughly equal to Client Upload.
+                                            # So Client Download ≈ Total TX - Client Upload.
+                                            
+                                            # Fallback if dpt match not found (ipt_client_upload == 0)
+                                            if ipt_client_upload == 0:
+                                                # Assume 10% upload, 90% download? Or just split equally?
+                                                # User wants "Different". 
+                                                # Let's assume standard proxy usage: mostly download.
+                                                # But if we can't measure, sticking to Total is safer than guessing.
+                                                # However, to fix "Equal" complaint, we can try:
+                                                rx = ipt_total_rx
+                                                tx = ipt_total_tx
+                                            else:
+                                                # We have a specific upload measurement!
+                                                p_upload = ipt_client_upload
+                                                p_download = max(0, ipt_total_tx - ipt_client_upload)
+                                                
+                                                # Override rx/tx with these interpreted values
+                                                rx = p_download # User Download (Server -> User)
+                                                tx = p_upload   # User Upload (User -> Server)
+                                                
+                                                # Note: in database 'download' is usually traffic sent to user.
+                                                # 'upload' is traffic received from user.
+                                                # So:
+                                                # p.download = rx (Server->User)
+                                                # p.upload = tx (User->Server)
+                                                
+                                                iptables_success = True
+                                except Exception as e:
+                                    # print(f"IPTables Error: {e}")
+                                    pass
+
+                            # 3. Fallback to Docker Stats (Interface Total) if IPTables failed
+                            if not iptables_success:
+                                container = docker_client.containers.get(p.container_id)
+                                stats = container.stats(stream=False)
+                                networks = stats.get('networks', {})
+                                raw_rx = 0
+                                raw_tx = 0
+                                for iface, data in networks.items():
+                                    raw_rx += data.get('rx_bytes', 0)
+                                    raw_tx += data.get('tx_bytes', 0)
+                                
+                                # Fallback /proc/net/dev
+                                if raw_rx == 0 and raw_tx == 0:
+                                     # ... (proc code omitted for brevity, similar to before) ...
+                                     # Let's reuse existing logic structure but apply heuristic
+                                     pass
+
+                                # Apply Heuristic to Interface Stats if we couldn't separate them
+                                # Interface RX = Client Upload + Web Download
+                                # Interface TX = Client Download + Web Upload
+                                # Web Download ≈ Client Download
+                                # Web Upload ≈ Client Upload
+                                # So Raw RX ≈ Raw TX ≈ Total Traffic / 2
+                                
+                                # To give user "Different" values, we can't do much without port info.
+                                # But we can approximate Client Download = Raw TX / 2 ?? No, that's just dividing by 2.
+                                # It's better to show raw values but maybe label them "Total Traffic"?
+                                # User complained they are EQUAL.
+                                # If we assign p.download = raw_rx and p.upload = raw_tx, they are equal.
+                                
+                                # Let's try to assume "Download" is the dominant factor and "Upload" is small.
+                                # But that's lying.
+                                
+                                # If iptables failed, we likely can't fix it perfectly.
+                                # But let's stick to the previous logic for fallback, 
+                                # OR try to run the iptables logic block above as primary.
+                                
+                                rx = raw_rx
+                                tx = raw_tx
+                            
+                            # Final assignment (iptables logic might have already set it)
+                            if iptables_success:
+                                p.download = rx
+                                p.upload = tx
+                            else:
+                                # Legacy/Fallback: Interface stats (Equal-ish)
+                                # If we want to hack it to look "real":
+                                # Client Download ≈ Interface TX / 2 * 1.05?
+                                # No, let's keep it honest for fallback.
+                                p.download = rx
+                                p.upload = tx
+
                             # Method 2: Fallback to /proc/net/dev inside container if Docker stats fail or return 0
-                            if rx == 0 and tx == 0:
+                            if not iptables_success and rx == 0 and tx == 0:
                                 try:
                                     # Method 2a: IPTables (Most accurate for Docker if running as root)
-                                    if sys.platform.startswith('linux'):
-                                        # Get Container IP
-                                        container_ip = container.attrs.get('NetworkSettings', {}).get('IPAddress')
-                                        if not container_ip:
-                                            nets = container.attrs.get('NetworkSettings', {}).get('Networks', {})
-                                            if nets:
-                                                container_ip = list(nets.values())[0].get('IPAddress')
-                                        
-                                        if container_ip:
-                                            # Read FORWARD chain
-                                            cmd = "iptables -nvx -L FORWARD"
-                                            output = subprocess.check_output(cmd, shell=True).decode()
-                                            
-                                            ipt_rx = 0
-                                            ipt_tx = 0
-                                            
-                                            for line in output.split('\n'):
-                                                if container_ip in line:
-                                                    parts = line.split()
-                                                    if len(parts) >= 8:
-                                                        try:
-                                                            # Format: pkts bytes target prot opt in out source destination
-                                                            b = int(parts[1])
-                                                            src = parts[7]
-                                                            dst = parts[8]
-                                                            
-                                                            if dst == container_ip:
-                                                                ipt_rx += b
-                                                            elif src == container_ip:
-                                                                ipt_tx += b
-                                                        except:
-                                                            pass
-                                            
-                                            if ipt_rx > 0 or ipt_tx > 0:
-                                                rx = ipt_rx
-                                                tx = ipt_tx
+                                    # ... (Moved logic up) ...
+                                    pass
 
                                     # Method 2b: /proc/net/dev (Fallback if IPTables fails or returns 0)
                                     if rx == 0 and tx == 0:
@@ -402,9 +619,11 @@ def update_docker_stats():
                                                                 tx += int(values[8])
                                 except Exception as e2:
                                     pass
+                            
+                            if not iptables_success:
+                                p.download = rx
+                                p.upload = tx
 
-                            p.download = rx
-                            p.upload = tx
                             with _rate_lock:
                                 prev = _last_bytes.get(p.id)
                                 _last_bytes[p.id] = (tx, rx, time.time())
@@ -477,6 +696,7 @@ def update_docker_stats():
                             continue
                     
                     if proxies:
+                        _check_proxy_limits(proxies)
                         db.session.commit()
                         # print("Stats updated successfully.")
                     
@@ -540,6 +760,21 @@ def update_docker_stats():
                                 continue
                             if cnt >= alert_per_ip_threshold:
                                 _maybe_emit_alert(p.id, "warning", f"اتصالات زیاد از یک IP روی پورت {p.port}: {ip} ({cnt})", f"ip:{p.id}:{ip}")
+                                
+                                # Auto-Block Logic
+                                try:
+                                    auto_block = get_setting('auto_block_enabled', '0') == '1'
+                                    if auto_block:
+                                        if not BlockedIP.query.filter_by(ip_address=ip).first():
+                                            b = BlockedIP(ip_address=ip, reason=f"Auto-Block: {cnt} connections on port {p.port}")
+                                            db.session.add(b)
+                                            db.session.commit()
+                                            _apply_firewall_rule(ip, 'block')
+                                            log_activity("Auto-Block", f"Blocked IP {ip} due to high connections")
+                                            _send_telegram_alert(f"🚫 Auto-Blocked IP {ip}\nReason: High connections ({cnt}) on port {p.port}")
+                                except Exception as e:
+                                    print(f"Auto-Block Error: {e}")
+
 
         except OperationalError:
              print("DB Operational Error in Stats Thread. Retrying...")
@@ -604,6 +839,22 @@ def settings():
             set_setting('alert_conn_threshold', request.form.get('alert_conn_threshold'))
         if 'alert_ip_conn_threshold' in request.form:
             set_setting('alert_ip_conn_threshold', request.form.get('alert_ip_conn_threshold'))
+        if 'telegram_bot_token' in request.form:
+            set_setting('telegram_bot_token', request.form.get('telegram_bot_token'))
+        if 'telegram_chat_id' in request.form:
+            set_setting('telegram_chat_id', request.form.get('telegram_chat_id'))
+        if 'auto_block_enabled' in request.form:
+            set_setting('auto_block_enabled', '1' if request.form.get('auto_block_enabled') == 'on' else '0')
+        else:
+            # Handle checkbox unchecked case if it was present in form but unchecked
+            # But since this is a unified settings route, we should be careful.
+            # If the form was submitted from the settings page, it should have a hidden field or we check context.
+            # For simplicity, if we are saving settings, we assume checkbox presence logic.
+            # Actually, let's just check if it's a settings form submit.
+            # A safer way for checkboxes in update forms:
+            if request.form.get('settings_form_submitted') == '1':
+                 set_setting('auto_block_enabled', '1' if request.form.get('auto_block_enabled') == 'on' else '0')
+            
         flash('تنظیمات ذخیره شد.', 'success')
         return redirect(url_for('settings'))
         
@@ -611,7 +862,182 @@ def settings():
                            server_ip=get_setting('server_ip', ''),
                            server_domain=get_setting('server_domain', ''),
                            alert_conn_threshold=get_setting('alert_conn_threshold', '300'),
-                           alert_ip_conn_threshold=get_setting('alert_ip_conn_threshold', '20'))
+                           alert_ip_conn_threshold=get_setting('alert_ip_conn_threshold', '20'),
+                           telegram_bot_token=get_setting('telegram_bot_token', ''),
+                           telegram_chat_id=get_setting('telegram_chat_id', ''),
+                           auto_block_enabled=get_setting('auto_block_enabled', '0'))
+
+@app.route('/firewall')
+@login_required
+def firewall():
+    blocked_ips = BlockedIP.query.order_by(BlockedIP.created_at.desc()).all()
+    return render_template('firewall.html', blocked_ips=blocked_ips)
+
+@app.route('/firewall/add', methods=['POST'])
+@login_required
+def firewall_add():
+    ip = request.form.get('ip')
+    reason = request.form.get('reason')
+    if ip:
+        if not BlockedIP.query.filter_by(ip_address=ip).first():
+            b = BlockedIP(ip_address=ip, reason=reason)
+            db.session.add(b)
+            db.session.commit()
+            _apply_firewall_rule(ip, 'block')
+            log_activity("Firewall Block", f"Blocked IP {ip}: {reason}")
+            flash(f'آی‌پی {ip} مسدود شد.', 'success')
+        else:
+            flash('این آی‌پی قبلاً مسدود شده است.', 'warning')
+    return redirect(url_for('firewall'))
+
+@app.route('/firewall/delete/<int:id>')
+@login_required
+def firewall_delete(id):
+    b = BlockedIP.query.get_or_404(id)
+    ip = b.ip_address
+    db.session.delete(b)
+    db.session.commit()
+    _apply_firewall_rule(ip, 'unblock')
+    log_activity("Firewall Unblock", f"Unblocked IP {ip}")
+    flash(f'آی‌پی {ip} آزاد شد.', 'success')
+    return redirect(url_for('firewall'))
+
+@app.route('/proxy/bulk_create', methods=['POST'])
+@login_required
+def bulk_create_proxies():
+    start_port = request.form.get('start_port', type=int)
+    count = request.form.get('count', type=int)
+    tag = request.form.get('tag')
+    
+    if not start_port or not count or count < 1:
+        flash('اطلاعات نامعتبر است.', 'danger')
+        return redirect(url_for('dashboard'))
+        
+    if count > 50:
+        flash('تعداد بالا (حداکثر ۵۰) مجاز نیست.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    success_count = 0
+    errors = []
+    
+    current_port = start_port
+    
+    # Pre-check ports
+    existing_ports = {p.port for p in Proxy.query.all()}
+    
+    for _ in range(count):
+        while current_port in existing_ports:
+            current_port += 1
+            
+        try:
+            secret = secrets.token_hex(16)
+            container = docker_client.containers.run(
+                'telegrammessenger/proxy',
+                detach=True,
+                ports={'443/tcp': current_port},
+                environment={
+                    'SECRET': secret,
+                    'TAG': tag,
+                    'WORKERS': 1
+                },
+                restart_policy={"Name": "always"},
+                name=f"mtproto_{current_port}"
+            )
+            
+            p = Proxy(
+                port=current_port,
+                secret=secret,
+                tag=tag,
+                workers=1,
+                container_id=container.id,
+                status="running"
+            )
+            db.session.add(p)
+            existing_ports.add(current_port) # Update local cache
+            success_count += 1
+            current_port += 1
+            
+        except Exception as e:
+            errors.append(f"Port {current_port}: {e}")
+            current_port += 1 # Skip this port
+            
+    db.session.commit()
+    log_activity("Bulk Create", f"Created {success_count} proxies starting from {start_port}")
+    
+    if errors:
+        flash(f'{success_count} پروکسی ساخته شد. خطاها: {", ".join(errors[:3])}...', 'warning')
+    else:
+        flash(f'{success_count} پروکسی با موفقیت ساخته شد.', 'success')
+        
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/reports')
+@login_required
+def reports():
+    return render_template('reports.html')
+
+@app.route('/api/reports/top_ips')
+@login_required
+def api_reports_top_ips():
+    # Simple aggregation from ActivityLog or we could use ProxyStats if we stored IP-level stats there
+    # For now, let's look at current live connections snapshot or ActivityLog
+    # Since we don't store historical IP traffic in DB yet, we can show "Top IPs currently connected"
+    
+    with _live_connections_lock:
+        all_conns = []
+        for pid, conns in _live_connections.items():
+            for c in conns:
+                c['proxy_id'] = pid
+                all_conns.append(c)
+                
+    # Count by IP
+    ip_counts = defaultdict(int)
+    ip_details = {}
+    for c in all_conns:
+        ip = c['ip']
+        ip_counts[ip] += 1
+        if ip not in ip_details:
+            ip_details[ip] = c['country']
+            
+    sorted_ips = sorted(ip_counts.items(), key=lambda x: x[1], reverse=True)[:20]
+    
+    result = []
+    for ip, count in sorted_ips:
+        result.append({
+            "ip": ip,
+            "country": ip_details.get(ip, "Unknown"),
+            "connections": count
+        })
+        
+    return jsonify(result)
+
+@app.route('/api/reports/traffic_by_tag')
+@login_required
+def api_reports_traffic_by_tag():
+    # Group proxies by tag and sum upload/download
+    proxies = Proxy.query.all()
+    tag_stats = defaultdict(lambda: {'upload': 0, 'download': 0, 'count': 0})
+    
+    for p in proxies:
+        tag = p.tag or "بدون تگ"
+        tag_stats[tag]['upload'] += p.upload
+        tag_stats[tag]['download'] += p.download
+        tag_stats[tag]['count'] += 1
+        
+    result = []
+    for tag, stats in tag_stats.items():
+        result.append({
+            "tag": tag,
+            "upload_gb": round(stats['upload'] / (1024**3), 3),
+            "download_gb": round(stats['download'] / (1024**3), 3),
+            "total_gb": round((stats['upload'] + stats['download']) / (1024**3), 3),
+            "proxy_count": stats['count']
+        })
+        
+    result.sort(key=lambda x: x['total_gb'], reverse=True)
+    return jsonify(result)
+
 
 @app.route('/api/stats')
 @login_required
@@ -912,9 +1338,15 @@ def add_proxy():
     proxy_type = request.form.get('proxy_type', 'standard')
     tls_domain = request.form.get('tls_domain', 'google.com')
     quota_gb = request.form.get('quota_gb', type=float)
+    expiry_days = request.form.get('expiry_days', type=int)
+    
     quota_bytes = 0
     if quota_gb is not None and quota_gb > 0:
         quota_bytes = int(quota_gb * 1024 * 1024 * 1024)
+        
+    expiry_date = None
+    if expiry_days and expiry_days > 0:
+        expiry_date = datetime.utcnow() + timedelta(days=expiry_days)
     
     # Advanced Secret Generation
     if not secret:
@@ -967,7 +1399,8 @@ def add_proxy():
                 container_id=container.id,
                 status="running",
                 quota_bytes=quota_bytes,
-                quota_start=datetime.utcnow() if quota_bytes > 0 else None
+                quota_start=datetime.utcnow() if quota_bytes > 0 else None,
+                expiry_date=expiry_date
             )
             db.session.add(new_proxy)
             db.session.commit()
@@ -991,12 +1424,24 @@ def update_proxy(id):
     proxy = Proxy.query.get_or_404(id)
     tag = (request.form.get('tag') or '').strip() or None
     quota_gb = request.form.get('quota_gb', type=float)
+    expiry_days = request.form.get('expiry_days', type=int)
+    
     quota_bytes = 0
     if quota_gb is not None and quota_gb > 0:
         quota_bytes = int(quota_gb * 1024 * 1024 * 1024)
+    
+    expiry_date = None
+    if expiry_days and expiry_days > 0:
+        expiry_date = datetime.utcnow() + timedelta(days=expiry_days)
+    elif expiry_days == 0:
+         expiry_date = None # Remove expiry if set to 0
+    
     try:
         proxy.tag = tag
         proxy.quota_bytes = quota_bytes
+        if expiry_days is not None:
+             proxy.expiry_date = expiry_date
+             
         if quota_bytes > 0 and not proxy.quota_start:
             proxy.quota_start = datetime.utcnow()
             proxy.quota_base_upload = int(proxy.upload or 0)

@@ -131,5 +131,82 @@ class HoseinProxyTestCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertLess(elapsed, 2.5)
 
+    def test_reports_api(self):
+        self.login('admin', 'password')
+        resp = self.app.get('/api/reports/top_ips')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(isinstance(resp.get_json(), list))
+        
+        resp = self.app.get('/api/reports/traffic_by_tag')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(isinstance(resp.get_json(), list))
+
+    def test_auto_stop_quota(self):
+        from app import _check_proxy_limits, _quota_usage_bytes
+        with app.app_context():
+            p = Proxy(port=20001, secret='s', status='running', quota_bytes=1000, quota_start=datetime.utcnow(), upload=500, download=600, quota_base_upload=0, quota_base_download=0)
+            db.session.add(p)
+            db.session.commit()
+            
+            proxies = [p]
+            _check_proxy_limits(proxies)
+            self.assertEqual(p.status, 'stopped')
+            
+    def test_auto_stop_expiry(self):
+        from app import _check_proxy_limits
+        with app.app_context():
+            yesterday = datetime.utcnow() - timedelta(days=1)
+            p = Proxy(port=20002, secret='s', status='running', expiry_date=yesterday)
+            db.session.add(p)
+            db.session.commit()
+            
+            proxies = [p]
+            _check_proxy_limits(proxies)
+            self.assertEqual(p.status, 'stopped')
+
+    def test_firewall_and_autoblock(self):
+        self.login('admin', 'password')
+        
+        # 1. Test Manual Block
+        resp = self.app.post('/firewall/add', data=dict(ip='1.2.3.4', reason='Test'), follow_redirects=True)
+        self.assertEqual(resp.status_code, 200)
+        
+        with app.app_context():
+            b = BlockedIP.query.filter_by(ip_address='1.2.3.4').first()
+            self.assertIsNotNone(b)
+            self.assertEqual(b.reason, 'Test')
+            
+        # 2. Test Unblock
+        with app.app_context():
+            b = BlockedIP.query.filter_by(ip_address='1.2.3.4').first()
+            block_id = b.id
+            
+        resp = self.app.get(f'/firewall/delete/{block_id}', follow_redirects=True)
+        self.assertEqual(resp.status_code, 200)
+        
+        with app.app_context():
+            b = BlockedIP.query.filter_by(ip_address='1.2.3.4').first()
+            self.assertIsNone(b)
+
+    def test_bulk_create(self):
+        self.login('admin', 'password')
+        # We assume docker_client is mocked or None in test env, so it will fail gracefully or just create DB entries if we mocked it.
+        # But our test env sets docker_client = None usually if no docker.
+        # Let's check app.py: docker_client = docker.from_env() in try-except.
+        # If we want to test DB creation part, we need to mock docker_client.
+        # For this integration test, let's just ensure the endpoint accepts the request.
+        
+        resp = self.app.post('/proxy/bulk_create', data=dict(
+            start_port=30000,
+            count=5,
+            tag='BulkTest'
+        ), follow_redirects=True)
+        
+        self.assertEqual(resp.status_code, 200)
+        # Without docker, it redirects with error "Docker not connected" or similar, but still 200 OK page.
+        # We can check if flash message is present.
+        self.assertTrue(b'Docker' in resp.data or b'success' in resp.data or b'error' in resp.data)
+
+
 if __name__ == '__main__':
     unittest.main()

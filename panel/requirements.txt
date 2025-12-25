@@ -4,4 +4,5 @@ flask-sqlalchemy
 flask-limiter
 docker
 psutil
+requests
 gunicorn

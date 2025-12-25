@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}گزارشات - HoseinProxy{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">گزارشات پیشرفته</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportData('csv')">
+            <i class="fas fa-file-csv me-1"></i> خروجی CSV
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" onclick="exportData('json')">
+            <i class="fas fa-file-code me-1"></i> خروجی JSON
+        </button>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- Top IPs -->
+    <div class="col-md-6">
+        <div class="card card-custom h-100">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 text-secondary"><i class="fas fa-globe me-2"></i>IPهای پرکاربرد (لحظه‌ای)</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-4">IP</th>
+                                <th>کشور</th>
+                                <th>اتصالات فعال</th>
+                            </tr>
+                        </thead>
+                        <tbody id="topIpsTable">
+                            <tr><td colspan="3" class="text-center py-4 text-muted">در حال بارگذاری...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Traffic by Tag -->
+    <div class="col-md-6">
+        <div class="card card-custom h-100">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 text-secondary"><i class="fas fa-tags me-2"></i>مصرف بر اساس تگ</h5>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="tagChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card card-custom">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 text-secondary"><i class="fas fa-list-alt me-2"></i>جزئیات مصرف تگ‌ها</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-4">تگ</th>
+                                <th>تعداد پروکسی</th>
+                                <th>آپلود (GB)</th>
+                                <th>دانلود (GB)</th>
+                                <th>مجموع (GB)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tagTable">
+                            <tr><td colspan="5" class="text-center py-4 text-muted">در حال بارگذاری...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Fetch Top IPs
+    function updateTopIps() {
+        fetch('/api/reports/top_ips')
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.getElementById('topIpsTable');
+                tbody.innerHTML = '';
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-muted">داده‌ای یافت نشد.</td></tr>';
+                    return;
+                }
+                data.forEach(item => {
+                    const row = `
+                        <tr>
+                            <td class="ps-4 font-monospace">${item.ip}</td>
+                            <td>${item.country}</td>
+                            <td><span class="badge bg-info text-dark">${item.connections}</span></td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+            });
+    }
+
+    // Fetch Traffic by Tag
+    function updateTagTraffic() {
+        fetch('/api/reports/traffic_by_tag')
+            .then(response => response.json())
+            .then(data => {
+                // Update Table
+                const tbody = document.getElementById('tagTable');
+                tbody.innerHTML = '';
+                
+                // Chart Data
+                const labels = [];
+                const values = [];
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">داده‌ای یافت نشد.</td></tr>';
+                } else {
+                    data.forEach(item => {
+                        labels.push(item.tag);
+                        values.push(item.total_gb);
+                        
+                        const row = `
+                            <tr>
+                                <td class="ps-4"><span class="badge bg-secondary">${item.tag}</span></td>
+                                <td>${item.proxy_count}</td>
+                                <td>${item.upload_gb}</td>
+                                <td>${item.download_gb}</td>
+                                <td class="fw-bold text-primary">${item.total_gb}</td>
+                            </tr>
+                        `;
+                        tbody.innerHTML += row;
+                    });
+                }
+                
+                updateChart(labels, values);
+            });
+    }
+
+    let tagChart = null;
+    function updateChart(labels, data) {
+        const ctx = document.getElementById('tagChart').getContext('2d');
+        if (tagChart) {
+            tagChart.destroy();
+        }
+        
+        tagChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.7)',
+                        'rgba(54, 162, 235, 0.7)',
+                        'rgba(255, 206, 86, 0.7)',
+                        'rgba(75, 192, 192, 0.7)',
+                        'rgba(153, 102, 255, 0.7)',
+                        'rgba(255, 159, 64, 0.7)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    }
+                }
+            }
+        });
+    }
+    
+    function exportData(format) {
+        // Mock export functionality
+        // In a real app, this would hit an API endpoint that generates a file download
+        Swal.fire({
+            title: 'در حال آماده‌سازی...',
+            text: 'این قابلیت در نسخه بعدی فعال خواهد شد.',
+            icon: 'info',
+            timer: 2000,
+            showConfirmButton: false
+        });
+    }
+
+    // Init
+    updateTopIps();
+    updateTagTraffic();
+    
+    // Refresh every 30 seconds
+    setInterval(() => {
+        updateTopIps();
+        updateTagTraffic();
+    }, 30000);
+
+</script>
+{% endblock %}

@@ -100,6 +100,9 @@
                         <option value="stopped">متوقف</option>
                     </select>
                     <input id="proxyMinConn" type="number" min="0" class="form-control form-control-sm" style="max-width: 120px;" placeholder="حداقل اتصال">
+                    <button class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#bulkCreateModal">
+                        <i class="fas fa-layer-group"></i> ساخت گروهی
+                    </button>
                     <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addProxyModal">
                         <i class="fas fa-plus"></i> افزودن جدید
                     </button>
@@ -172,6 +175,17 @@
                                     <div class="text-muted mt-1">
                                         <span id="proxy-quota-used-{{ proxy.id }}">-</span> / <span id="proxy-quota-total-{{ proxy.id }}">-</span> MB
                                     </div>
+                                    
+                                    {% if proxy.expiry_date %}
+                                    <div class="mt-2 pt-1 border-top border-light">
+                                        <div class="d-flex align-items-center text-muted small">
+                                            <i class="fas fa-hourglass-end me-1 text-warning"></i> 
+                                            <span class="{{ 'text-danger fw-bold' if proxy.expiry_date < now else '' }}">
+                                                {{ proxy.expiry_date.strftime('%Y-%m-%d') }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {% endif %}
                                 </td>
                                 <td>
                                     <div class="input-group input-group-sm" style="max-width: 150px;">
@@ -196,7 +210,7 @@
                                         <a href="{{ url_for('restart_proxy', id=proxy.id) }}" class="btn btn-outline-warning" title="ریستارت">
                                             <i class="fas fa-sync-alt"></i>
                                         </a>
-                                        <button type="button" class="btn btn-outline-secondary" onclick="openProxyEdit({{ proxy.id }}, {{ proxy.port }}, '{{ proxy.tag or '' }}')">
+                                        <button type="button" class="btn btn-outline-secondary" onclick="openProxyEdit({{ proxy.id }}, {{ proxy.port }}, '{{ proxy.tag or '' }}', {{ (proxy.quota_bytes / (1024*1024*1024))|round(2) if proxy.quota_bytes else 0 }})">
                                             <i class="fas fa-pen"></i>
                                         </button>
                                         <a href="{{ url_for('delete_proxy', id=proxy.id) }}" class="btn btn-outline-danger" title="حذف" onclick="return confirm('آیا مطمئن هستید؟')">
@@ -267,6 +281,43 @@
     </div>
 </div>
 
+<!-- Bulk Create Modal -->
+<div class="modal fade" id="bulkCreateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">ساخت گروهی پروکسی</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('bulk_create_proxies') }}" method="POST">
+                <div class="modal-body">
+                    <div class="alert alert-info small">
+                        <i class="fas fa-info-circle me-1"></i>
+                        پروکسی‌ها به صورت متوالی از پورت شروع ساخته می‌شوند. اگر پورتی اشغال باشد، از پورت بعدی استفاده می‌شود.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">پورت شروع</label>
+                        <input type="number" name="start_port" class="form-control" required placeholder="مثلاً 20000">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">تعداد پروکسی</label>
+                        <input type="number" name="count" class="form-control" required min="1" max="50" value="10">
+                        <div class="form-text">حداکثر ۵۰ عدد در هر بار</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">تگ (مشترک)</label>
+                        <input type="text" name="tag" class="form-control" placeholder="@MyChannel">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                    <button type="submit" class="btn btn-success">شروع ساخت</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Add Proxy Modal -->
 <div class="modal fade" id="addProxyModal" tabindex="-1">
     <div class="modal-dialog">
@@ -308,9 +359,15 @@
                         <label class="form-label">تعداد Worker</label>
                         <input type="number" name="workers" class="form-control" value="1" min="1" max="4">
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">سقف حجم (GB)</label>
-                        <input type="number" name="quota_gb" class="form-control" min="0" step="0.1" placeholder="۰ = نامحدود">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">سقف حجم (GB)</label>
+                            <input type="number" name="quota_gb" class="form-control" min="0" step="0.1" placeholder="۰ = نامحدود">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">اعتبار زمانی (روز)</label>
+                            <input type="number" name="expiry_days" class="form-control" min="0" placeholder="۰ = نامحدود">
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -335,9 +392,16 @@
                         <label class="form-label">تگ</label>
                         <input type="text" name="tag" id="editProxyTag" class="form-control" placeholder="@MyChannel">
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">سقف حجم (GB)</label>
-                        <input type="number" name="quota_gb" id="editProxyQuota" class="form-control" min="0" step="0.1" placeholder="۰ = نامحدود">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">سقف حجم (GB)</label>
+                            <input type="number" name="quota_gb" id="editProxyQuota" class="form-control" min="0" step="0.1" placeholder="۰ = نامحدود">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">تمدید اعتبار (روز)</label>
+                            <input type="number" name="expiry_days" id="editProxyExpiry" class="form-control" min="0" placeholder="۰ = نامحدود/حذف انقضا">
+                            <div class="form-text small text-muted">تعداد روز از امروز (خالی = بدون تغییر)</div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -564,11 +628,11 @@
     let proxyDetailsModal = null;
     let editProxyModal = null;
 
-    function openProxyEdit(proxyId, port, tag) {
+    function openProxyEdit(proxyId, port, tag, quotaGb) {
         const form = document.getElementById('editProxyForm');
         form.action = `/proxy/update/${proxyId}`;
         document.getElementById('editProxyTag').value = tag || '';
-        document.getElementById('editProxyQuota').value = '';
+        document.getElementById('editProxyQuota').value = quotaGb && quotaGb > 0 ? quotaGb : '';
         if (!editProxyModal) {
             editProxyModal = new bootstrap.Modal(document.getElementById('editProxyModal'));
         }
@@ -652,8 +716,8 @@
                     if (usersEl) usersEl.setAttribute('data-proxy-conn', proxy.active_connections);
                     if (downloadEl) downloadEl.innerText = proxy.download;
                     if (uploadEl) uploadEl.innerText = proxy.upload;
-                    if (downloadRateEl) downloadRateEl.innerText = proxy.download_rate_mbps ?? 0;
-                    if (uploadRateEl) uploadRateEl.innerText = proxy.upload_rate_mbps ?? 0;
+                    if (downloadRateEl) downloadRateEl.innerText = proxy.download_rate_mbps != null ? proxy.download_rate_mbps : 0;
+                    if (uploadRateEl) uploadRateEl.innerText = proxy.upload_rate_mbps != null ? proxy.upload_rate_mbps : 0;
 
                     if (proxy.quota_mb && proxy.quota_mb > 0 && proxy.quota_used_mb != null) {
                         if (quotaUsedEl) quotaUsedEl.innerText = proxy.quota_used_mb;
@@ -714,7 +778,16 @@
 
     function updateLiveConnections(proxyId) {
         const f = (document.getElementById('connIpFilter')?.value || '').trim();
-        const url = f ? `/api/proxy/${proxyId}/connections?ip=${encodeURIComponent(f)}&country=${encodeURIComponent(f)}` : `/api/proxy/${proxyId}/connections`;
+        let query = '';
+        if (f) {
+             if (/^[0-9\.:]+$/.test(f)) {
+                 query = `ip=${encodeURIComponent(f)}`;
+             } else {
+                 query = `country=${encodeURIComponent(f)}`;
+             }
+        }
+        const url = `/api/proxy/${proxyId}/connections` + (query ? `?${query}` : '');
+        
         fetch(url)
             .then(r => r.json())
             .then(data => {
@@ -726,9 +799,9 @@
                 }
                 tbody.innerHTML = data.items.map(it => `
                     <tr>
-                        <td class="text-nowrap">${it.ip}</td>
+                        <td class="text-nowrap font-monospace" dir="ltr">${it.ip}</td>
                         <td class="text-nowrap">${it.country || '-'}</td>
-                        <td class="text-nowrap">${it.connected_for || '-'}</td>
+                        <td class="text-nowrap" dir="ltr">${it.connected_for || '-'}</td>
                     </tr>
                 `).join('');
             });

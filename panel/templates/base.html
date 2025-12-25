@@ -103,8 +103,14 @@
                 <a href="{{ url_for('dashboard') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'dashboard' %}active{% endif %}">
                     <i class="fas fa-tachometer-alt me-2"></i> داشبورد
                 </a>
+                <a href="{{ url_for('reports') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'reports' %}active{% endif %}">
+                    <i class="fas fa-chart-pie me-2"></i> گزارشات
+                </a>
                 <a href="{{ url_for('settings') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'settings' %}active{% endif %}">
                     <i class="fas fa-cogs me-2"></i> تنظیمات
+                </a>
+                <a href="{{ url_for('firewall') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'firewall' %}active{% endif %}">
+                    <i class="fas fa-shield-alt me-2"></i> فایروال
                 </a>
                 <a href="{{ url_for('system_page') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'system_page' %}active{% endif %}">
                     <i class="fas fa-server me-2"></i> مدیریت سیستم

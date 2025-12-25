@@ -48,12 +48,39 @@
                         <div class="form-text">اگر تعداد اتصال‌های فعال یک پورت از این مقدار بیشتر شود هشدار ثبت می‌شود.</div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-bold">آستانه هشدار اتصال از یک IP</label>
+                        <label for="alert_ip_conn_threshold" class="form-label">حداکثر اتصال از یک IP</label>
                         <input type="number" name="alert_ip_conn_threshold" class="form-control" value="{{ alert_ip_conn_threshold }}" min="1">
-                        <div class="form-text">اگر تعداد اتصال‌های یک IP برای یک پورت از این مقدار بیشتر شود هشدار ثبت می‌شود.</div>
+                        <div class="form-text">اگر یک IP بیشتر از این تعداد اتصال داشته باشد، هشدار ثبت می‌شود.</div>
                     </div>
-                    <button type="submit" class="btn btn-info w-100 text-white">
-                        <i class="fas fa-save me-1"></i> ذخیره هشدارها
+                    
+                    <hr class="my-4">
+                    <h6 class="mb-3"><i class="fab fa-telegram me-2 text-primary"></i>تنظیمات اطلاع‌رسانی تلگرام</h6>
+                    
+                    <div class="mb-3">
+                        <label for="telegram_bot_token" class="form-label">توکن ربات (Bot Token)</label>
+                        <input type="text" class="form-control font-monospace" id="telegram_bot_token" name="telegram_bot_token" value="{{ telegram_bot_token }}" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11">
+                        <div class="form-text">توکن دریافتی از BotFather</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="telegram_chat_id" class="form-label">شناسه چت (Chat ID)</label>
+                        <input type="text" class="form-control font-monospace" id="telegram_chat_id" name="telegram_chat_id" value="{{ telegram_chat_id }}" placeholder="123456789">
+                        <div class="form-text">شناسه عددی اکانت یا کانال شما (برای دریافت ID به ربات @userinfobot پیام دهید).</div>
+                    </div>
+
+                    <hr class="my-4">
+                    <h6 class="mb-3"><i class="fas fa-robot me-2 text-danger"></i>اقدامات خودکار (Auto-Actions)</h6>
+                    
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="auto_block_enabled" name="auto_block_enabled" {% if auto_block_enabled == '1' %}checked{% endif %}>
+                        <label class="form-check-label" for="auto_block_enabled">مسدودسازی خودکار IPهای مشکوک</label>
+                        <div class="form-text">در صورت فعال بودن، IPهایی که تعداد اتصال همزمان آن‌ها از "حداکثر اتصال از یک IP" بیشتر شود، به صورت خودکار به لیست سیاه فایروال اضافه می‌شوند.</div>
+                    </div>
+                    
+                    <input type="hidden" name="settings_form_submitted" value="1">
+
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-save me-1"></i> ذخیره تغییرات
                     </button>
                 </form>
             </div>
