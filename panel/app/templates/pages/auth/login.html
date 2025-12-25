@@ -3,487 +3,465 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ورود به پنل مدیریت | HoseinProxy</title>
+    <title>سامانه احراز هویت | HoseinProxy</title>
     <!-- Bootstrap 5 RTL -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
-    <!-- Google Fonts (Vazirmatn & Orbitron) -->
+    <!-- Google Fonts (Vazirmatn) -->
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
         :root {
-            --primary: #00f2fe;     /* آبی نئونی */
-            --secondary: #4facfe;   /* آبی آسمانی */
-            --accent: #ff0055;      /* قرمز هشدار */
-            --bg-dark: #020205;     /* سیاه عمیق */
-            --glass: rgba(10, 15, 30, 0.65);
-            --border: rgba(0, 242, 254, 0.3);
-            --telegram: #2AABEE;
+            --bg-core: #0b0f19;
+            --glass-panel: rgba(20, 30, 48, 0.75);
+            --border-light: rgba(255, 255, 255, 0.08);
+            --accent-gold: #cfb53b; /* طلایی مات برای حس مدیریت */
+            --primary-tech: #3b82f6;
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
         }
 
         body {
             font-family: 'Vazirmatn', sans-serif;
-            background-color: var(--bg-dark);
+            background-color: var(--bg-core);
             margin: 0;
             padding: 0;
-            overflow: hidden;
+            height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 100vh;
-            color: #fff;
+            overflow: hidden;
+            position: relative;
         }
 
-        /* --- پس زمینه کهکشانی --- */
-        #starfield {
-            position: fixed;
+        /* --- پس‌زمینه متحرک حرفه‌ای --- */
+        #tech-canvas {
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             z-index: 0;
-            background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+            background: radial-gradient(circle at center, #1a2332 0%, #000000 100%);
         }
 
-        /* --- کارت اصلی (HUD Container) --- */
-        .hud-container {
-            position: relative;
-            z-index: 10;
-            width: 100%;
-            max-width: 420px;
-            padding: 20px;
-        }
-
+        /* --- کارت ورود سازمانی --- */
         .login-card {
-            position: relative;
-            background: var(--glass);
+            background: var(--glass-panel);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 4px; /* گوشه‌های تیزتر برای حس رباتیک */
-            box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
-            overflow: hidden;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        /* اسکنر امنیتی (خط لیزری متحرک) */
-        .scanner-line {
-            position: absolute;
-            top: 0;
-            left: 0;
+            border: 1px solid var(--border-light);
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
             width: 100%;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, var(--primary), transparent);
-            box-shadow: 0 0 15px var(--primary);
-            animation: scan 4s ease-in-out infinite;
-            z-index: 5;
-            opacity: 0.7;
-        }
-
-        @keyframes scan {
-            0% { top: -10%; opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { top: 110%; opacity: 0; }
-        }
-
-        /* گوشه‌های HUD (تزئینات سایبری) */
-        .hud-corner {
-            position: absolute;
-            width: 30px;
-            height: 30px;
-            border: 2px solid var(--primary);
-            transition: all 0.3s ease;
-            z-index: 20;
-            pointer-events: none;
-        }
-        
-        .top-left { top: 0; left: 0; border-right: none; border-bottom: none; border-radius: 4px 0 0 0; }
-        .top-right { top: 0; right: 0; border-left: none; border-bottom: none; border-radius: 0 4px 0 0; }
-        .bottom-left { bottom: 0; left: 0; border-right: none; border-top: none; border-radius: 0 0 0 4px; }
-        .bottom-right { bottom: 0; right: 0; border-left: none; border-top: none; border-radius: 0 0 4px 0; }
-
-        .login-card:hover .hud-corner {
-            width: 40px;
-            height: 40px;
-            box-shadow: 0 0 15px var(--primary);
-        }
-
-        .card-body {
-            padding: 3rem 2rem;
+            max-width: 400px;
+            padding: 45px 35px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
             position: relative;
-            z-index: 6;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
         }
 
-        /* --- لوگو و تیتر --- */
-        .logo-area {
+        /* لوگو و سربرگ */
+        .header-section {
             text-align: center;
-            margin-bottom: 2.5rem;
-            position: relative;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 20px;
+            margin-bottom: 10px;
         }
 
-        .logo-icon {
-            font-size: 3rem;
-            background: linear-gradient(135deg, #fff 0%, var(--primary) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 1rem;
-            filter: drop-shadow(0 0 10px rgba(0, 242, 254, 0.5));
-            animation: pulse-glow 3s infinite alternate;
+        .brand-logo {
+            font-size: 2.5rem;
+            color: var(--primary-tech);
+            background: rgba(59, 130, 246, 0.1);
+            width: 70px;
+            height: 70px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
         }
 
-        @keyframes pulse-glow {
-            from { filter: drop-shadow(0 0 5px rgba(0, 242, 254, 0.3)); transform: scale(1); }
-            to { filter: drop-shadow(0 0 20px rgba(0, 242, 254, 0.8)); transform: scale(1.05); }
-        }
-
-        .brand-title {
-            font-family: 'Orbitron', sans-serif; /* فونت انگلیسی فضایی */
-            font-weight: 900;
-            font-size: 1.8rem;
-            color: #fff;
-            letter-spacing: 2px;
+        .brand-name {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            letter-spacing: 0.5px;
             margin: 0;
-            text-transform: uppercase;
+        }
+
+        .brand-slogan {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+
+        /* هوش مصنوعی - نسخه رسمی */
+        .system-status-bar {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.8rem;
+        }
+
+        .status-text {
+            color: var(--text-secondary);
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+        }
+
+        .refresh-btn {
+            background: none;
+            border: none;
+            color: var(--primary-tech);
+            cursor: pointer;
+            transition: 0.3s;
+            padding: 4px;
         }
         
-        .brand-desc {
-            font-size: 0.8rem;
-            color: var(--secondary);
-            opacity: 0.8;
-            letter-spacing: 4px;
-            margin-top: 5px;
-            font-weight: 300;
-        }
-
-        /* --- ورودی‌های مدرن --- */
-        .input-group-hud {
-            position: relative;
-            margin-bottom: 2rem;
-        }
-
-        .input-hud {
-            width: 100%;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-left: 3px solid rgba(255, 255, 255, 0.1);
-            padding: 15px 15px 15px 45px; /* فضای آیکون سمت چپ */
+        .refresh-btn:hover {
             color: #fff;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-            outline: none;
-            border-radius: 4px;
         }
 
-        .input-hud:focus {
-            background: rgba(0, 242, 254, 0.05);
-            border-color: rgba(0, 242, 254, 0.5);
-            border-left-color: var(--primary);
-            box-shadow: 0 0 15px rgba(0, 242, 254, 0.1);
+        /* فرم‌ها */
+        .form-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .form-control {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            padding: 14px 15px;
+            padding-right: 45px; /* فضای آیکون */
+            border-radius: 10px;
+            font-size: 0.95rem;
+            transition: all 0.3s;
+        }
+
+        .form-control:focus {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--primary-tech);
+            box-shadow: none;
+            outline: none;
         }
 
         .input-icon {
             position: absolute;
-            left: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: rgba(255, 255, 255, 0.4);
-            font-size: 1.1rem;
-            transition: 0.3s;
-        }
-
-        .input-hud:focus ~ .input-icon {
-            color: var(--primary);
-            filter: drop-shadow(0 0 5px var(--primary));
-        }
-
-        .input-label {
-            position: absolute;
             right: 15px;
             top: 50%;
             transform: translateY(-50%);
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 0.9rem;
-            pointer-events: none;
-            transition: 0.3s ease;
-            background: transparent;
-        }
-
-        .input-hud:focus ~ .input-label,
-        .input-hud:not(:placeholder-shown) ~ .input-label {
-            top: -10px;
-            right: 0;
-            font-size: 0.75rem;
-            color: var(--primary);
-            letter-spacing: 1px;
-        }
-
-        /* --- دکمه ورود --- */
-        .btn-entry {
-            width: 100%;
-            padding: 16px;
-            background: rgba(0, 242, 254, 0.1);
-            border: 1px solid var(--primary);
-            color: var(--primary);
-            font-weight: 700;
+            color: var(--text-secondary);
             font-size: 1.1rem;
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
             transition: 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            clip-path: polygon(0 0, 100% 0, 100% 70%, 95% 100%, 0 100%); /* گوشه بریده شده */
+            pointer-events: none;
         }
 
-        .btn-entry:hover {
-            background: var(--primary);
-            color: #000;
-            box-shadow: 0 0 30px rgba(0, 242, 254, 0.4);
+        .form-control:focus ~ .input-icon {
+            color: var(--primary-tech);
         }
 
-        .btn-entry span {
-            position: relative;
-            z-index: 2;
-        }
-
-        /* --- فوتر --- */
-        .footer-hud {
-            margin-top: 2.5rem;
-            border-top: 1px dashed rgba(255, 255, 255, 0.1);
-            padding-top: 1.5rem;
-            text-align: center;
-        }
-
-        .telegram-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            color: rgba(255, 255, 255, 0.7);
-            text-decoration: none;
-            padding: 8px 20px;
-            border-radius: 50px;
-            background: rgba(255, 255, 255, 0.05);
-            transition: 0.3s;
-            margin-bottom: 15px;
-            font-size: 0.9rem;
-        }
-
-        .telegram-link:hover {
-            background: var(--telegram);
-            color: #fff;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(42, 171, 238, 0.3);
-        }
-
-        .dev-sign {
-            font-family: 'Orbitron', monospace;
-            font-size: 0.75rem;
-            color: rgba(255, 255, 255, 0.3);
-            margin-top: 10px;
+        .form-label-fixed {
             display: block;
-        }
-        
-        .dev-sign a {
-            color: var(--secondary);
-            text-decoration: none;
-            position: relative;
-            padding: 2px 5px;
-        }
-        
-        .dev-sign a::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            border: 1px solid var(--secondary);
-            opacity: 0;
-            transform: scale(1.2);
-            transition: 0.3s;
-        }
-        
-        .dev-sign a:hover::before {
-            opacity: 1;
-            transform: scale(1);
-        }
-        
-        .dev-sign a:hover {
-            color: #fff;
-            text-shadow: 0 0 8px var(--primary);
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 500;
         }
 
-        /* هشدارها */
-        .alert {
-            background: rgba(255, 50, 80, 0.1);
-            border-left: 4px solid var(--accent);
-            color: #ff80ab;
-            border-radius: 0 4px 4px 0;
-            font-size: 0.85rem;
+        /* دکمه ورود */
+        .btn-auth {
+            background: var(--primary-tech);
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 14px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
         }
+
+        .btn-auth:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+
+        /* فوتر */
+        .footer-links {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            color: var(--text-secondary);
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: var(--primary-tech);
+        }
+
+        .copyright {
+            text-align: center;
+            margin-top: 25px;
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.2);
+            font-family: sans-serif;
+            letter-spacing: 0.5px;
+        }
+
+        /* Alerts */
+        .alert {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            font-size: 0.85rem;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 20px;
+        }
+
     </style>
 </head>
 <body>
 
-    <!-- بوم پس‌زمینه ستاره‌ای -->
-    <canvas id="starfield"></canvas>
+    <!-- بوم متحرک شبکه -->
+    <canvas id="tech-canvas"></canvas>
 
-    <div class="hud-container">
-        <div class="login-card">
-            
-            <!-- المان‌های تزئینی HUD -->
-            <div class="scanner-line"></div>
-            <div class="hud-corner top-left"></div>
-            <div class="hud-corner top-right"></div>
-            <div class="hud-corner bottom-left"></div>
-            <div class="hud-corner bottom-right"></div>
-
-            <div class="card-body">
-                
-                <div class="logo-area">
-                    <i class="fas fa-fingerprint logo-icon"></i>
-                    <h1 class="brand-title">HOSEIN<span style="color:var(--primary)">PROXY</span></h1>
-                    <p class="brand-desc">SECURE ADMIN PANEL v2.0</p>
-                </div>
-
-                <!-- پیام‌های سیستم -->
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                  {% if messages %}
-                    {% for category, message in messages %}
-                      <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        <i class="fas fa-shield-virus me-2"></i> {{ message }}
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
-                      </div>
-                    {% endfor %}
-                  {% endif %}
-                {% endwith %}
-
-                <form method="POST">
-                    <div class="input-group-hud">
-                        <input type="text" name="username" class="input-hud" id="user" placeholder=" " required autocomplete="off">
-                        <label for="user" class="input-label">شناسه کاربری</label>
-                        <i class="fas fa-user-secret input-icon"></i>
-                    </div>
-
-                    <div class="input-group-hud">
-                        <input type="password" name="password" class="input-hud" id="pass" placeholder=" " required>
-                        <label for="pass" class="input-label">کد دسترسی</label>
-                        <i class="fas fa-key input-icon"></i>
-                    </div>
-
-                    <button type="submit" class="btn-entry">
-                        <span><i class="fas fa-unlock-alt me-2"></i> احراز هویت و ورود</span>
-                    </button>
-                </form>
-
-                <div class="footer-hud">
-                    <a href="https://t.me/KillHosein" target="_blank" class="telegram-link">
-                        <i class="fab fa-telegram-plane"></i>
-                        پشتیبانی تلگرام
-                    </a>
-                    
-                    <span class="dev-sign">
-                        SYSTEM ARCHITECT: <a href="https://t.me/KillHosein" target="_blank">@KillHosein</a>
-                    </span>
-                </div>
-
+    <div class="login-card">
+        
+        <div class="header-section">
+            <div class="brand-logo">
+                <i class="fas fa-shield-halved"></i>
             </div>
+            <h1 class="brand-name">HoseinProxy</h1>
+            <p class="brand-slogan">سامانه مدیریت یکپارچه سرور</p>
+        </div>
+
+        <!-- نوار وضعیت سیستم -->
+        <div class="system-status-bar">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-server me-2 text-success" style="font-size: 0.7rem;"></i>
+                <span id="ai-response" class="status-text">وضعیت کلی سرویس‌ها: نرمال</span>
+            </div>
+            <button id="ai-btn" class="refresh-btn" title="بروزرسانی وضعیت">
+                <i class="fas fa-rotate"></i>
+            </button>
+        </div>
+
+        <!-- پیام‌های خطا/موفقیت -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST">
+            <div class="form-group">
+                <label class="form-label-fixed">شناسه کاربری</label>
+                <input type="text" name="username" class="form-control" placeholder="مثال: admin" required autofocus autocomplete="off">
+                <i class="far fa-user input-icon"></i>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label-fixed">رمز عبور</label>
+                <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                <i class="fas fa-lock input-icon"></i>
+            </div>
+
+            <button type="submit" class="btn-auth">
+                <i class="fas fa-arrow-right-to-bracket"></i>
+                احراز هویت و ورود
+            </button>
+        </form>
+
+        <div class="footer-links">
+            <a href="https://t.me/KillHosein" target="_blank">پشتیبانی فنی</a>
+            <span>|</span>
+            <a href="#">قوانین و مقررات</a>
+        </div>
+        
+        <div class="copyright">
+            Designed by @KillHosein &copy; 2024
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Logic for Gemini API Integration -->
+    <script type="module">
+        import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 
-    <!-- اسکریپت پس‌زمینه ستاره‌ای متصل -->
+        const aiBtn = document.getElementById('ai-btn');
+        const aiResponse = document.getElementById('ai-response');
+        const aiIcon = aiBtn.querySelector('i');
+        
+        // افکت تایپ متن
+        function typeText(element, text, speed = 30) {
+            element.innerHTML = "";
+            let i = 0;
+            function type() {
+                if (i < text.length) {
+                    element.innerHTML += text.charAt(i);
+                    i++;
+                    setTimeout(type, speed);
+                }
+            }
+            type();
+        }
+
+        aiBtn.addEventListener('click', async () => {
+            const apiKey = ""; // کلید API در محیط اجرا تزریق می‌شود
+            
+            aiResponse.innerText = "در حال دریافت گزارش...";
+            aiResponse.style.color = "#94a3b8";
+            aiIcon.classList.add('fa-spin');
+            aiBtn.disabled = true;
+
+            try {
+                const genAI = new GoogleGenerativeAI(apiKey);
+                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-09-2025" });
+
+                // پرامپت برای دریافت یک گزارش وضعیت رسمی و فنی
+                const prompt = "Generate a very short, formal Persian system status message for a server admin panel. E.g., 'All services are operational'. Do not use emojis. Max 6 words.";
+
+                const result = await model.generateContent(prompt);
+                const text = result.response.text();
+
+                aiResponse.style.color = "#4ade80"; // سبز روشن
+                typeText(aiResponse, text);
+                
+            } catch (error) {
+                console.error(error);
+                aiResponse.innerText = "خطا در برقراری ارتباط";
+                aiResponse.style.color = "#f87171"; 
+            } finally {
+                aiIcon.classList.remove('fa-spin');
+                aiBtn.disabled = false;
+            }
+        });
+    </script>
+
+    <!-- انیمیشن شبکه ذرات (Network Particles) -->
     <script>
-        const canvas = document.getElementById('starfield');
+        const canvas = document.getElementById('tech-canvas');
         const ctx = canvas.getContext('2d');
         
         let width, height;
-        let stars = [];
+        let particles = [];
         
+        // تنظیمات شبکه
         const config = {
-            starCount: 90,
-            starColor: 'rgba(0, 242, 254, 0.8)',
-            lineColor: 'rgba(0, 242, 254, ',
-            maxDist: 130,
-            speed: 0.4
+            particleCount: 80,
+            connectionRadius: 120,
+            particleColor: 'rgba(59, 130, 246, 0.6)', // آبی تکنولوژی
+            lineColor: 'rgba(59, 130, 246, 0.15)',
+            speed: 0.3
         };
 
         function resize() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
-            config.starCount = width < 768 ? 50 : 90;
+            config.particleCount = width < 768 ? 40 : 80;
         }
 
-        class Star {
+        class Particle {
             constructor() {
                 this.x = Math.random() * width;
                 this.y = Math.random() * height;
                 this.vx = (Math.random() - 0.5) * config.speed;
                 this.vy = (Math.random() - 0.5) * config.speed;
-                this.radius = Math.random() * 1.5 + 0.5;
+                this.size = Math.random() * 2 + 1;
             }
 
-            move() {
+            update() {
                 this.x += this.vx;
                 this.y += this.vy;
 
-                // بازگشت از لبه‌ها (Infinite Loop)
-                if(this.x < 0) this.x = width;
-                if(this.x > width) this.x = 0;
-                if(this.y < 0) this.y = height;
-                if(this.y > height) this.y = 0;
+                // حرکت برگشتی از لبه‌ها
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
             }
 
             draw() {
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = config.starColor;
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = config.particleColor;
                 ctx.fill();
             }
         }
 
-        function initStars() {
-            stars = [];
-            for(let i=0; i<config.starCount; i++){
-                stars.push(new Star());
+        function init() {
+            particles = [];
+            for (let i = 0; i < config.particleCount; i++) {
+                particles.push(new Particle());
             }
         }
 
         function animate() {
             ctx.clearRect(0, 0, width, height);
             
-            for(let i=0; i<stars.length; i++){
-                stars[i].move();
-                stars[i].draw();
+            // رسم و آپدیت ذرات
+            particles.forEach((p, index) => {
+                p.update();
+                p.draw();
                 
                 // رسم خطوط اتصال
-                for(let j=i; j<stars.length; j++){
-                    let dx = stars[i].x - stars[j].x;
-                    let dy = stars[i].y - stars[j].y;
-                    let dist = Math.sqrt(dx*dx + dy*dy);
+                for (let j = index + 1; j < particles.length; j++) {
+                    const p2 = particles[j];
+                    const dx = p.x - p2.x;
+                    const dy = p.y - p2.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
 
-                    if(dist < config.maxDist){
+                    if (dist < config.connectionRadius) {
                         ctx.beginPath();
-                        ctx.strokeStyle = config.lineColor + (1 - dist/config.maxDist) * 0.3 + ')';
-                        ctx.lineWidth = 0.5;
-                        ctx.moveTo(stars[i].x, stars[i].y);
-                        ctx.lineTo(stars[j].x, stars[j].y);
+                        ctx.strokeStyle = config.lineColor;
+                        ctx.lineWidth = 1 - (dist / config.connectionRadius);
+                        ctx.moveTo(p.x, p.y);
+                        ctx.lineTo(p2.x, p2.y);
                         ctx.stroke();
                     }
                 }
-            }
+            });
+
             requestAnimationFrame(animate);
         }
 
+        // تعامل با حرکت موس (اختیاری: جذب ذرات)
         window.addEventListener('resize', () => {
             resize();
-            initStars();
+            init();
         });
 
         resize();
-        initStars();
+        init();
         animate();
+
     </script>
 </body>
 </html>
