@@ -388,10 +388,27 @@
         <div class="col-lg-4">
             <div class="glass-card h-100 p-4">
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h6 class="text-white fw-bold mb-0">ترافیک مصرفی</h6>
+                    <ul class="nav nav-pills nav-fill p-1 bg-dark bg-opacity-50 rounded-3" id="trafficTabs" role="tablist" style="font-size: 0.8rem;">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active py-1 px-3 rounded-3 text-white" id="tab-traffic" data-bs-toggle="tab" data-bs-target="#content-traffic" type="button">ترافیک</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link py-1 px-3 rounded-3 text-white" id="tab-countries" data-bs-toggle="tab" data-bs-target="#content-countries" type="button" onclick="updateCountryChart()">کشورها</button>
+                        </li>
+                    </ul>
                     <button class="btn btn-sm btn-outline-secondary border-0" onclick="updateTrafficHistory()"><i class="fas fa-sync-alt"></i></button>
                 </div>
-                <div style="height: 300px;"><canvas id="trafficChart"></canvas></div>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="content-traffic">
+                        <div style="height: 300px;"><canvas id="trafficChart"></canvas></div>
+                    </div>
+                    <div class="tab-pane fade" id="content-countries">
+                        <div style="height: 300px; position: relative;">
+                            <canvas id="countryChart"></canvas>
+                            <div id="countryChartLoading" class="position-absolute top-50 start-50 translate-middle text-secondary small">در حال بارگذاری...</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -995,6 +1012,40 @@
             el.innerText = 'Err';
             el.className = 'fw-bold text-danger small font-monospace';
         }
+    });
+
+    let countryChartInstance = null;
+    const updateCountryChart = () => fetch('/api/reports/top_ips').then(r=>r.json()).then(data => {
+        document.getElementById('countryChartLoading').style.display = 'none';
+        const ctx = document.getElementById('countryChart').getContext('2d');
+        
+        // Aggregate by country
+        const countries = {};
+        data.forEach(d => { countries[d.country] = (countries[d.country] || 0) + d.connections; });
+        const labels = Object.keys(countries);
+        const values = Object.values(countries);
+        
+        if(countryChartInstance) countryChartInstance.destroy();
+        
+        countryChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: '#94a3b8', font: {family: 'Vazirmatn'} } }
+                },
+                cutout: '70%'
+            }
+        });
     });
 
     const updateStats = () => fetch('/api/stats').then(r=>r.json()).then(d => {

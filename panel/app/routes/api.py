@@ -89,6 +89,23 @@ def latency():
     except Exception as e:
         return jsonify({'latency': -1, 'status': 'error', 'message': str(e)})
 
+@api_bp.route('/latency', methods=['GET'])
+@login_required
+def latency():
+    import socket
+    target = request.args.get('target', '8.8.8.8')
+    port = 53
+    timeout = 3
+    try:
+        start_time = time.time()
+        s = socket.create_connection((target, port), timeout)
+        s.close()
+        end_time = time.time()
+        latency_ms = round((end_time - start_time) * 1000, 2)
+        return jsonify({'latency': latency_ms, 'status': 'success'})
+    except Exception as e:
+        return jsonify({'latency': -1, 'status': 'error', 'message': str(e)})
+
 @api_bp.route('/reports/top_ips')
 @login_required
 def reports_top_ips():
