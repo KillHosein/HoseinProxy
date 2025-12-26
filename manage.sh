@@ -70,11 +70,25 @@ install_dependencies() {
 }
 
 ensure_docker_running() {
+    if ! command -v docker &> /dev/null; then
+        info "Docker not found. Installing..."
+        apt-get update -y >> "$LOG_FILE" 2>&1
+        apt-get install -y docker.io >> "$LOG_FILE" 2>&1
+    fi
+
     if ! systemctl is-active --quiet docker; then
         info "Starting Docker..."
+        systemctl unmask docker >> "$LOG_FILE" 2>&1
         systemctl enable docker >> "$LOG_FILE" 2>&1
         systemctl start docker >> "$LOG_FILE" 2>&1
+        sleep 3
     fi
+    
+    if ! systemctl is-active --quiet docker; then
+        error "Docker failed to start. Please check 'systemctl status docker'."
+        return 1
+    fi
+    return 0
 }
 
 # --- 1. Installation ---
@@ -494,6 +508,7 @@ show_menu() {
 
 build_fake_tls_image() {
     info "Building Fake TLS Docker image..."
+    ensure_docker_running || return 1
     
     if [ ! -d "$INSTALL_DIR/proxy" ]; then
         error "Proxy directory not found. Please ensure Fake TLS files are installed."
@@ -766,6 +781,7 @@ manage_fake_tls() {
             build_fake_tls_image
             ;;
         2)
+            ensure_docker_running || return
             info "Testing Fake TLS proxy..."
             TEST_CONTAINER="test-faketls-$(date +%s)"
             docker run -d --rm --name "$TEST_CONTAINER" -p 8443:443 \
@@ -785,6 +801,7 @@ manage_fake_tls() {
             fi
             ;;
         3)
+            ensure_docker_running || return
             if docker ps | grep -q mtproxy-faketls; then
                 CONTAINER_ID=$(docker ps | grep mtproxy-faketls | awk '{print $1}')
                 docker logs "$CONTAINER_ID" | tail -50 > /tmp/faketls_logs
@@ -795,6 +812,7 @@ manage_fake_tls() {
             ;;
         4)
             # Check Fake TLS status
+            ensure_docker_running || return
             if docker images | grep -q mtproxy-faketls; then
                 if docker ps | grep -q mtproxy-faketls; then
                     success "Fake TLS Status: Installed and running"
