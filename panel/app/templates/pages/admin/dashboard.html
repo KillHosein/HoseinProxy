@@ -642,7 +642,7 @@
                             <label class="text-secondary small mb-1">پورت اتصال</label>
                             <input type="number" name="port" id="proxyPort" class="form-control font-monospace" required placeholder="443">
                             <div class="form-text text-secondary small" id="portHelpText">
-                                پورت 443 برای Fake TLS توصیه می‌شود. پورت‌های محبوب: 443, 8443, 2083, 2087
+                                پورت 443 برای Fake TLS توصیه می‌شود
                             </div>
                         </div>
                          <div class="col-md-6">
@@ -984,22 +984,13 @@
                 addTlsField.classList.remove('d-none');
                 if (portInput && portHelpText) {
                     portInput.placeholder = '443';
-                    portInput.value = '443'; // Set default to 443 for Fake TLS
-                    portHelpText.textContent = 'پورت 443 برای Fake TLS توصیه می‌شود. پورت‌های محبوب: 443, 8443, 2083, 2087, 8443, 8880';
-                }
-            } else if (addProxyType.value === 'dd') {
-                addTlsField.classList.add('d-none');
-                if (portInput && portHelpText) {
-                    portInput.placeholder = '443';
-                    portInput.value = ''; // Clear value
-                    portHelpText.textContent = 'پورت دلخواه خود را وارد کنید. پورت‌های محبوب: 443, 8443, 8080, 2082';
+                    portHelpText.textContent = 'پورت 443 برای Fake TLS توصیه می‌شود (اما می‌توانید پورت دلخواه استفاده کنید)';
                 }
             } else {
                 addTlsField.classList.add('d-none');
                 if (portInput && portHelpText) {
                     portInput.placeholder = '443';
-                    portInput.value = ''; // Clear value
-                    portHelpText.textContent = 'پورت دلخواه خود را وارد کنید. پورت‌های محبوب: 443, 8443, 8080, 2082';
+                    portHelpText.textContent = 'پورت دلخواه خود را وارد کنید';
                 }
             }
         }
@@ -1007,25 +998,12 @@
         // Handle edit form
         const editProxyType = document.getElementById('editProxyType');
         const editTlsField = document.getElementById('editTlsDomainField');
-        const editPortInput = document.getElementById('editProxyPort');
-        const editPortHelpText = document.getElementById('editPortHelpText');
         
         if (editProxyType && editTlsField) {
             if (editProxyType.value === 'tls') {
                 editTlsField.classList.remove('d-none');
-                if (editPortInput && editPortHelpText) {
-                    editPortHelpText.textContent = 'پورت 443 برای Fake TLS توصیه می‌شود. پورت‌های محبوب: 443, 8443, 2083, 2087, 8443, 8880';
-                }
-            } else if (editProxyType.value === 'dd') {
-                editTlsField.classList.add('d-none');
-                if (editPortInput && editPortHelpText) {
-                    editPortHelpText.textContent = 'پورت دلخواه خود را وارد کنید. پورت‌های محبوب: 443, 8443, 8080, 2082';
-                }
             } else {
                 editTlsField.classList.add('d-none');
-                if (editPortInput && editPortHelpText) {
-                    editPortHelpText.textContent = 'پورت دلخواه خود را وارد کنید. پورت‌های محبوب: 443, 8443, 8080, 2082';
-                }
             }
         }
     };
