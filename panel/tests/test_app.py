@@ -13,7 +13,7 @@ os.environ['HOSEINPROXY_DISABLE_STATS_THREAD'] = "1"
 
 from app import create_app
 from app.extensions import db
-from app.models import User, Proxy, ProxyStats, Alert
+from app.models import User, Proxy, ProxyStats, Alert, BlockedIP
 
 app = create_app()
 
@@ -148,7 +148,7 @@ class HoseinProxyTestCase(unittest.TestCase):
         self.assertTrue(isinstance(resp.get_json(), list))
 
     def test_auto_stop_quota(self):
-        from app import _check_proxy_limits, _quota_usage_bytes
+        from app.services.monitor import _check_proxy_limits
         with app.app_context():
             p = Proxy(port=20001, secret='s', status='running', quota_bytes=1000, quota_start=datetime.utcnow(), upload=500, download=600, quota_base_upload=0, quota_base_download=0)
             db.session.add(p)
@@ -159,7 +159,7 @@ class HoseinProxyTestCase(unittest.TestCase):
             self.assertEqual(p.status, 'stopped')
             
     def test_auto_stop_expiry(self):
-        from app import _check_proxy_limits
+        from app.services.monitor import _check_proxy_limits
         with app.app_context():
             yesterday = datetime.utcnow() - timedelta(days=1)
             p = Proxy(port=20002, secret='s', status='running', expiry_date=yesterday)

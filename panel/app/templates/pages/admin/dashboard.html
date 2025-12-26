@@ -704,6 +704,11 @@
                                 <button class="btn btn-outline-secondary border-secondary border-opacity-25" type="button" onclick="setRandomSecretForEdit()"><i class="fas fa-sync"></i></button>
                             </div>
                         </div>
+
+                        <div class="col-12 d-none" id="editTlsDomainField">
+                            <label class="small text-secondary mb-1">دامنه Fake TLS</label>
+                            <input type="text" name="tls_domain" id="editProxyTlsDomain" class="form-control font-monospace" value="">
+                        </div>
                         
                         <div class="col-md-6">
                             <label class="small text-secondary mb-1">نام نمایشی</label>
@@ -894,17 +899,50 @@
         }
     };
     
+    const utf8ToHex = (str) => {
+        try {
+            const bytes = new TextEncoder().encode(str);
+            return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (_) {
+            return '';
+        }
+    };
+
     const generateSecret = () => {
         const type = document.getElementById('proxyType').value;
         let sec = [...Array(32)].map(()=>Math.floor(Math.random()*16).toString(16)).join('');
-        document.getElementById('newSecret').value = type==='dd' ? 'dd'+sec : sec;
+        if (type === 'dd') {
+            document.getElementById('newSecret').value = 'dd' + sec;
+            return;
+        }
+        if (type === 'tls') {
+            const domain = (document.querySelector('input[name="tls_domain"]')?.value || 'google.com').trim().toLowerCase();
+            const domainHex = utf8ToHex(domain);
+            document.getElementById('newSecret').value = domainHex ? ('ee' + sec + domainHex) : sec;
+            return;
+        }
+        document.getElementById('newSecret').value = sec;
     };
     const generateRandomHex = () => [...Array(32)].map(()=>Math.floor(Math.random()*16).toString(16)).join('');
     
     const setRandomSecretForEdit = () => {
         const secret = generateRandomHex();
         const el = document.getElementById('editProxySecret');
-        if(el) el.value = secret;
+        if(!el) return;
+        const current = (el.value || '').trim().toLowerCase();
+        if (current.startsWith('ee')) {
+            const domain = (document.getElementById('editProxyTlsDomain')?.value || '').trim().toLowerCase();
+            const domainHex = utf8ToHex(domain);
+            const existingPayload = current.slice(2);
+            const existingDomainHex = existingPayload.length > 32 ? existingPayload.slice(32) : '';
+            el.value = 'ee' + secret + (domainHex || existingDomainHex);
+            return;
+        }
+        if (current.startsWith('dd')) {
+            el.value = 'dd' + secret;
+            return;
+        }
+        el.value = secret;
     };
 
     const copyProxyLink = (port, secret, proxyIp) => {
@@ -1199,6 +1237,25 @@
         document.getElementById('editProxyUser').value = user||'';
         document.getElementById('editProxyPass').value = pass||'';
         document.getElementById('editProxyIP').value = ip||'';
+        const tlsField = document.getElementById('editTlsDomainField');
+        const tlsInput = document.getElementById('editProxyTlsDomain');
+        const s = (secret || '').trim().toLowerCase();
+        if (s.startsWith('ee')) {
+            const payload = s.slice(2);
+            const domainHex = payload.length > 32 ? payload.slice(32) : '';
+            let decoded = '';
+            if (domainHex && domainHex.length % 2 === 0) {
+                try {
+                    const bytes = new Uint8Array(domainHex.match(/.{1,2}/g).map(b => parseInt(b, 16)));
+                    decoded = new TextDecoder().decode(bytes);
+                } catch (_) {}
+            }
+            if (tlsInput) tlsInput.value = decoded || 'google.com';
+            if (tlsField) tlsField.classList.remove('d-none');
+        } else {
+            if (tlsInput) tlsInput.value = '';
+            if (tlsField) tlsField.classList.add('d-none');
+        }
         new bootstrap.Modal(document.getElementById('editProxyModal')).show();
     };
 

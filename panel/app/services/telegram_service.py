@@ -7,7 +7,13 @@ import secrets
 from datetime import datetime, timedelta
 from telebot import types
 from sqlalchemy import func
-from app.utils.helpers import get_setting, set_setting
+from app.utils.helpers import (
+    get_setting,
+    set_setting,
+    infer_proxy_type_from_secret,
+    extract_tls_domain_from_ee_secret,
+    normalize_mtproxy_secret,
+)
 from app.models import Proxy, User, BlockedIP, Settings
 from app.extensions import db
 from app.services.docker_client import client as docker_client
@@ -331,6 +337,9 @@ def run_telegram_bot(app):
                 try:
                     with app.app_context():
                         if docker_client:
+                            ptype = infer_proxy_type_from_secret(data.get('secret'))
+                            tls_domain = extract_tls_domain_from_ee_secret(data.get('secret')) if ptype == "tls" else None
+                            data['secret'] = normalize_mtproxy_secret(ptype, data.get('secret'), tls_domain=tls_domain)
                             container = docker_client.containers.run(
                                 'telegrammessenger/proxy',
                                 detach=True,
@@ -355,6 +364,8 @@ def run_telegram_bot(app):
                             p = Proxy(
                                 port=data['port'],
                                 secret=data['secret'],
+                                proxy_type=ptype,
+                                tls_domain=tls_domain,
                                 tag=data['tag'],
                                 workers=1,
                                 container_id=container.id,

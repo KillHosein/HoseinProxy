@@ -24,6 +24,8 @@ class Proxy(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     port = db.Column(db.Integer, unique=True, nullable=False)
     secret = db.Column(db.String(100), nullable=False)
+    proxy_type = db.Column(db.String(20), default="standard")
+    tls_domain = db.Column(db.String(255), nullable=True)
     tag = db.Column(db.String(100), nullable=True)
     workers = db.Column(db.Integer, default=1)
     container_id = db.Column(db.String(100), nullable=True)

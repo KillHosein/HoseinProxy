@@ -1,4 +1,5 @@
 import threading
+import os
 from flask import Flask
 from sqlalchemy import inspect, text
 from app.config import Config
@@ -56,7 +57,6 @@ def create_app(config_class=Config):
     if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
         # Stats Thread
         from app.services.monitor import update_docker_stats
-        import os
         if os.environ.get("HOSEINPROXY_DISABLE_STATS_THREAD", "0") != "1":
             stats_thread = threading.Thread(target=update_docker_stats, args=(app,), daemon=True)
             stats_thread.start()
@@ -80,6 +80,8 @@ def _ensure_db_initialized(app):
     if inspector.has_table('proxy'):
         columns = {c['name'] for c in inspector.get_columns('proxy')}
         migrations = [
+            ('proxy_type', 'ALTER TABLE proxy ADD COLUMN proxy_type VARCHAR(20) DEFAULT "standard"'),
+            ('tls_domain', 'ALTER TABLE proxy ADD COLUMN tls_domain VARCHAR(255)'),
             ('active_connections', 'ALTER TABLE proxy ADD COLUMN active_connections INTEGER DEFAULT 0'),
             ('upload_rate_bps', 'ALTER TABLE proxy ADD COLUMN upload_rate_bps BIGINT DEFAULT 0'),
             ('download_rate_bps', 'ALTER TABLE proxy ADD COLUMN download_rate_bps BIGINT DEFAULT 0'),

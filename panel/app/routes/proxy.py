@@ -1,25 +1,50 @@
 import secrets
 import docker
+import time
 from datetime import datetime, timedelta
 from flask import Blueprint, request, redirect, url_for, flash
 from flask_login import login_required
 from app.models import Proxy
 from app.extensions import db
-from app.utils.helpers import log_activity
+from app.utils.helpers import (
+    log_activity,
+    normalize_tls_domain,
+    normalize_mtproxy_secret,
+    infer_proxy_type_from_secret,
+    extract_tls_domain_from_ee_secret,
+)
 from app.services.docker_client import client as docker_client
 
 proxy_bp = Blueprint('proxy', __name__, url_prefix='/proxy')
+
+def _mtproxy_image():
+    return "telegrammessenger/proxy"
+
+def _assert_container_running(container):
+    try:
+        container.reload()
+        status = (container.attrs.get("State", {}) or {}).get("Status") or container.status
+        if status in {"running", "created"}:
+            return
+        logs = ""
+        try:
+            logs = container.logs(tail=120).decode("utf-8", errors="ignore")
+        except Exception:
+            pass
+        raise RuntimeError(f"container_status={status}\n{logs}".strip())
+    except Exception:
+        raise
 
 @proxy_bp.route('/add', methods=['POST'])
 @login_required
 def add():
     port = request.form.get('port', type=int)
     workers = request.form.get('workers', type=int, default=2)
-    tag = request.form.get('tag')
-    name = request.form.get('name')
+    tag = (request.form.get('tag') or '').strip() or None
+    name = (request.form.get('name') or '').strip() or None
     secret = request.form.get('secret')
-    proxy_type = request.form.get('proxy_type', 'standard')
-    tls_domain = request.form.get('tls_domain', 'google.com')
+    proxy_type = (request.form.get('proxy_type', 'standard') or 'standard').strip().lower()
+    tls_domain_raw = request.form.get('tls_domain', 'google.com')
     quota_gb = request.form.get('quota_gb', type=float)
     expiry_days = request.form.get('expiry_days', type=int)
     proxy_ip = (request.form.get('proxy_ip') or '').strip() or None
@@ -31,26 +56,25 @@ def add():
     expiry_date = None
     if expiry_days and expiry_days > 0:
         expiry_date = datetime.utcnow() + timedelta(days=expiry_days)
-    
-    # Advanced Secret Generation
+
+    tls_domain = normalize_tls_domain(tls_domain_raw) if proxy_type == "tls" else None
+    if proxy_type == "tls" and not tls_domain:
+        flash('دامنه FakeTLS نامعتبر است.', 'danger')
+        return redirect(url_for('main.dashboard'))
+
     if not secret:
-        base_hex = secrets.token_hex(16) # 32 chars
-        if proxy_type == 'dd':
-            secret = 'dd' + base_hex
-        elif proxy_type == 'tls':
-            # EE + Secret + Hex(Domain)
-            domain_hex = tls_domain.encode('utf-8').hex()
-            secret = 'ee' + base_hex + domain_hex
-        else:
-            secret = base_hex
-    else:
-        # Validate/Fix user provided secret based on type
-        if proxy_type == 'dd' and not secret.startswith('dd'):
-             secret = 'dd' + secret
-        elif proxy_type == 'tls' and not secret.startswith('ee'):
-             # If user provided a raw hex, upgrade it to TLS
-             domain_hex = tls_domain.encode('utf-8').hex()
-             secret = 'ee' + secret + domain_hex
+        secret = secrets.token_hex(16)
+
+    try:
+        secret = normalize_mtproxy_secret(proxy_type, secret, tls_domain=tls_domain)
+    except Exception as e:
+        flash(str(e), 'danger')
+        return redirect(url_for('main.dashboard'))
+
+    if proxy_type not in {"standard", "dd", "tls"}:
+        proxy_type = infer_proxy_type_from_secret(secret)
+        if proxy_type == "tls" and not tls_domain:
+            tls_domain = extract_tls_domain_from_ee_secret(secret)
 
     if not port:
          flash('شماره پورت الزامی است.', 'danger')
@@ -67,7 +91,7 @@ def add():
                 ports_config = {'443/tcp': (proxy_ip, port)}
 
             container = docker_client.containers.run(
-                'telegrammessenger/proxy',
+                _mtproxy_image(),
                 detach=True,
                 ports=ports_config,
                 environment={
@@ -78,10 +102,15 @@ def add():
                 restart_policy={"Name": "always"},
                 name=f"mtproto_{port}"
             )
+
+            time.sleep(0.2)
+            _assert_container_running(container)
             
             new_proxy = Proxy(
                 port=port,
                 secret=secret,
+                proxy_type=proxy_type,
+                tls_domain=tls_domain,
                 tag=tag,
                 name=name,
                 workers=workers,
@@ -101,7 +130,7 @@ def add():
              flash(f'خطای داکر: {e}', 'danger')
              log_activity("Docker Error", str(e))
         except Exception as e:
-            flash(f'خطای ناشناخته: {e}', 'danger')
+            flash(f'خطا در اجرای کانتینر: {e}', 'danger')
             log_activity("System Error", str(e))
     else:
         flash('ارتباط با داکر برقرار نیست.', 'danger')
@@ -201,6 +230,7 @@ def update(id):
     username = (request.form.get('username') or '').strip() or None
     password = (request.form.get('password') or '').strip() or None
     proxy_ip = (request.form.get('proxy_ip') or '').strip() or None
+    new_tls_domain_raw = (request.form.get('tls_domain') or '').strip() or None
     
     # Calculate Quota Bytes
     quota_bytes = 0
@@ -218,6 +248,23 @@ def update(id):
     recreate_container = False
     
     try:
+        inferred_type = (proxy.proxy_type or "").strip().lower() or infer_proxy_type_from_secret(proxy.secret)
+        inferred_domain = (proxy.tls_domain or "").strip() or extract_tls_domain_from_ee_secret(proxy.secret)
+        if not proxy.proxy_type:
+            proxy.proxy_type = inferred_type
+        if inferred_type == "tls" and inferred_domain and not proxy.tls_domain:
+            proxy.tls_domain = inferred_domain
+
+        if inferred_type == "tls" and new_tls_domain_raw:
+            norm_domain = normalize_tls_domain(new_tls_domain_raw)
+            if not norm_domain:
+                flash('دامنه FakeTLS نامعتبر است.', 'danger')
+                return redirect(url_for('main.dashboard'))
+            proxy.tls_domain = norm_domain
+            inferred_domain = norm_domain
+            recreate_container = True
+            changes.append("TLS domain updated")
+
         # Check if Port or Secret changed -> Need Recreation
         if new_port and new_port != proxy.port:
             if Proxy.query.filter(Proxy.port == new_port, Proxy.id != proxy.id).first():
@@ -228,8 +275,9 @@ def update(id):
             recreate_container = True
             
         if new_secret and new_secret != proxy.secret:
+            normalized_secret = normalize_mtproxy_secret(inferred_type, new_secret, tls_domain=inferred_domain)
             changes.append("Secret changed")
-            proxy.secret = new_secret
+            proxy.secret = normalized_secret
             recreate_container = True
             
         # Standard Update fields
@@ -302,7 +350,7 @@ def update(id):
                          ports_config = {'443/tcp': (proxy.proxy_ip, proxy.port)}
 
                      container = docker_client.containers.run(
-                        'telegrammessenger/proxy',
+                        _mtproxy_image(),
                         detach=True,
                         ports=ports_config,
                         environment={
@@ -313,6 +361,8 @@ def update(id):
                         restart_policy={"Name": "always"},
                         name=f"mtproto_{proxy.port}"
                     )
+                     time.sleep(0.2)
+                     _assert_container_running(container)
                      proxy.container_id = container.id
                      proxy.status = "running"
                      changes.append("Container Recreated")
@@ -432,5 +482,3 @@ def renew(id):
     log_activity("Renew Proxy", f"Extended proxy {proxy.port} for {days} days")
     flash(f'اعتبار پروکسی {proxy.port} به مدت {days} روز تمدید شد.', 'success')
     return redirect(url_for('main.dashboard'))
-
-
