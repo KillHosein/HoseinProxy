@@ -356,9 +356,9 @@ def update(id):
         if new_status and new_status != proxy.status:
             if new_status == 'stopped':
                 if docker_client and proxy.container_id:
-                     try:
+                    try:
                         docker_client.containers.get(proxy.container_id).stop()
-                     except: pass
+                    except: pass
                 proxy.status = 'stopped'
                 changes.append("Stopped")
             elif new_status == 'running':
@@ -366,7 +366,7 @@ def update(id):
                 if not recreate_container:
                     if docker_client and proxy.container_id:
                         try:
-                           docker_client.containers.get(proxy.container_id).start()
+                            docker_client.containers.get(proxy.container_id).start()
                         except: pass
                     proxy.status = 'running'
                     changes.append("Started")
