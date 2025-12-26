@@ -54,18 +54,39 @@ check_command() {
 
 install_dependencies() {
     info "Installing system dependencies..."
-    apt-get update -y >> "$LOG_FILE" 2>&1
+    
+    # Try to fix broken installs first
+    apt-get --fix-broken install -y >> "$LOG_FILE" 2>&1
+    
+    # Update package lists
+    if ! apt-get update -y >> "$LOG_FILE" 2>&1; then
+        error "Failed to update package lists. Retrying..."
+        sleep 2
+        apt-get update -y >> "$LOG_FILE" 2>&1
+    fi
     
     # Essential packages
-    PACKAGES="python3 python3-pip python3-venv docker.io curl nginx git whiptail"
+    PACKAGES="python3 python3-pip python3-venv docker.io curl nginx git whiptail apt-transport-https ca-certificates gnupg lsb-release"
     
-    apt-get install -y $PACKAGES >> "$LOG_FILE" 2>&1
-    
-    if [ $? -eq 0 ]; then
-        success "Dependencies installed."
+    if ! apt-get install -y $PACKAGES >> "$LOG_FILE" 2>&1; then
+        error "Failed to install dependencies silently. Retrying with output..."
+        
+        # Try installing packages one by one to identify the failure
+        for pkg in $PACKAGES; do
+            if ! apt-get install -y $pkg >> "$LOG_FILE" 2>&1; then
+                error "Failed to install $pkg. Attempting to fix..."
+                apt-get --fix-broken install -y >> "$LOG_FILE" 2>&1
+                apt-get install -y $pkg
+            fi
+        done
+        
+        # Final check
+        if ! dpkg -s $PACKAGES >/dev/null 2>&1; then
+             error "Some dependencies failed to install. Check log for details."
+             # Don't exit here, let the script try to continue or fail later
+        fi
     else
-        error "Failed to install dependencies. Check log for details."
-        exit 1
+        success "Dependencies installed."
     fi
 }
 
