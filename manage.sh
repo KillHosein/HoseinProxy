@@ -103,19 +103,35 @@ ensure_docker_running() {
         apt-get install -y docker.io >> "$LOG_FILE" 2>&1
     fi
 
-    if ! systemctl is-active --quiet docker; then
-        info "Starting Docker..."
-        systemctl unmask docker >> "$LOG_FILE" 2>&1
-        systemctl enable docker >> "$LOG_FILE" 2>&1
-        systemctl start docker >> "$LOG_FILE" 2>&1
-        sleep 3
+    # Try systemd first
+    if command -v systemctl &> /dev/null; then
+        if ! systemctl is-active --quiet docker; then
+            info "Starting Docker (systemd)..."
+            systemctl unmask docker >> "$LOG_FILE" 2>&1
+            systemctl enable docker >> "$LOG_FILE" 2>&1
+            systemctl start docker >> "$LOG_FILE" 2>&1
+            sleep 3
+        fi
+        if systemctl is-active --quiet docker; then
+            return 0
+        fi
+    fi
+
+    # Fallback to service command (SysVinit/WSL)
+    if command -v service &> /dev/null; then
+        if ! service docker status &> /dev/null; then
+            info "Starting Docker (service)..."
+            service docker start >> "$LOG_FILE" 2>&1
+            sleep 3
+        fi
+        if service docker status &> /dev/null; then
+            return 0
+        fi
     fi
     
-    if ! systemctl is-active --quiet docker; then
-        error "Docker failed to start. Please check 'systemctl status docker'."
-        return 1
-    fi
-    return 0
+    # If we get here, Docker isn't running
+    error "Docker failed to start. Please check logs."
+    return 1
 }
 
 # --- 1. Installation ---
