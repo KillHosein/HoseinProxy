@@ -751,14 +751,10 @@ EOF
     # Build the Docker image
     build_fake_tls_image
 }
-        return 1
-    fi
-    
-    # Create proxy directory if it doesn't exist
-    mkdir -p "$INSTALL_DIR/proxy"
-    
-    # Change to proxy directory for file creation
-    cd "$INSTALL_DIR/proxy" || return 1
+
+# --- 5. Utilities ---
+
+schedule_updates() {
     
     # Create Dockerfile
     cat > Dockerfile << 'EOF'
