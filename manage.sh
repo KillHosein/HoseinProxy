@@ -65,6 +65,12 @@ install_dependencies() {
         apt-get update -y >> "$LOG_FILE" 2>&1
     fi
     
+    # Remove conflicting packages if present
+    if dpkg -l | grep -q containerd; then
+        info "Removing conflicting containerd packages..."
+        apt-get remove -y containerd containerd.io >> "$LOG_FILE" 2>&1
+    fi
+
     # Essential packages
     PACKAGES="python3 python3-pip python3-venv docker.io curl nginx git whiptail apt-transport-https ca-certificates gnupg lsb-release"
     
