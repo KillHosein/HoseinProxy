@@ -69,6 +69,9 @@ def add():
     proxy_type = parsed["proxy_type"]
     base_secret = parsed["base_secret"]
     tls_domain = parsed["tls_domain"]
+    if proxy_type == "tls":
+        flash('FakeTLS با ایمیج فعلی پشتیبانی نمی‌شود. از Standard یا DD استفاده کنید.', 'danger')
+        return redirect(url_for('main.dashboard'))
 
     if not port:
          flash('شماره پورت الزامی است.', 'danger')
@@ -273,7 +276,8 @@ def update(id):
             s0 = new_secret.strip().lower()
             requested_type = inferred_type
             if s0.startswith("ee"):
-                requested_type = "tls"
+                flash('FakeTLS با ایمیج فعلی پشتیبانی نمی‌شود. از Standard یا DD استفاده کنید.', 'danger')
+                return redirect(url_for('main.dashboard'))
             elif s0.startswith("dd"):
                 requested_type = "dd"
             parsed = parse_mtproxy_secret_input(requested_type, new_secret, tls_domain=inferred_domain or new_tls_domain_raw)

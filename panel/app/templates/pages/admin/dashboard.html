@@ -622,7 +622,6 @@
                             <select name="proxy_type" id="proxyType" class="form-select" onchange="toggleProxyFields()">
                                 <option value="standard">Standard (MTProto)</option>
                                 <option value="dd">DD (Random Padding)</option>
-                                <option value="tls">Fake TLS</option>
                             </select>
                         </div>
                         <div class="col-12">
@@ -636,10 +635,6 @@
                         <div class="col-md-6">
                             <label class="text-secondary small mb-1">تگ گروه‌بندی</label>
                             <input type="text" name="tag" class="form-control" placeholder="تگ تبلیغاتی از ربات گرفته شده">
-                        </div>
-                        <div class="col-12 d-none" id="tlsDomainField">
-                            <label class="text-secondary small mb-1">دامنه Fake TLS</label>
-                            <input type="text" name="tls_domain" class="form-control font-monospace" value="google.com">
                         </div>
                         <div class="col-12">
                             <label class="text-secondary small mb-1">Secret Key</label>
@@ -911,17 +906,7 @@
     const generateSecret = () => {
         const type = document.getElementById('proxyType').value;
         let sec = [...Array(32)].map(()=>Math.floor(Math.random()*16).toString(16)).join('');
-        if (type === 'dd') {
-            document.getElementById('newSecret').value = 'dd' + sec;
-            return;
-        }
-        if (type === 'tls') {
-            const domain = (document.querySelector('input[name="tls_domain"]')?.value || 'google.com').trim().toLowerCase();
-            const domainHex = utf8ToHex(domain);
-            document.getElementById('newSecret').value = domainHex ? ('ee' + sec + domainHex) : sec;
-            return;
-        }
-        document.getElementById('newSecret').value = sec;
+        document.getElementById('newSecret').value = type==='dd' ? 'dd'+sec : sec;
     };
     const generateRandomHex = () => [...Array(32)].map(()=>Math.floor(Math.random()*16).toString(16)).join('');
     
@@ -951,7 +936,7 @@
         copyToClipboard(link);
     };
     
-    const toggleProxyFields = () => { document.getElementById('tlsDomainField').classList.toggle('d-none', document.getElementById('proxyType').value !== 'tls'); };
+    const toggleProxyFields = () => {};
     
     function showLink(port, secret, proxyIp) {
         const serverIp = proxyIp || '{{ server_ip }}' || window.location.hostname;
