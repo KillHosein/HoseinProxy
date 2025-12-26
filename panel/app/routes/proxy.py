@@ -9,9 +9,9 @@ from app.extensions import db
 from app.utils.helpers import (
     log_activity,
     normalize_tls_domain,
-    normalize_mtproxy_secret,
     infer_proxy_type_from_secret,
     extract_tls_domain_from_ee_secret,
+    parse_mtproxy_secret_input,
 )
 from app.services.docker_client import client as docker_client
 
@@ -57,24 +57,18 @@ def add():
     if expiry_days and expiry_days > 0:
         expiry_date = datetime.utcnow() + timedelta(days=expiry_days)
 
-    tls_domain = normalize_tls_domain(tls_domain_raw) if proxy_type == "tls" else None
-    if proxy_type == "tls" and not tls_domain:
-        flash('دامنه FakeTLS نامعتبر است.', 'danger')
-        return redirect(url_for('main.dashboard'))
-
     if not secret:
         secret = secrets.token_hex(16)
 
     try:
-        secret = normalize_mtproxy_secret(proxy_type, secret, tls_domain=tls_domain)
+        parsed = parse_mtproxy_secret_input(proxy_type, secret, tls_domain=tls_domain_raw)
     except Exception as e:
         flash(str(e), 'danger')
         return redirect(url_for('main.dashboard'))
 
-    if proxy_type not in {"standard", "dd", "tls"}:
-        proxy_type = infer_proxy_type_from_secret(secret)
-        if proxy_type == "tls" and not tls_domain:
-            tls_domain = extract_tls_domain_from_ee_secret(secret)
+    proxy_type = parsed["proxy_type"]
+    base_secret = parsed["base_secret"]
+    tls_domain = parsed["tls_domain"]
 
     if not port:
          flash('شماره پورت الزامی است.', 'danger')
@@ -95,7 +89,7 @@ def add():
                 detach=True,
                 ports=ports_config,
                 environment={
-                    'SECRET': secret,
+                    'SECRET': base_secret,
                     'TAG': tag,
                     'WORKERS': workers
                 },
@@ -108,7 +102,7 @@ def add():
             
             new_proxy = Proxy(
                 port=port,
-                secret=secret,
+                secret=base_secret,
                 proxy_type=proxy_type,
                 tls_domain=tls_domain,
                 tag=tag,
@@ -248,22 +242,23 @@ def update(id):
     recreate_container = False
     
     try:
-        inferred_type = (proxy.proxy_type or "").strip().lower() or infer_proxy_type_from_secret(proxy.secret)
-        inferred_domain = (proxy.tls_domain or "").strip() or extract_tls_domain_from_ee_secret(proxy.secret)
+        inferred_type = (proxy.proxy_type or "").strip().lower() or "standard"
+        inferred_domain = (proxy.tls_domain or "").strip() or None
         if not proxy.proxy_type:
             proxy.proxy_type = inferred_type
         if inferred_type == "tls" and inferred_domain and not proxy.tls_domain:
             proxy.tls_domain = inferred_domain
 
-        if inferred_type == "tls" and new_tls_domain_raw:
+        if new_tls_domain_raw and inferred_type == "tls":
             norm_domain = normalize_tls_domain(new_tls_domain_raw)
             if not norm_domain:
                 flash('دامنه FakeTLS نامعتبر است.', 'danger')
                 return redirect(url_for('main.dashboard'))
-            proxy.tls_domain = norm_domain
-            inferred_domain = norm_domain
-            recreate_container = True
-            changes.append("TLS domain updated")
+            if norm_domain != proxy.tls_domain:
+                proxy.tls_domain = norm_domain
+                inferred_domain = norm_domain
+                recreate_container = True
+                changes.append("TLS domain updated")
 
         # Check if Port or Secret changed -> Need Recreation
         if new_port and new_port != proxy.port:
@@ -275,9 +270,19 @@ def update(id):
             recreate_container = True
             
         if new_secret and new_secret != proxy.secret:
-            normalized_secret = normalize_mtproxy_secret(inferred_type, new_secret, tls_domain=inferred_domain)
+            s0 = new_secret.strip().lower()
+            requested_type = inferred_type
+            if s0.startswith("ee"):
+                requested_type = "tls"
+            elif s0.startswith("dd"):
+                requested_type = "dd"
+            parsed = parse_mtproxy_secret_input(requested_type, new_secret, tls_domain=inferred_domain or new_tls_domain_raw)
             changes.append("Secret changed")
-            proxy.secret = normalized_secret
+            proxy.secret = parsed["base_secret"]
+            proxy.proxy_type = parsed["proxy_type"]
+            proxy.tls_domain = parsed["tls_domain"]
+            inferred_type = proxy.proxy_type
+            inferred_domain = proxy.tls_domain
             recreate_container = True
             
         # Standard Update fields

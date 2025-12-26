@@ -144,49 +144,63 @@ def extract_tls_domain_from_ee_secret(secret):
         return None
     return normalize_tls_domain(domain)
 
-def normalize_mtproxy_secret(proxy_type, secret, tls_domain=None):
-    ptype = (proxy_type or "standard").strip().lower()
-    s = (secret or "").strip().lower().replace(" ", "")
-    if s.startswith("0x"):
-        s = s[2:]
+def parse_mtproxy_secret_input(proxy_type, secret, tls_domain=None):
+    raw = (secret or "").strip().lower().replace(" ", "")
+    if raw.startswith("0x"):
+        raw = raw[2:]
+
+    ptype = (proxy_type or "").strip().lower()
     if ptype not in {"standard", "dd", "tls"}:
-        ptype = infer_proxy_type_from_secret(s)
+        ptype = infer_proxy_type_from_secret(raw)
+
+    if raw.startswith("dd") and ptype != "tls":
+        raw = raw[2:]
 
     if ptype == "standard":
-        if not _is_hex(s) or len(s) != 32:
+        if not _is_hex(raw) or len(raw) != 32:
             raise ValueError("Secret باید دقیقاً ۳۲ کاراکتر hex باشد.")
-        return s
+        return {"proxy_type": "standard", "base_secret": raw, "tls_domain": None}
 
     if ptype == "dd":
-        if s.startswith("dd"):
-            base = s[2:]
-        else:
-            base = s
-        if not _is_hex(base) or len(base) != 32:
+        if not _is_hex(raw) or len(raw) != 32:
             raise ValueError("Secret در حالت DD باید ۳۲ کاراکتر hex باشد (با یا بدون پیشوند dd).")
-        return "dd" + base
+        return {"proxy_type": "dd", "base_secret": raw, "tls_domain": None}
 
-    if s.startswith("ee"):
-        payload = s[2:]
-        if len(payload) < 34:
+    if raw.startswith("ee"):
+        payload = raw[2:]
+        if len(payload) <= 32:
             raise ValueError("Secret در حالت FakeTLS نامعتبر است.")
         base = payload[:32]
         domain_hex = payload[32:]
-        if not _is_hex(base) or not _is_hex(domain_hex) or len(domain_hex) % 2 != 0:
-            raise ValueError("Secret در حالت FakeTLS باید hex معتبر باشد.")
-        if tls_domain:
-            norm_domain = normalize_tls_domain(tls_domain)
-            if not norm_domain:
-                raise ValueError("دامنه FakeTLS نامعتبر است.")
-            expected_hex = norm_domain.encode("utf-8").hex()
-            return "ee" + base + expected_hex
-        return "ee" + base + domain_hex
+        if not _is_hex(base):
+            raise ValueError("Secret در حالت FakeTLS نامعتبر است.")
+        extracted = None
+        if _is_hex(domain_hex) and len(domain_hex) % 2 == 0 and domain_hex:
+            try:
+                extracted = bytes.fromhex(domain_hex).decode("utf-8", errors="strict")
+            except Exception:
+                extracted = None
+        final_domain = tls_domain or extracted
+        final_domain = normalize_tls_domain(final_domain) if final_domain else None
+        if not final_domain:
+            raise ValueError("دامنه FakeTLS نامعتبر است.")
+        return {"proxy_type": "tls", "base_secret": base, "tls_domain": final_domain}
 
-    base = s
-    if not _is_hex(base) or len(base) != 32:
-        raise ValueError("Secret در حالت FakeTLS باید ۳۲ کاراکتر hex (بدون ee) باشد.")
-    norm_domain = normalize_tls_domain(tls_domain) if tls_domain else None
-    if not norm_domain:
+    if not _is_hex(raw) or len(raw) != 32:
+        raise ValueError("Secret در حالت FakeTLS باید ۳۲ کاراکتر hex باشد.")
+    final_domain = normalize_tls_domain(tls_domain) if tls_domain else None
+    if not final_domain:
         raise ValueError("دامنه FakeTLS نامعتبر است.")
-    domain_hex = norm_domain.encode("utf-8").hex()
-    return "ee" + base + domain_hex
+    return {"proxy_type": "tls", "base_secret": raw, "tls_domain": final_domain}
+
+def format_mtproxy_client_secret(proxy_type, base_secret, tls_domain=None):
+    ptype = (proxy_type or "standard").strip().lower()
+    base = (base_secret or "").strip().lower()
+    if ptype == "dd":
+        return "dd" + base
+    if ptype == "tls":
+        d = normalize_tls_domain(tls_domain) if tls_domain else None
+        if not d:
+            return base
+        return "ee" + base + d.encode("utf-8").hex()
+    return base

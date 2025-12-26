@@ -4,6 +4,7 @@ from flask_login import login_required
 from app.models import Proxy, ActivityLog
 from app.extensions import db
 from app.services.docker_client import client as docker_client
+from app.utils.helpers import format_mtproxy_client_secret, parse_mtproxy_secret_input
 
 main_bp = Blueprint('main', __name__)
 
@@ -34,5 +35,29 @@ def dashboard():
             db.session.commit()
         except Exception as e:
             print(f"Sync Error: {e}")
+
+    dirty = False
+    for p in proxies:
+        s = (p.secret or "").strip().lower()
+        if s.startswith("dd") or s.startswith("ee"):
+            try:
+                parsed = parse_mtproxy_secret_input(None, s, tls_domain=p.tls_domain)
+                p.secret = parsed["base_secret"]
+                p.proxy_type = parsed["proxy_type"]
+                p.tls_domain = parsed["tls_domain"]
+                dirty = True
+            except Exception:
+                pass
+    if dirty:
+        try:
+            db.session.commit()
+        except Exception:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+
+    for p in proxies:
+        p.display_secret = format_mtproxy_client_secret(p.proxy_type or "standard", p.secret, p.tls_domain)
 
     return render_template('pages/admin/dashboard.html', proxies=proxies, logs=logs)

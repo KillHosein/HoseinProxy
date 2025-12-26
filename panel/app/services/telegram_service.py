@@ -12,7 +12,7 @@ from app.utils.helpers import (
     set_setting,
     infer_proxy_type_from_secret,
     extract_tls_domain_from_ee_secret,
-    normalize_mtproxy_secret,
+    parse_mtproxy_secret_input,
 )
 from app.models import Proxy, User, BlockedIP, Settings
 from app.extensions import db
@@ -337,15 +337,15 @@ def run_telegram_bot(app):
                 try:
                     with app.app_context():
                         if docker_client:
-                            ptype = infer_proxy_type_from_secret(data.get('secret'))
-                            tls_domain = extract_tls_domain_from_ee_secret(data.get('secret')) if ptype == "tls" else None
-                            data['secret'] = normalize_mtproxy_secret(ptype, data.get('secret'), tls_domain=tls_domain)
+                            parsed = parse_mtproxy_secret_input(None, data.get('secret'))
+                            ptype = parsed["proxy_type"]
+                            tls_domain = parsed["tls_domain"]
                             container = docker_client.containers.run(
                                 'telegrammessenger/proxy',
                                 detach=True,
                                 ports={'443/tcp': data['port']},
                                 environment={
-                                    'SECRET': data['secret'],
+                                    'SECRET': parsed["base_secret"],
                                     'TAG': data['tag'],
                                     'WORKERS': 1
                                 },
@@ -363,7 +363,7 @@ def run_telegram_bot(app):
 
                             p = Proxy(
                                 port=data['port'],
-                                secret=data['secret'],
+                                secret=parsed["base_secret"],
                                 proxy_type=ptype,
                                 tls_domain=tls_domain,
                                 tag=data['tag'],

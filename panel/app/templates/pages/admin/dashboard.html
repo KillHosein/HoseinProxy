@@ -517,10 +517,10 @@
                             
                             <td data-label="لینک" class="text-center">
                                 <div class="d-flex gap-2 justify-content-center">
-                                    <button class="btn btn-action btn-action-info" onclick="copyProxyLink(this.dataset.port, this.dataset.secret, this.dataset.ip)" data-port="{{ proxy.port }}" data-secret="{{ proxy.secret }}" data-ip="{{ proxy.proxy_ip or '' }}" title="کپی لینک">
+                                    <button class="btn btn-action btn-action-info" onclick="copyProxyLink(this.dataset.port, this.dataset.secret, this.dataset.ip)" data-port="{{ proxy.port }}" data-secret="{{ proxy.display_secret }}" data-ip="{{ proxy.proxy_ip or '' }}" title="کپی لینک">
                                         <i class="far fa-copy"></i>
                                     </button>
-                                    <button class="btn btn-action btn-action-info" onclick="showLink(this.dataset.port, this.dataset.secret, this.dataset.ip)" data-port="{{ proxy.port }}" data-secret="{{ proxy.secret }}" data-ip="{{ proxy.proxy_ip or '' }}" title="نمایش QR">
+                                    <button class="btn btn-action btn-action-info" onclick="showLink(this.dataset.port, this.dataset.secret, this.dataset.ip)" data-port="{{ proxy.port }}" data-secret="{{ proxy.display_secret }}" data-ip="{{ proxy.proxy_ip or '' }}" title="نمایش QR">
                                         <i class="fas fa-qrcode"></i>
                                     </button>
                                 </div>
@@ -552,7 +552,7 @@
                                         <i class="fas fa-redo"></i>
                                     </a>
                                     
-                                    <button class="btn btn-action btn-action-primary" onclick="handleProxyEdit(this)" data-id="{{ proxy.id }}" data-port="{{ proxy.port }}" data-tag="{{ proxy.tag or '' }}" data-quota="{{ ((proxy.quota_bytes / (1024*1024*1024))|round(2) if proxy.quota_bytes else 0) }}" data-secret="{{ proxy.secret }}" data-status="{{ proxy.status }}" data-username="{{ proxy.username or '' }}" data-password="{{ proxy.password or '' }}" data-ip="{{ proxy.proxy_ip or '' }}" data-name="{{ proxy.name or '' }}" title="ویرایش">
+                                    <button class="btn btn-action btn-action-primary" onclick="handleProxyEdit(this)" data-id="{{ proxy.id }}" data-port="{{ proxy.port }}" data-tag="{{ proxy.tag or '' }}" data-quota="{{ ((proxy.quota_bytes / (1024*1024*1024))|round(2) if proxy.quota_bytes else 0) }}" data-secret="{{ proxy.display_secret }}" data-status="{{ proxy.status }}" data-username="{{ proxy.username or '' }}" data-password="{{ proxy.password or '' }}" data-ip="{{ proxy.proxy_ip or '' }}" data-name="{{ proxy.name or '' }}" title="ویرایش">
                                         <i class="fas fa-cog"></i>
                                     </button>
                                     
