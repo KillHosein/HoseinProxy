@@ -77,7 +77,8 @@ def add():
             'SECRET': base_secret,
             'TLS_DOMAIN': tls_domain,
             'TAG': tag,
-            'WORKERS': workers
+            'WORKERS': workers,
+            'PORT': port  # Add port for Fake TLS
         }
     else:
         image_name = _mtproxy_image()
@@ -97,9 +98,17 @@ def add():
 
     if docker_client:
         try:
-            ports_config = {'443/tcp': port}
-            if proxy_ip:
-                ports_config = {'443/tcp': (proxy_ip, port)}
+            # Configure ports based on proxy type
+            if proxy_type == "tls":
+                # For Fake TLS, use the same port internally and externally
+                ports_config = {f'{port}/tcp': port}
+                if proxy_ip:
+                    ports_config = {f'{port}/tcp': (proxy_ip, port)}
+            else:
+                # For other types, use 443 internally
+                ports_config = {'443/tcp': port}
+                if proxy_ip:
+                    ports_config = {'443/tcp': (proxy_ip, port)}
 
             container = docker_client.containers.run(
                 image_name,
@@ -364,38 +373,44 @@ def update(id):
 
         # Apply Recreate if needed
         if recreate_container and proxy.status != 'stopped':
-             if docker_client:
-                 try:
-                     # Remove old
-                     if proxy.container_id:
-                         try:
-                             old_c = docker_client.containers.get(proxy.container_id)
-                             old_c.remove(force=True)
-                         except: pass
-                     
-                     # Create new with appropriate image
-                     ports_config = {'443/tcp': proxy.port}
-                     if proxy.proxy_ip:
-                         ports_config = {'443/tcp': (proxy.proxy_ip, proxy.port)}
+            if docker_client:
+                try:
+                    # Remove old
+                    if proxy.container_id:
+                        try:
+                            old_c = docker_client.containers.get(proxy.container_id)
+                            old_c.remove(force=True)
+                        except: pass
+                    
+                    # Create new with appropriate image
+                    if proxy.proxy_type == "tls":
+                        # For Fake TLS, use the same port internally and externally
+                        ports_config = {f'{proxy.port}/tcp': proxy.port}
+                        if proxy.proxy_ip:
+                            ports_config = {f'{proxy.port}/tcp': (proxy.proxy_ip, proxy.port)}
+                        
+                        image_name = "mtproxy-faketls:latest"
+                        environment = {
+                            'SECRET': proxy.secret,
+                            'TLS_DOMAIN': proxy.tls_domain,
+                            'TAG': proxy.tag,
+                            'WORKERS': proxy.workers,
+                            'PORT': proxy.port
+                        }
+                    else:
+                        # For other types, use 443 internally
+                        ports_config = {'443/tcp': proxy.port}
+                        if proxy.proxy_ip:
+                            ports_config = {'443/tcp': (proxy.proxy_ip, proxy.port)}
+                        
+                        image_name = _mtproxy_image()
+                        environment = {
+                            'SECRET': proxy.secret,
+                            'TAG': proxy.tag,
+                            'WORKERS': proxy.workers
+                        }
 
-                     # Use appropriate image based on proxy type
-                     if proxy.proxy_type == "tls":
-                         image_name = "mtproxy-faketls:latest"
-                         environment = {
-                             'SECRET': proxy.secret,
-                             'TLS_DOMAIN': proxy.tls_domain,
-                             'TAG': proxy.tag,
-                             'WORKERS': proxy.workers
-                         }
-                     else:
-                         image_name = _mtproxy_image()
-                         environment = {
-                             'SECRET': proxy.secret,
-                             'TAG': proxy.tag,
-                             'WORKERS': proxy.workers
-                         }
-
-                     container = docker_client.containers.run(
+                    container = docker_client.containers.run(
                         image_name,
                         detach=True,
                         ports=ports_config,
@@ -403,18 +418,17 @@ def update(id):
                         restart_policy={"Name": "always"},
                         name=f"mtproto_{proxy.port}"
                     )
-                        restart_policy={"Name": "always"},
-                        name=f"mtproto_{proxy.port}"
-                    )
-                     time.sleep(0.2)
-                     _assert_container_running(container)
-                     proxy.container_id = container.id
-                     proxy.status = "running"
-                     changes.append("Container Recreated")
-                 except Exception as e:
-                     flash(f'خطا در بازسازی کانتینر: {e}', 'danger')
-                     log_activity("Update Error", str(e))
-                     return redirect(url_for('main.dashboard'))
+                    
+                    time.sleep(0.2)
+                    _assert_container_running(container)
+                    proxy.container_id = container.id
+                    proxy.status = "running"
+                    changes.append("Container Recreated")
+                    
+                except Exception as e:
+                    flash(f'خطا در بازسازی کانتینر: {e}', 'danger')
+                    log_activity("Update Error", str(e))
+                    return redirect(url_for('main.dashboard'))
 
         db.session.commit()
         if changes:
