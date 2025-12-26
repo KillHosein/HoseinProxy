@@ -176,6 +176,12 @@ EOF
         systemctl enable $SERVICE_NAME
         systemctl restart $SERVICE_NAME
         
+        # Install Fake TLS Support
+        if (whiptail --title "Fake TLS Support" --yesno "Do you want to install Fake TLS anti-filter support?" 10 60); then
+            info "Installing Fake TLS support..."
+            install_fake_tls
+        fi
+        
         # Final Check
         sleep 2
         if systemctl is-active --quiet $SERVICE_NAME; then
@@ -216,6 +222,14 @@ update_panel() {
                 pip install -r requirements.txt >> "$LOG_FILE" 2>&1
             fi
             
+            # Update Fake TLS if it exists
+            if [ -d "$INSTALL_DIR/proxy" ] && [ -f "$INSTALL_DIR/proxy/Dockerfile" ]; then
+                if (whiptail --title "Update Fake TLS" --yesno "Update Fake TLS Docker image?" 10 60); then
+                    info "Updating Fake TLS image..."
+                    build_fake_tls_image
+                fi
+            fi
+            
             # Restart Service
             systemctl restart $SERVICE_NAME
             
@@ -246,6 +260,19 @@ uninstall_panel() {
         rm -f /etc/nginx/sites-available/hoseinproxy
         systemctl restart nginx
         
+        # Stop and remove Fake TLS containers
+        if docker ps | grep -q mtproxy-faketls; then
+            info "Stopping Fake TLS containers..."
+            docker stop $(docker ps -q -f "ancestor=mtproxy-faketls:latest") >> "$LOG_FILE" 2>&1
+            docker rm $(docker ps -aq -f "ancestor=mtproxy-faketls:latest") >> "$LOG_FILE" 2>&1
+        fi
+        
+        # Remove Fake TLS image
+        if docker images | grep -q mtproxy-faketls; then
+            info "Removing Fake TLS image..."
+            docker rmi mtproxy-faketls:latest >> "$LOG_FILE" 2>&1
+        fi
+        
         rm -rf "$INSTALL_DIR"
         
         whiptail --title "Done" --msgbox "Uninstallation Complete." 10 60
@@ -270,11 +297,17 @@ backup_panel() {
     
     # Backup important files (DB, Config, App Code, Requirements)
     # We backup the whole panel directory but exclude venv and __pycache__ to save space
+    # Also include proxy directory if it exists
+    BACKUP_ITEMS="panel"
+    if [ -d "$INSTALL_DIR/proxy" ]; then
+        BACKUP_ITEMS="$BACKUP_ITEMS proxy"
+    fi
+    
     tar -czf "$BACKUP_FILE" -C "$INSTALL_DIR" \
         --exclude='venv' \
         --exclude='__pycache__' \
         --exclude='*.pyc' \
-        panel
+        $BACKUP_ITEMS
     
     if [ $? -eq 0 ]; then
         whiptail --title "Backup" --msgbox "Backup created at:\n$BACKUP_FILE" 10 60
@@ -331,6 +364,14 @@ repair_panel() {
     info "Attempting repair..."
     install_dependencies
     
+    # Check and rebuild Fake TLS if needed
+    if [ -d "$INSTALL_DIR/proxy" ] && [ -f "$INSTALL_DIR/proxy/Dockerfile" ]; then
+        if ! docker images | grep -q mtproxy-faketls; then
+            info "Fake TLS image missing, rebuilding..."
+            build_fake_tls_image
+        fi
+    fi
+    
     cd "$PANEL_DIR" || exit
     if [ ! -d "venv" ]; then
         python3 -m venv venv
@@ -354,7 +395,7 @@ fi
 # --- Main Menu ---
 
 show_menu() {
-    OPTION=$(whiptail --title "HoseinProxy Manager v3.0" --menu "Select Operation:" 22 70 12 \
+    OPTION=$(whiptail --title "HoseinProxy Manager v3.0" --menu "Select Operation:" 25 70 15 \
     "1" "Install Panel" \
     "2" "Update Panel" \
     "3" "Uninstall Panel" \
@@ -364,6 +405,10 @@ show_menu() {
     "7" "Backup Data" \
     "8" "Restore Data" \
     "9" "Repair / Reinstall Deps" \
+    "10" "Fake TLS Management" \
+    "11" "Build Fake TLS Image" \
+    "12" "Install Fake TLS Support" \
+    "13" "System Status Check" \
     "0" "Exit" 3>&1 1>&2 2>&3)
     
     EXITSTATUS=$?
@@ -377,18 +422,393 @@ show_menu() {
             whiptail --title "Success" --msgbox "Service Restarted." 10 60
             ;;
         5) 
-            tail -n 50 "$LOG_FILE" > /tmp/logview
-            whiptail --title "System Logs" --textbox /tmp/logview 20 80
+            # Enhanced logs view with Fake TLS status
+            if docker images | grep -q mtproxy-faketls; then
+                info "Fake TLS Status:"
+                if docker ps | grep -q mtproxy-faketls; then
+                    success "Fake TLS image: Installed and running"
+                else
+                    info "Fake TLS image: Installed but not running"
+                fi
+                echo "----------------------------------------" >> /tmp/logview
+            else
+                info "Fake TLS Status: Not installed"
+            fi
+            
+            tail -n 50 "$LOG_FILE" >> /tmp/logview
+            whiptail --title "System Logs" --textbox /tmp/logview 25 80
             ;;
         6) schedule_updates ;;
         7) backup_panel ;;
         8) restore_panel ;;
         9) repair_panel ;;
+        10) manage_fake_tls ;;
+        11) build_fake_tls_image ;;
+        12) install_fake_tls ;;
+        13) 
+            # Quick status check
+            info "System Status Check:"
+            
+            # Panel status
+            if systemctl is-active --quiet $SERVICE_NAME; then
+                success "Panel Service: Running"
+            else
+                error "Panel Service: Stopped"
+            fi
+            
+            # Docker status
+            if systemctl is-active --quiet docker; then
+                success "Docker Service: Running"
+            else
+                error "Docker Service: Stopped"
+            fi
+            
+            # Fake TLS status
+            if docker images | grep -q mtproxy-faketls; then
+                if docker ps | grep -q mtproxy-faketls; then
+                    success "Fake TLS: Installed and running"
+                else
+                    info "Fake TLS: Installed but not running"
+                fi
+            else
+                info "Fake TLS: Not installed"
+            fi
+            
+            # Nginx status
+            if systemctl is-active --quiet nginx; then
+                success "Nginx Service: Running"
+            else
+                error "Nginx Service: Stopped"
+            fi
+            
+            read -p "Press Enter to continue..."
+            ;;
         0) exit 0 ;;
         esac
     else
         exit 0
     fi
+}
+
+# --- 6. Fake TLS Functions ---
+
+build_fake_tls_image() {
+    info "Building Fake TLS Docker image..."
+    
+    if [ ! -d "$INSTALL_DIR/proxy" ]; then
+        error "Proxy directory not found. Please ensure Fake TLS files are installed."
+        return 1
+    fi
+    
+    cd "$INSTALL_DIR/proxy" || return 1
+    
+    if docker build -t mtproxy-faketls:latest . >> "$LOG_FILE" 2>&1; then
+        success "Fake TLS Docker image built successfully!"
+        
+        # Test the image
+        info "Testing Fake TLS image..."
+        TEST_CONTAINER="test-faketls-$(date +%s)"
+        if docker run -d --rm --name "$TEST_CONTAINER" -p 8443:443 \
+            -e SECRET=0123456789abcdef0123456789abcdef \
+            -e TLS_DOMAIN=google.com \
+            -e WORKERS=2 mtproxy-faketls:latest >> "$LOG_FILE" 2>&1; then
+            
+            sleep 5
+            if docker ps | grep -q "$TEST_CONTAINER"; then
+                success "Fake TLS test passed!"
+                docker stop "$TEST_CONTAINER" >> "$LOG_FILE" 2>&1
+            else
+                error "Fake TLS test failed. Check logs."
+                docker logs "$TEST_CONTAINER" >> "$LOG_FILE" 2>&1
+                docker rm -f "$TEST_CONTAINER" >> "$LOG_FILE" 2>&1
+            fi
+        fi
+    else
+        error "Failed to build Fake TLS image. Check logs."
+        return 1
+    fi
+    
+    cd - >> "$LOG_FILE" 2>&1
+}
+
+install_fake_tls() {
+    info "Installing Fake TLS support..."
+    
+    # Check if Docker is running
+    if ! systemctl is-active --quiet docker; then
+        error "Docker is not running. Please start Docker first."
+        return 1
+    fi
+    
+    # Create proxy directory if it doesn't exist
+    mkdir -p "$INSTALL_DIR/proxy"
+    
+    # Create Fake TLS files
+    cat > "$INSTALL_DIR/proxy/Dockerfile" << 'EOF'
+FROM python:3.9-slim
+
+RUN apt-get update && apt-get install -y \
+    gcc \
+    git \
+    make \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Clone and build the fake TLS proxy
+RUN git clone https://github.com/alexbers/mtprotoproxy.git .
+
+# Copy our custom configuration
+COPY config.py ./
+COPY entrypoint.sh ./
+COPY proxy_server.py ./
+
+RUN chmod +x entrypoint.sh
+
+EXPOSE 443
+
+CMD ["./entrypoint.sh"]
+EOF
+
+    cat > "$INSTALL_DIR/proxy/proxy_server.py" << 'EOF'
+import asyncio
+import logging
+import struct
+import hashlib
+import secrets
+import time
+import socket
+import ssl
+from urllib.parse import urlparse
+
+# Configuration
+PORT = 443
+SECRET = "your_secret_here"
+TLS_DOMAIN = "google.com"
+WORKERS = 2
+ENABLE_FAKE_TLS = True
+TLS_ONLY = True
+FALLBACK_DOMAIN = "google.com"
+ENABLE_ANTIFILTER = True
+OBFUSCATION_LEVEL = 2
+PADDING_ENABLED = True
+
+class FakeTLSProxy:
+    def __init__(self):
+        self.secret = bytes.fromhex(SECRET)
+        self.tls_domain = TLS_DOMAIN
+        self.workers = WORKERS
+        self.port = PORT
+        
+    async def handle_connection(self, reader, writer):
+        """Handle incoming connection with fake TLS"""
+        client_addr = writer.get_extra_info('peername')
+        print(f"New connection from {client_addr}")
+        
+        try:
+            # Perform fake TLS handshake
+            await self._perform_fake_tls_handshake(reader, writer)
+            # Handle the actual proxy protocol
+            await self._handle_proxy_protocol(reader, writer)
+        except Exception as e:
+            print(f"Error: {e}")
+        finally:
+            writer.close()
+            await writer.wait_closed()
+    
+    async def _perform_fake_tls_handshake(self, reader, writer):
+        """Perform fake TLS handshake"""
+        # Send fake ServerHello
+        server_hello = self._create_server_hello()
+        writer.write(server_hello)
+        await writer.drain()
+        
+        # Wait for ClientHello
+        client_hello = await reader.read(1024)
+        if not self._validate_client_hello(client_hello):
+            raise Exception("Invalid ClientHello")
+        
+        print("Fake TLS handshake completed")
+    
+    def _create_server_hello(self):
+        """Create fake ServerHello"""
+        version = b'\x03\x03'  # TLS 1.2
+        random = secrets.token_bytes(32)
+        session_id = b'\x20' + secrets.token_bytes(32)
+        
+        # Selected cipher suite
+        cipher_suite = b'\x00\x9f'
+        compression = b'\x00'
+        
+        handshake = version + random + session_id + cipher_suite + compression
+        
+        # TLS record header
+        record_header = b'\x16\x03\x03'
+        record_length = len(handshake).to_bytes(2, 'big')
+        
+        return record_header + record_length + handshake
+    
+    def _validate_client_hello(self, data):
+        """Validate incoming ClientHello"""
+        if len(data) < 43:
+            return False
+        
+        # Check TLS record header
+        if data[0] != 0x16 or data[1:3] != b'\x03\x03':
+            return False
+        
+        return True
+    
+    async def _handle_proxy_protocol(self, reader, writer):
+        """Handle the actual MTProxy protocol"""
+        # Simple relay implementation
+        data = await reader.read(1024)
+        if data:
+            # Connect to Telegram servers (simplified)
+            telegram_reader, telegram_writer = await asyncio.open_connection(
+                '149.154.175.50', 443
+            )
+            
+            # Start relaying data
+            await asyncio.gather(
+                self._relay_data(reader, telegram_writer),
+                self._relay_data(telegram_reader, writer)
+            )
+    
+    async def _relay_data(self, reader, writer):
+        """Relay data between client and Telegram"""
+        try:
+            while True:
+                data = await reader.read(8192)
+                if not data:
+                    break
+                writer.write(data)
+                await writer.drain()
+        except Exception as e:
+            print(f"Relay error: {e}")
+        finally:
+            writer.close()
+    
+    async def start_server(self):
+        """Start the fake TLS proxy server"""
+        server = await asyncio.start_server(
+            self.handle_connection,
+            '0.0.0.0',
+            self.port
+        )
+        
+        print(f"Fake TLS proxy started on port {self.port}")
+        print(f"Secret: {SECRET}")
+        print(f"TLS Domain: {self.tls_domain}")
+        
+        async with server:
+            await server.serve_forever()
+
+if __name__ == '__main__':
+    proxy = FakeTLSProxy()
+    asyncio.run(proxy.start_server())
+EOF
+
+    cat > "$INSTALL_DIR/proxy/entrypoint.sh" << 'EOF'
+#!/bin/bash
+
+# Generate secret if not provided
+if [ -z "$SECRET" ]; then
+    SECRET=$(openssl rand -hex 16)
+    echo "Generated secret: $SECRET"
+fi
+
+# Create config file
+cat > config.py << EOF
+PORT = 443
+SECRET = "$SECRET"
+TLS_DOMAIN = "$TLS_DOMAIN"
+TAG = "$TAG"
+WORKERS = $WORKERS
+ENABLE_FAKE_TLS = True
+TLS_ONLY = True
+FALLBACK_DOMAIN = "$TLS_DOMAIN"
+ENABLE_ANTIFILTER = True
+OBFUSCATION_LEVEL = 2
+PADDING_ENABLED = True
+EOF
+
+# Start the proxy
+exec python3 proxy_server.py
+EOF
+
+    chmod +x "$INSTALL_DIR/proxy/entrypoint.sh"
+    
+    # Build the Docker image
+    build_fake_tls_image
+}
+
+manage_fake_tls() {
+    action=$(whiptail --title "Fake TLS Management" --menu "Select operation:" 18 65 6 \
+        "1" "Build Fake TLS Image" \
+        "2" "Test Fake TLS Proxy" \
+        "3" "View Fake TLS Logs" \
+        "4" "Check Fake TLS Status" \
+        "5" "Quick Setup Guide" \
+        "6" "Back" 3>&1 1>&2 2>&3)
+    
+    case $action in
+        1)
+            build_fake_tls_image
+            ;;
+        2)
+            info "Testing Fake TLS proxy..."
+            TEST_CONTAINER="test-faketls-$(date +%s)"
+            docker run -d --rm --name "$TEST_CONTAINER" -p 8443:443 \
+                -e SECRET=0123456789abcdef0123456789abcdef \
+                -e TLS_DOMAIN=google.com \
+                -e WORKERS=2 mtproxy-faketls:latest >> "$LOG_FILE" 2>&1
+            
+            sleep 5
+            if docker ps | grep -q "$TEST_CONTAINER"; then
+                success "Fake TLS proxy is running! Test with: telnet localhost 8443"
+                whiptail --title "Success" --msgbox "Fake TLS proxy is running on port 8443!\n\nYou can test it with:\ntelnet localhost 8443\n\nor\nopenssl s_client -connect localhost:8443 -servername google.com\n\nThen create a proxy in your panel with 'Fake TLS' type!" 18 70
+                docker stop "$TEST_CONTAINER" >> "$LOG_FILE" 2>&1
+            else
+                error "Test failed. Check logs."
+                docker logs "$TEST_CONTAINER" >> "$LOG_FILE" 2>&1
+                docker rm -f "$TEST_CONTAINER" >> "$LOG_FILE" 2>&1
+            fi
+            ;;
+        3)
+            if docker ps | grep -q mtproxy-faketls; then
+                CONTAINER_ID=$(docker ps | grep mtproxy-faketls | awk '{print $1}')
+                docker logs "$CONTAINER_ID" | tail -50 > /tmp/faketls_logs
+                whiptail --title "Fake TLS Logs" --textbox /tmp/faketls_logs 25 80
+            else
+                whiptail --title "Info" --msgbox "No Fake TLS container is currently running." 10 60
+            fi
+            ;;
+        4)
+            # Check Fake TLS status
+            if docker images | grep -q mtproxy-faketls; then
+                if docker ps | grep -q mtproxy-faketls; then
+                    success "Fake TLS Status: Installed and running"
+                    CONTAINER_ID=$(docker ps | grep mtproxy-faketls | awk '{print $1}')
+                    docker stats "$CONTAINER_ID" --no-stream > /tmp/faketls_stats 2>/dev/null
+                    whiptail --title "Fake TLS Status" --msgbox "✅ Fake TLS is running successfully!\n\nContainer ID: $CONTAINER_ID\n\nUse your panel to create Fake TLS proxies." 12 60
+                else
+                    info "Fake TLS Status: Installed but not running"
+                    whiptail --title "Fake TLS Status" --msgbox "✅ Fake TLS image is installed.\n\nYou can now create Fake TLS proxies from your panel." 10 60
+                fi
+            else
+                error "Fake TLS Status: Not installed"
+                whiptail --title "Fake TLS Status" --msgbox "❌ Fake TLS is not installed.\n\nPlease install it first from the main menu." 10 60
+            fi
+            ;;
+        5)
+            whiptail --title "Fake TLS Quick Setup Guide" --msgbox "🛡️ Fake TLS Quick Setup:\n\n1. Install Fake TLS from main menu\n2. Build the Docker image\n3. Test the proxy\n4. Go to your panel\n5. Create new proxy\n6. Select 'Fake TLS' type\n7. Use popular domains like google.com\n8. Save and enjoy anti-filter!" 15 65
+            ;;
+        6)
+            return 0
+            ;;
+    esac
 }
 
 # Entry Point

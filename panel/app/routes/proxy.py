@@ -69,9 +69,23 @@ def add():
     proxy_type = parsed["proxy_type"]
     base_secret = parsed["base_secret"]
     tls_domain = parsed["tls_domain"]
+    
+    # Use custom fake TLS image for TLS proxies
     if proxy_type == "tls":
-        flash('FakeTLS با ایمیج فعلی پشتیبانی نمی‌شود. از Standard یا DD استفاده کنید.', 'danger')
-        return redirect(url_for('main.dashboard'))
+        image_name = "mtproxy-faketls:latest"
+        environment = {
+            'SECRET': base_secret,
+            'TLS_DOMAIN': tls_domain,
+            'TAG': tag,
+            'WORKERS': workers
+        }
+    else:
+        image_name = _mtproxy_image()
+        environment = {
+            'SECRET': base_secret,
+            'TAG': tag,
+            'WORKERS': workers
+        }
 
     if not port:
          flash('شماره پورت الزامی است.', 'danger')
@@ -88,14 +102,10 @@ def add():
                 ports_config = {'443/tcp': (proxy_ip, port)}
 
             container = docker_client.containers.run(
-                _mtproxy_image(),
+                image_name,
                 detach=True,
                 ports=ports_config,
-                environment={
-                    'SECRET': base_secret,
-                    'TAG': tag,
-                    'WORKERS': workers
-                },
+                environment=environment,
                 restart_policy={"Name": "always"},
                 name=f"mtproto_{port}"
             )
@@ -275,19 +285,29 @@ def update(id):
         if new_secret and new_secret != proxy.secret:
             s0 = new_secret.strip().lower()
             requested_type = inferred_type
-            if s0.startswith("ee"):
-                flash('FakeTLS با ایمیج فعلی پشتیبانی نمی‌شود. از Standard یا DD استفاده کنید.', 'danger')
+            
+            # Handle fake TLS secrets
+            if s0.startswith("ee") and inferred_type == "tls":
+                parsed = parse_mtproxy_secret_input(requested_type, new_secret, tls_domain=inferred_domain or new_tls_domain_raw)
+                changes.append("Secret changed (FakeTLS)")
+                proxy.secret = parsed["base_secret"]
+                proxy.proxy_type = parsed["proxy_type"]
+                proxy.tls_domain = parsed["tls_domain"]
+                inferred_type = proxy.proxy_type
+                inferred_domain = proxy.tls_domain
+                recreate_container = True
+            elif s0.startswith("ee") and inferred_type != "tls":
+                flash('Secret FakeTLS نیازمند نوع پروکسی TLS است.', 'danger')
                 return redirect(url_for('main.dashboard'))
-            elif s0.startswith("dd"):
-                requested_type = "dd"
-            parsed = parse_mtproxy_secret_input(requested_type, new_secret, tls_domain=inferred_domain or new_tls_domain_raw)
-            changes.append("Secret changed")
-            proxy.secret = parsed["base_secret"]
-            proxy.proxy_type = parsed["proxy_type"]
-            proxy.tls_domain = parsed["tls_domain"]
-            inferred_type = proxy.proxy_type
-            inferred_domain = proxy.tls_domain
-            recreate_container = True
+            else:
+                parsed = parse_mtproxy_secret_input(requested_type, new_secret, tls_domain=inferred_domain or new_tls_domain_raw)
+                changes.append("Secret changed")
+                proxy.secret = parsed["base_secret"]
+                proxy.proxy_type = parsed["proxy_type"]
+                proxy.tls_domain = parsed["tls_domain"]
+                inferred_type = proxy.proxy_type
+                inferred_domain = proxy.tls_domain
+                recreate_container = True
             
         # Standard Update fields
         if tag != proxy.tag:
@@ -353,20 +373,36 @@ def update(id):
                              old_c.remove(force=True)
                          except: pass
                      
-                     # Create new
+                     # Create new with appropriate image
                      ports_config = {'443/tcp': proxy.port}
                      if proxy.proxy_ip:
                          ports_config = {'443/tcp': (proxy.proxy_ip, proxy.port)}
 
+                     # Use appropriate image based on proxy type
+                     if proxy.proxy_type == "tls":
+                         image_name = "mtproxy-faketls:latest"
+                         environment = {
+                             'SECRET': proxy.secret,
+                             'TLS_DOMAIN': proxy.tls_domain,
+                             'TAG': proxy.tag,
+                             'WORKERS': proxy.workers
+                         }
+                     else:
+                         image_name = _mtproxy_image()
+                         environment = {
+                             'SECRET': proxy.secret,
+                             'TAG': proxy.tag,
+                             'WORKERS': proxy.workers
+                         }
+
                      container = docker_client.containers.run(
-                        _mtproxy_image(),
+                        image_name,
                         detach=True,
                         ports=ports_config,
-                        environment={
-                            'SECRET': proxy.secret,
-                            'TAG': proxy.tag,
-                            'WORKERS': proxy.workers
-                        },
+                        environment=environment,
+                        restart_policy={"Name": "always"},
+                        name=f"mtproto_{proxy.port}"
+                    )
                         restart_policy={"Name": "always"},
                         name=f"mtproto_{proxy.port}"
                     )

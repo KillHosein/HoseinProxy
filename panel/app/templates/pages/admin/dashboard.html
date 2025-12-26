@@ -451,6 +451,7 @@
                     <thead>
                         <tr>
                             <th>پورت</th>
+                            <th>نوع</th>
                             <th>نام / تگ</th>
                             <th>وضعیت</th>
                             <th>اتصالات</th>
@@ -467,6 +468,22 @@
                                 <div class="d-flex align-items-center gap-2">
                                     <span class="font-monospace fw-bold text-info fs-5">{{ proxy.port }}</span>
                                 </div>
+                            </td>
+                            
+                            <td data-label="نوع">
+                                {% if proxy.proxy_type == 'tls' %}
+                                    <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 fw-normal">
+                                        <i class="fas fa-shield-alt me-1"></i>Fake TLS
+                                    </span>
+                                {% elif proxy.proxy_type == 'dd' %}
+                                    <span class="badge bg-info bg-opacity-25 text-info border border-info border-opacity-25 fw-normal">
+                                        <i class="fas fa-random me-1"></i>DD
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-primary bg-opacity-25 text-primary border border-primary border-opacity-25 fw-normal">
+                                        <i class="fas fa-server me-1"></i>Standard
+                                    </span>
+                                {% endif %}
                             </td>
                             
                             <td data-label="نام / تگ">
@@ -552,7 +569,7 @@
                                         <i class="fas fa-redo"></i>
                                     </a>
                                     
-                                    <button class="btn btn-action btn-action-primary" onclick="handleProxyEdit(this)" data-id="{{ proxy.id }}" data-port="{{ proxy.port }}" data-tag="{{ proxy.tag or '' }}" data-quota="{{ ((proxy.quota_bytes / (1024*1024*1024))|round(2) if proxy.quota_bytes else 0) }}" data-secret="{{ proxy.display_secret }}" data-status="{{ proxy.status }}" data-username="{{ proxy.username or '' }}" data-password="{{ proxy.password or '' }}" data-ip="{{ proxy.proxy_ip or '' }}" data-name="{{ proxy.name or '' }}" title="ویرایش">
+                                    <button class="btn btn-action btn-action-primary" onclick="handleProxyEdit(this)" data-id="{{ proxy.id }}" data-port="{{ proxy.port }}" data-tag="{{ proxy.tag or '' }}" data-quota="{{ ((proxy.quota_bytes / (1024*1024*1024))|round(2) if proxy.quota_bytes else 0) }}" data-secret="{{ proxy.display_secret }}" data-status="{{ proxy.status }}" data-username="{{ proxy.username or '' }}" data-password="{{ proxy.password or '' }}" data-ip="{{ proxy.proxy_ip or '' }}" data-name="{{ proxy.name or '' }}" data-type="{{ proxy.proxy_type or 'standard' }}" data-tls-domain="{{ proxy.tls_domain or '' }}" title="ویرایش">
                                         <i class="fas fa-cog"></i>
                                     </button>
                                     
@@ -614,6 +631,14 @@
                 <div class="modal-body p-4">
                     <div class="row g-3">
                         <div class="col-md-6">
+                            <label class="small text-secondary mb-1">نوع پروتکل</label>
+                            <select name="proxy_type" id="editProxyType" class="form-select" onchange="toggleProxyFields()">
+                                <option value="standard">Standard (MTProto)</option>
+                                <option value="dd">DD (Random Padding)</option>
+                                <option value="tls">Fake TLS (Anti-Filter)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
                             <label class="text-secondary small mb-1">پورت اتصال</label>
                             <input type="number" name="port" class="form-control font-monospace" required placeholder="e.g. 443">
                         </div>
@@ -622,11 +647,16 @@
                             <select name="proxy_type" id="proxyType" class="form-select" onchange="toggleProxyFields()">
                                 <option value="standard">Standard (MTProto)</option>
                                 <option value="dd">DD (Random Padding)</option>
+                                <option value="tls">Fake TLS (Anti-Filter)</option>
                             </select>
                         </div>
                         <div class="col-12">
                             <label class="text-secondary small mb-1">آی‌پی اتصال (Bind IP)</label>
                             <input type="text" name="proxy_ip" class="form-control font-monospace" placeholder="0.0.0.0 (پیش‌فرض)">
+                        </div>
+                        <div class="col-12 d-none" id="addTlsDomainField">
+                            <label class="text-secondary small mb-1">دامنه Fake TLS</label>
+                            <input type="text" name="tls_domain" class="form-control font-monospace" placeholder="مثال: google.com">
                         </div>
                         <div class="col-md-6">
                             <label class="text-secondary small mb-1">نام نمایشی (اختیاری)</label>
@@ -936,7 +966,31 @@
         copyToClipboard(link);
     };
     
-    const toggleProxyFields = () => {};
+    const toggleProxyFields = () => {
+        // Handle add form
+        const addProxyType = document.getElementById('proxyType');
+        const addTlsField = document.getElementById('addTlsDomainField');
+        
+        if (addProxyType && addTlsField) {
+            if (addProxyType.value === 'tls') {
+                addTlsField.classList.remove('d-none');
+            } else {
+                addTlsField.classList.add('d-none');
+            }
+        }
+        
+        // Handle edit form
+        const editProxyType = document.getElementById('editProxyType');
+        const editTlsField = document.getElementById('editTlsDomainField');
+        
+        if (editProxyType && editTlsField) {
+            if (editProxyType.value === 'tls') {
+                editTlsField.classList.remove('d-none');
+            } else {
+                editTlsField.classList.add('d-none');
+            }
+        }
+    };
     
     function showLink(port, secret, proxyIp) {
         const serverIp = proxyIp || '{{ server_ip }}' || window.location.hostname;
@@ -1208,10 +1262,10 @@
     // Modal Helpers
     const handleProxyEdit = (btn) => {
         const d = btn.dataset;
-        openProxyEdit(d.id, d.port, d.tag, d.quota, d.secret, d.status, d.username, d.password, d.ip, d.name);
+        openProxyEdit(d.id, d.port, d.tag, d.quota, d.secret, d.status, d.username, d.password, d.ip, d.name, d.type, d.tlsDomain);
     };
 
-    const openProxyEdit = (id, port, tag, quota, secret, status, user, pass, ip, name) => {
+    const openProxyEdit = (id, port, tag, quota, secret, status, user, pass, ip, name, type, tlsDomain) => {
         const form = document.getElementById('editProxyForm'); form.action = `/proxy/update/${id}`;
         document.getElementById('editProxyPort').value = port;
         document.getElementById('editProxyName').value = name||'';
@@ -1222,9 +1276,19 @@
         document.getElementById('editProxyUser').value = user||'';
         document.getElementById('editProxyPass').value = pass||'';
         document.getElementById('editProxyIP').value = ip||'';
+        document.getElementById('editProxyType').value = type||'standard';
+        
         const tlsField = document.getElementById('editTlsDomainField');
         const tlsInput = document.getElementById('editProxyTlsDomain');
         const s = (secret || '').trim().toLowerCase();
+        
+        if (type === 'tls') {
+            if (tlsInput) tlsInput.value = tlsDomain || 'google.com';
+            if (tlsField) tlsField.classList.remove('d-none');
+        } else {
+            if (tlsInput) tlsInput.value = '';
+            if (tlsField) tlsField.classList.add('d-none');
+        }
         if (s.startsWith('ee')) {
             const payload = s.slice(2);
             const domainHex = payload.length > 32 ? payload.slice(32) : '';
