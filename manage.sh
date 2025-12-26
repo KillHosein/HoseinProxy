@@ -605,7 +605,6 @@ WORKDIR /app
 RUN git clone https://github.com/alexbers/mtprotoproxy.git .
 
 # Copy our custom configuration
-COPY config.py ./
 COPY entrypoint.sh ./
 COPY proxy_server.py ./
 
