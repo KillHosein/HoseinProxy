@@ -32,8 +32,14 @@ def _assert_container_running(container):
         except Exception:
             pass
         raise RuntimeError(f"container_status={status}\n{logs}".strip())
-    except Exception:
+    except RuntimeError:
+        # Only re-raise RuntimeError (which we raised ourselves for bad status)
         raise
+    except Exception as e:
+        # For other exceptions (network issues, etc), just log and continue
+        # The container might still be starting up
+        print(f"Warning: Could not check container status: {e}")
+        return
 
 @proxy_bp.route('/add', methods=['POST'])
 @login_required
@@ -113,8 +119,17 @@ def add():
                 name=f"mtproto_{port}"
             )
 
-            time.sleep(0.2)
-            _assert_container_running(container)
+            time.sleep(2)  # Give container more time to start
+            try:
+                _assert_container_running(container)
+            except RuntimeError as e:
+                # If container failed to start, clean up and show error
+                try:
+                    container.stop()
+                    container.remove()
+                except:
+                    pass
+                raise RuntimeError(f"Container failed to start properly: {e}")
             
             new_proxy = Proxy(
                 port=port,
@@ -189,6 +204,9 @@ def bulk_create():
                 restart_policy={"Name": "always"},
                 name=f"mtproto_{current_port}"
             )
+            
+            # Give container time to start
+            time.sleep(1)
             
             p_name = None
             if base_name:
@@ -408,9 +426,18 @@ def update(id):
                         name=f"mtproto_{proxy.port}"
                     )
                     
-                    time.sleep(0.2)
-                    _assert_container_running(container)
-                    proxy.container_id = container.id
+                    time.sleep(2)  # Give container more time to start
+                    try:
+                        _assert_container_running(container)
+                        proxy.container_id = container.id
+                    except RuntimeError as e:
+                        # If container failed to start, clean up and show error
+                        try:
+                            container.stop()
+                            container.remove()
+                        except:
+                            pass
+                        raise RuntimeError(f"Container failed to start properly: {e}")
                     proxy.status = "running"
                     changes.append("Container Recreated")
                     
