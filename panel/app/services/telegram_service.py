@@ -253,12 +253,12 @@ def run_telegram_bot(app):
                     return
                 
             clear_state(message.chat.id)
-            bot.reply_to(message, f"💎 <b>HoseinProxy Advanced Panel</b>\n"
+            bot.reply_to(message, f"💎HoseinProxy Advanced Panel\n"
                         "━━━━━━━━━━━━━━━━\n"
-                        "🚀 <b>اولین پنل پروکسی ۱۰۰٪ پایدار و بدون قطعی</b>\n"
+                        "🚀 اولین پنل پروکسی ۱۰۰٪ پایدار و بدون قطعی\n"
                         "🛡 مجهز به سیستم‌های ضد فیلترینگ پیشرفته\n"
                         "✨ دارای فیچرهای اختصاصی و نایاب\n\n"
-                        "👨‍💻 <b>Designed by:</b> @killHosein", reply_markup=main_menu_keyboard())
+                        "👨‍💻 Designed by: @killHosein", reply_markup=main_menu_keyboard())
 
         @bot.message_handler(func=lambda m: m.text == "🔙 بازگشت")
         def go_back(message):
