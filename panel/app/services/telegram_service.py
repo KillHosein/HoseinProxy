@@ -720,6 +720,59 @@ def run_telegram_bot(app):
             
             bot.answer_callback_query(call.id)
 
+        @bot.callback_query_handler(func=lambda call: call.data.startswith('confirmsec_'))
+        def confirm_new_secret(call):
+            if not is_admin(call.message.chat.id, app): return
+            pid = int(call.data.split('_')[1])
+            with app.app_context():
+                p = Proxy.query.get(pid)
+                if p:
+                    new_secret = secrets.token_hex(16)
+                    p.secret = new_secret
+                    db.session.commit()
+                    
+                    # Restart container
+                    try:
+                        if docker_client and p.container_id:
+                            container = docker_client.containers.get(p.container_id)
+                            # Update env var - Docker API doesn't support update env easily without recreation or some tricks
+                            # Easier: Just show new secret, but for it to apply, container needs recreation with new env.
+                            # Standard proxy containers use SECRET env.
+                            # Recreating is best.
+                            
+                            # Stop & Remove old
+                            container.stop()
+                            container.remove()
+                            
+                            # Recreate
+                            parsed = parse_mtproxy_secret_input(None, new_secret)
+                            new_container = docker_client.containers.run(
+                                'telegrammessenger/proxy',
+                                detach=True,
+                                ports={'443/tcp': p.port},
+                                environment={
+                                    'SECRET': parsed["base_secret"],
+                                    'TAG': p.tag,
+                                    'WORKERS': p.workers
+                                },
+                                restart_policy={"Name": "always"},
+                                name=f"mtproto_{p.port}"
+                            )
+                            p.container_id = new_container.id
+                            p.status = 'running'
+                            db.session.commit()
+                            
+                            bot.answer_callback_query(call.id, "سکرت جدید اعمال شد.")
+                            bot.delete_message(call.message.chat.id, call.message.message_id)
+                            # Go back to proxy detail
+                            # Re-call detail logic? Or just done.
+                        else:
+                            bot.answer_callback_query(call.id, "خطا: داکر متصل نیست.")
+                    except Exception as e:
+                        bot.answer_callback_query(call.id, f"خطا در اعمال تغییرات: {e}")
+                else:
+                    bot.answer_callback_query(call.id, "پروکسی یافت نشد.")
+
         @bot.callback_query_handler(func=lambda call: call.data.startswith('p_'))
         def proxy_detail_callback(call):
             if not is_admin(call.message.chat.id, app): return
