@@ -102,10 +102,12 @@ def _ensure_db_initialized(app):
             for col, sql in migrations:
                 if col not in columns:
                     try:
+                        print(f"Migrating: Adding column {col}...")
                         conn.execute(text(sql))
                         conn.commit()
-                    except:
-                        pass
+                        print(f"Successfully added column {col}")
+                    except Exception as e:
+                        print(f"Error adding column {col}: {e}")
                         
     if inspector.has_table('user'):
         columns = {c['name'] for c in inspector.get_columns('user')}

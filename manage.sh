@@ -495,6 +495,10 @@ repair_panel() {
     # Fix Permissions
     chown -R root:root "$INSTALL_DIR"
     
+    # Repair Database
+    info "Repairing database schema..."
+    python3 repair_db.py >> "$LOG_FILE" 2>&1
+    
     systemctl restart $SERVICE_NAME
     whiptail --title "Repair" --msgbox "Repair completed." 10 60
 }
