@@ -10,6 +10,7 @@ from sqlalchemy import func, or_
 from app.utils.helpers import (
     get_setting,
     set_setting,
+    get_valid_bot_token,
     infer_proxy_type_from_secret,
     extract_tls_domain_from_ee_secret,
     parse_mtproxy_secret_input,
@@ -26,7 +27,7 @@ def get_bot():
     global _bot_instance
     if _bot_instance:
         return _bot_instance
-    token = get_setting('telegram_bot_token')
+    token = get_valid_bot_token()
     if token:
         try:
             _bot_instance = telebot.TeleBot(token, threaded=False)
@@ -37,7 +38,7 @@ def get_bot():
 
 def send_telegram_alert(message):
     try:
-        bot_token = get_setting('telegram_bot_token')
+        bot_token = get_valid_bot_token()
         chat_id = get_setting('telegram_chat_id')
         if not bot_token or not chat_id:
             return
@@ -97,7 +98,7 @@ def clear_state(chat_id):
 # --- Bot Runner ---
 def run_telegram_bot(app):
     with app.app_context():
-        token = get_setting('telegram_bot_token')
+        token = get_valid_bot_token()
         if not token:
             return
 

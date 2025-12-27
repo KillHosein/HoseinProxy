@@ -35,6 +35,28 @@ def set_setting(key, value):
     s.value = value
     db.session.commit()
 
+def get_valid_bot_token():
+    token = get_setting('telegram_bot_token')
+    if not token:
+        return None
+    
+    token = token.strip()
+    # Check for reversed format: Secret:ID (e.g., "AA...:123...")
+    # Standard format: ID:Secret (e.g., "123...:AA...")
+    if ':' in token:
+        parts = token.split(':')
+        if len(parts) == 2:
+            part1, part2 = parts[0], parts[1]
+            # Heuristic: ID is digits, Secret is mixed/longer
+            # If part1 is NOT digits but part2 IS digits, it's likely reversed
+            if not part1.isdigit() and part2.isdigit():
+                fixed_token = f"{part2}:{part1}"
+                print(f"[AutoFix] Detected reversed bot token. Fixing: {token} -> {fixed_token}")
+                set_setting('telegram_bot_token', fixed_token)
+                return fixed_token
+    
+    return token
+
 def _is_private_ip(ip_str):
     try:
         ip_obj = ipaddress.ip_address(ip_str)

@@ -5,7 +5,7 @@ import requests
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, flash, send_from_directory, redirect, url_for
 from flask_login import login_required
-from app.utils.helpers import get_setting
+from app.utils.helpers import get_setting, get_valid_bot_token
 
 system_bp = Blueprint('system', __name__, url_prefix='/system')
 
@@ -98,7 +98,7 @@ def backup():
                 tar.add(os.path.join(base_dir, 'secret.key'), arcname='secret.key')
                 
         # Send to Telegram
-        bot_token = get_setting('telegram_bot_token')
+        bot_token = get_valid_bot_token()
         chat_id = get_setting('telegram_chat_id')
         sent_to_telegram = False
         
