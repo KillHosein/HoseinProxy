@@ -1,0 +1,10 @@
+flask
+flask-login
+flask-sqlalchemy
+flask-limiter
+docker
+psutil
+requests
+speedtest-cli
+pyTelegramBotAPI
+gunicorn

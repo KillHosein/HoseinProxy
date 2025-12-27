@@ -1,0 +1,83 @@
+<style>
+    .navbar-glass {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0.5rem 2rem;
+        z-index: 1040;
+        position: relative;
+    }
+
+    .user-pill {
+        background: rgba(30, 41, 59, 0.6);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 50rem;
+        padding: 0.4rem 1rem;
+        color: #e2e8f0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .user-pill:hover {
+        background: rgba(30, 41, 59, 0.8);
+        border-color: rgba(139, 92, 246, 0.3);
+        color: #fff;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .theme-toggle-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #94a3b8;
+        transition: all 0.3s ease;
+        margin-right: 1rem;
+    }
+
+    .theme-toggle-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fbbf24; /* رنگ زرد برای آیکون خورشید/ماه */
+        transform: rotate(15deg);
+        box-shadow: 0 0 15px rgba(251, 191, 36, 0.2);
+    }
+
+    /* مخفی کردن دکمه منوی قدیمی چون منوی جدید شناور است */
+    #menu-toggle {
+        display: none !important;
+    }
+</style>
+
+<nav class="navbar navbar-expand-lg navbar-glass">
+    <div class="container-fluid">
+        <!-- دکمه منو حذف شد -->
+        
+        <!-- محتویات سمت چپ (خالی یا برند اگر لازم باشد) -->
+        <div class="d-flex"></div>
+
+        <!-- محتویات سمت راست (پروفایل و تم) -->
+        <div class="d-flex align-items-center ms-auto">
+            <!-- دکمه تغییر تم -->
+            <button class="btn btn-link nav-link theme-toggle-btn" id="themeToggle" title="تغییر تم">
+                <i class="fas fa-moon"></i>
+            </button>
+
+            {% if current_user.is_authenticated %}
+            <!-- کپسول پروفایل کاربر -->
+            <div class="user-pill">
+                <i class="fas fa-user-circle fa-lg text-primary"></i>
+                <span class="font-weight-bold small">{{ current_user.username }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</nav>

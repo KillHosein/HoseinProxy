@@ -1,0 +1,331 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}گزارشات | HoseinProxy{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --card-bg: rgba(30, 41, 59, 0.4);
+        --card-border: rgba(255, 255, 255, 0.08);
+        --text-secondary: #94a3b8;
+        --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    #starfield {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        z-index: -1;
+        background: radial-gradient(circle at top center, #1e293b 0%, #020617 80%);
+        pointer-events: none;
+    }
+
+    .glass-card {
+        background: var(--card-bg);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--card-border);
+        border-radius: 16px;
+        box-shadow: var(--glass-shadow);
+        transition: transform 0.3s ease, border-color 0.3s;
+        overflow: hidden;
+    }
+
+    .glass-card:hover {
+        border-color: rgba(139, 92, 246, 0.3);
+        transform: translateY(-2px);
+    }
+
+    .card-header-clean {
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid var(--card-border);
+        padding: 1.25rem 1.5rem;
+    }
+
+    /* دکمه‌های خروجی */
+    .btn-export {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--card-border);
+        color: var(--text-secondary);
+        transition: all 0.3s;
+    }
+    .btn-export:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* جدول */
+    .table-report {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .table-report th {
+        color: var(--text-secondary);
+        font-weight: 600;
+        border-bottom: 1px solid var(--card-border);
+        padding: 1rem;
+        background: rgba(0, 0, 0, 0.1);
+    }
+    .table-report td {
+        padding: 1rem;
+        border-bottom: 1px solid rgba(255,255,255,0.03);
+        color: #f8fafc;
+        vertical-align: middle;
+    }
+    .table-report tr:last-child td { border-bottom: none; }
+    .table-report tbody tr { transition: background 0.2s; }
+    .table-report tbody tr:hover { background: rgba(255,255,255,0.03); }
+
+    .fade-in-up { animation: fadeInUp 0.6s ease-out forwards; opacity: 0; transform: translateY(20px); }
+    @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.2s; }
+</style>
+
+<!-- بوم پس‌زمینه -->
+<canvas id="starfield"></canvas>
+
+<div class="container-fluid py-4 px-lg-5">
+    
+    <!-- هدر صفحه -->
+    <div class="d-flex justify-content-between align-items-center mb-5 fade-in-up">
+        <div>
+            <h2 class="fw-bold text-white mb-1">گزارشات پیشرفته</h2>
+            <p class="text-secondary mb-0">تحلیل ترافیک و رفتار کاربران</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-export btn-sm rounded-pill px-3" onclick="exportData('csv')">
+                <i class="fas fa-file-csv me-2 text-success"></i> خروجی CSV
+            </button>
+            <button type="button" class="btn btn-export btn-sm rounded-pill px-3" onclick="exportData('json')">
+                <i class="fas fa-file-code me-2 text-warning"></i> خروجی JSON
+            </button>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <!-- Top IPs -->
+        <div class="col-lg-6 fade-in-up delay-1">
+            <div class="glass-card h-100">
+                <div class="card-header-clean d-flex align-items-center">
+                    <div class="bg-primary bg-opacity-10 text-primary rounded p-2 me-3">
+                        <i class="fas fa-globe"></i>
+                    </div>
+                    <h5 class="mb-0 text-white">IPهای پرکاربرد (لحظه‌ای)</h5>
+                </div>
+                <div class="p-0 table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table-report">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">IP Address</th>
+                                <th>کشور</th>
+                                <th class="text-center">اتصالات فعال</th>
+                            </tr>
+                        </thead>
+                        <tbody id="topIpsTable">
+                            <tr><td colspan="3" class="text-center py-5 text-secondary">در حال بارگذاری...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Traffic by Tag (Chart) -->
+        <div class="col-lg-6 fade-in-up delay-1">
+            <div class="glass-card h-100">
+                <div class="card-header-clean d-flex align-items-center">
+                    <div class="bg-info bg-opacity-10 text-info rounded p-2 me-3">
+                        <i class="fas fa-chart-pie"></i>
+                    </div>
+                    <h5 class="mb-0 text-white">توزیع مصرف بر اساس تگ</h5>
+                </div>
+                <div class="card-body d-flex align-items-center justify-content-center p-4">
+                    <div style="position: relative; height: 320px; width: 100%;">
+                        <canvas id="tagChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tag Details Table -->
+    <div class="row fade-in-up delay-2">
+        <div class="col-12">
+            <div class="glass-card">
+                <div class="card-header-clean d-flex align-items-center">
+                    <div class="bg-success bg-opacity-10 text-success rounded p-2 me-3">
+                        <i class="fas fa-tags"></i>
+                    </div>
+                    <h5 class="mb-0 text-white">جزئیات مصرف تگ‌ها</h5>
+                </div>
+                <div class="p-0 table-responsive">
+                    <table class="table-report">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">نام تگ</th>
+                                <th class="text-center">تعداد پروکسی</th>
+                                <th>آپلود</th>
+                                <th>دانلود</th>
+                                <th>مجموع مصرف</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tagTable">
+                            <tr><td colspan="5" class="text-center py-5 text-secondary">در حال بارگذاری...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    // --- Starfield Animation ---
+    const canvas = document.getElementById('starfield');
+    const ctx = canvas.getContext('2d');
+    let width, height, stars = [];
+    const resizeCanvas = () => { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; };
+    class Star {
+        constructor() { this.reset(); }
+        reset() { this.x = Math.random()*width; this.y = Math.random()*height; this.size = Math.random()*1.5+0.5; this.speed = Math.random()*0.1+0.02; this.opacity = Math.random()*0.8; }
+        update() { this.y -= this.speed; if(this.y<0) this.reset(); }
+        draw() { ctx.fillStyle = `rgba(255,255,255,${this.opacity})`; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill(); }
+    }
+    const initStars = () => { stars = Array.from({length:100}, () => new Star()); };
+    const animateStars = () => { ctx.clearRect(0,0,width,height); stars.forEach(s => { s.update(); s.draw(); }); requestAnimationFrame(animateStars); };
+    window.addEventListener('resize', () => { resizeCanvas(); initStars(); });
+    resizeCanvas(); initStars(); animateStars();
+
+    // --- Chart Configs for Dark Mode ---
+    Chart.defaults.font.family = 'Vazirmatn';
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
+
+    // --- Logic ---
+    
+    // Fetch Top IPs
+    function updateTopIps() {
+        fetch('/api/reports/top_ips')
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.getElementById('topIpsTable');
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center py-5 text-secondary small opacity-75">داده‌ای یافت نشد.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = data.map(item => `
+                    <tr>
+                        <td class="ps-4 font-monospace text-info">${item.ip}</td>
+                        <td class="text-white small">${item.country || 'نامشخص'}</td>
+                        <td class="text-center"><span class="badge bg-primary bg-opacity-20 text-primary border border-primary border-opacity-25 rounded-pill px-3">${item.connections}</span></td>
+                    </tr>
+                `).join('');
+            }).catch(err => console.error(err));
+    }
+
+    // Fetch Traffic by Tag
+    function updateTagTraffic() {
+        fetch('/api/reports/traffic_by_tag')
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.getElementById('tagTable');
+                const labels = [];
+                const values = [];
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-secondary small opacity-75">داده‌ای یافت نشد.</td></tr>';
+                } else {
+                    tbody.innerHTML = data.map(item => {
+                        labels.push(item.tag || 'بدون تگ');
+                        values.push(item.total_gb);
+                        return `
+                            <tr>
+                                <td class="ps-4"><span class="badge bg-secondary bg-opacity-20 text-white border border-secondary border-opacity-25 fw-normal px-2 py-1">${item.tag || 'General'}</span></td>
+                                <td class="text-center text-white font-monospace">${item.proxy_count}</td>
+                                <td class="text-secondary small font-monospace">${item.upload_gb} GB</td>
+                                <td class="text-secondary small font-monospace">${item.download_gb} GB</td>
+                                <td class="fw-bold text-info font-monospace">${item.total_gb} GB</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+                
+                updateChart(labels, values);
+            }).catch(err => console.error(err));
+    }
+
+    let tagChart = null;
+    function updateChart(labels, data) {
+        const ctx = document.getElementById('tagChart').getContext('2d');
+        if (tagChart) tagChart.destroy();
+        
+        if (labels.length === 0) {
+            // Show placeholder if no data
+            return; 
+        }
+
+        tagChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: [
+                        'rgba(139, 92, 246, 0.7)', // Purple
+                        'rgba(6, 182, 212, 0.7)',  // Cyan
+                        'rgba(16, 185, 129, 0.7)', // Green
+                        'rgba(245, 158, 11, 0.7)', // Amber
+                        'rgba(239, 68, 68, 0.7)',  // Red
+                        'rgba(59, 130, 246, 0.7)'  // Blue
+                    ],
+                    borderColor: 'rgba(15, 23, 42, 0.9)', // Background color
+                    borderWidth: 2,
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { color: '#94a3b8', padding: 20, font: { family: 'Vazirmatn' } }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
+                        titleColor: '#fff',
+                        bodyColor: '#cbd5e1'
+                    }
+                }
+            }
+        });
+    }
+    
+    function exportData(format) {
+        Swal.fire({
+            title: '<h5 class="text-white">در حال آماده‌سازی...</h5>',
+            html: '<p class="text-secondary">در حال جمع‌آوری داده‌ها برای خروجی ' + format.toUpperCase() + '</p>',
+            icon: 'info',
+            timer: 2000,
+            showConfirmButton: false,
+            background: '#1e293b',
+            color: '#fff',
+            customClass: { popup: 'border border-secondary border-opacity-25 rounded-4' }
+        });
+    }
+
+    // Init
+    updateTopIps();
+    updateTagTraffic();
+    setInterval(() => { updateTopIps(); updateTagTraffic(); }, 30000);
+
+</script>
+{% endblock %}

@@ -1,0 +1,291 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}مدیریت کاربران | HoseinProxy{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --card-bg: rgba(30, 41, 59, 0.4);
+        --card-border: rgba(255, 255, 255, 0.08);
+        --text-secondary: #94a3b8;
+        --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    #starfield {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        z-index: -1;
+        background: radial-gradient(circle at top center, #1e293b 0%, #020617 80%);
+        pointer-events: none;
+    }
+
+    .glass-card {
+        background: var(--card-bg);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--card-border);
+        border-radius: 16px;
+        box-shadow: var(--glass-shadow);
+        overflow: hidden;
+        transition: transform 0.3s ease;
+    }
+    
+    .glass-card:hover {
+        border-color: rgba(139, 92, 246, 0.3);
+    }
+
+    .card-header-clean {
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid var(--card-border);
+        padding: 1.25rem 1.5rem;
+    }
+
+    /* دکمه افزودن */
+    .btn-glow-primary {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        border: none; color: white;
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        transition: all 0.3s;
+    }
+    .btn-glow-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6);
+    }
+
+    /* جدول کاربران */
+    .table-users {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .table-users th {
+        color: var(--text-secondary);
+        font-weight: 600;
+        border-bottom: 1px solid var(--card-border);
+        padding: 1rem;
+        background: rgba(0, 0, 0, 0.1);
+    }
+    .table-users td {
+        padding: 1rem;
+        border-bottom: 1px solid rgba(255,255,255,0.03);
+        color: #f8fafc;
+        vertical-align: middle;
+    }
+    .table-users tr:last-child td { border-bottom: none; }
+    .table-users tbody tr { transition: background 0.2s; }
+    .table-users tbody tr:hover { background: rgba(255,255,255,0.03); }
+
+    /* دکمه‌های عملیات جدول */
+    .btn-action {
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+    }
+    .btn-action:hover { transform: scale(1.1); }
+    .btn-action-warning { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.2); }
+    .btn-action-danger { background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.2); }
+
+    /* استایل فرم‌ها در مودال */
+    .form-control {
+        background-color: rgba(15, 23, 42, 0.6) !important;
+        border: 1px solid var(--card-border) !important;
+        color: #fff !important;
+    }
+    .form-control:focus {
+        border-color: #8b5cf6 !important;
+        box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1) !important;
+    }
+
+    .fade-in-up { animation: fadeInUp 0.6s ease-out forwards; opacity: 0; transform: translateY(20px); }
+    @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+    .delay-1 { animation-delay: 0.1s; }
+</style>
+
+<!-- بوم پس‌زمینه -->
+<canvas id="starfield"></canvas>
+
+<div class="container-fluid py-4 px-lg-5">
+    
+    <!-- هدر صفحه -->
+    <div class="d-flex justify-content-between align-items-center mb-5 fade-in-up">
+        <div>
+            <h2 class="fw-bold text-white mb-1">مدیریت مدیران</h2>
+            <p class="text-secondary mb-0">کنترل سطح دسترسی و مدیریت ادمین‌ها</p>
+        </div>
+        <button class="btn btn-glow-primary rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#addUserModal">
+            <i class="fas fa-user-plus me-2"></i> افزودن مدیر
+        </button>
+    </div>
+
+    <div class="row fade-in-up delay-1">
+        <div class="col-12">
+            <div class="glass-card">
+                <div class="card-header-clean d-flex align-items-center">
+                    <div class="bg-primary bg-opacity-10 text-primary rounded p-2 me-3">
+                        <i class="fas fa-users-cog"></i>
+                    </div>
+                    <h5 class="mb-0 text-white">لیست مدیران سیستم</h5>
+                </div>
+                <div class="p-0 table-responsive">
+                    <table class="table-users">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">شناسه</th>
+                                <th>نام کاربری</th>
+                                <th>تاریخ ایجاد</th>
+                                <th class="text-end pe-4">عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td class="ps-4 text-secondary font-monospace">#{{ user.id }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="rounded-circle bg-dark border border-secondary border-opacity-25 d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                            <i class="fas fa-user text-primary"></i>
+                                        </div>
+                                        <span class="fw-bold text-white">{{ user.username }}</span>
+                                        {% if user.id == current_user.id %}
+                                            <span class="badge bg-success bg-opacity-20 text-success border border-success border-opacity-25 ms-2 rounded-pill">شما</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td class="text-secondary small">
+                                    {% if user.created_at %}
+                                    <div class="d-flex align-items-center">
+                                        <i class="far fa-calendar-alt me-2 opacity-50"></i>
+                                        <span dir="ltr">{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                                    </div>
+                                    {% else %}
+                                    <span class="text-muted fst-italic">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end pe-4">
+                                    <div class="d-flex justify-content-end gap-2">
+                                        <button class="btn btn-action btn-action-warning" onclick="openChangePassModal({{ user.id }}, '{{ user.username }}')" title="تغییر رمز عبور">
+                                            <i class="fas fa-key"></i>
+                                        </button>
+                                        
+                                        {% if user.id != current_user.id %}
+                                        <a href="{{ url_for('users.delete', id=user.id) }}" class="btn btn-action btn-action-danger" onclick="return confirm('آیا از حذف این کاربر مطمئن هستید؟')" title="حذف کاربر">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </a>
+                                        {% else %}
+                                        <button class="btn btn-action btn-action-danger opacity-50 cursor-not-allowed" disabled title="نمی‌توانید خودتان را حذف کنید">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content glass-card border-0">
+            <div class="modal-header border-bottom border-secondary border-opacity-10">
+                <h5 class="modal-title text-white">افزودن مدیر جدید</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('users.add') }}" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small">نام کاربری</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark border-secondary border-opacity-25 text-secondary"><i class="fas fa-user"></i></span>
+                            <input type="text" name="username" class="form-control" required placeholder="username">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small">رمز عبور</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark border-secondary border-opacity-25 text-secondary"><i class="fas fa-lock"></i></span>
+                            <input type="password" name="password" class="form-control" required placeholder="********">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-secondary border-opacity-10">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                    <button type="submit" class="btn btn-glow-primary px-4">افزودن</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Change Password Modal -->
+<div class="modal fade" id="changePassModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content glass-card border-0">
+            <div class="modal-header border-bottom border-secondary border-opacity-10">
+                <h5 class="modal-title text-white">تغییر رمز عبور: <span id="cpUsername" class="text-primary font-monospace"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="changePassForm" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small">رمز عبور جدید</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark border-secondary border-opacity-25 text-secondary"><i class="fas fa-key"></i></span>
+                            <input type="password" name="password" class="form-control" required placeholder="********">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-secondary border-opacity-10">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                    <button type="submit" class="btn btn-warning">تغییر رمز</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // --- Starfield Animation ---
+    const canvas = document.getElementById('starfield');
+    const ctx = canvas.getContext('2d');
+    let width, height, stars = [];
+    const resizeCanvas = () => { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; };
+    class Star {
+        constructor() { this.reset(); }
+        reset() { this.x = Math.random()*width; this.y = Math.random()*height; this.size = Math.random()*1.5+0.5; this.speed = Math.random()*0.1+0.02; this.opacity = Math.random()*0.8; }
+        update() { this.y -= this.speed; if(this.y<0) this.reset(); }
+        draw() { ctx.fillStyle = `rgba(255,255,255,${this.opacity})`; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill(); }
+    }
+    const initStars = () => { stars = Array.from({length:100}, () => new Star()); };
+    const animateStars = () => { ctx.clearRect(0,0,width,height); stars.forEach(s => { s.update(); s.draw(); }); requestAnimationFrame(animateStars); };
+    window.addEventListener('resize', () => { resizeCanvas(); initStars(); });
+    resizeCanvas(); initStars(); animateStars();
+
+    // --- Modal Logic ---
+    let cpModal = null;
+    
+    function openChangePassModal(id, username) {
+        const form = document.getElementById('changePassForm');
+        form.action = `/users/change_password/${id}`;
+        document.getElementById('cpUsername').innerText = username;
+        
+        if (!cpModal) {
+            cpModal = new bootstrap.Modal(document.getElementById('changePassModal'));
+        }
+        cpModal.show();
+    }
+</script>
+{% endblock %}

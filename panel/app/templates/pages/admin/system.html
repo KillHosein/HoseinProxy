@@ -1,0 +1,410 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}مدیریت سیستم | HoseinProxy{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --card-bg: rgba(30, 41, 59, 0.4);
+        --card-border: rgba(255, 255, 255, 0.08);
+        --text-secondary: #94a3b8;
+        --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+        --terminal-bg: #0f172a;
+    }
+
+    #starfield {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        z-index: -1;
+        background: radial-gradient(circle at top center, #1e293b 0%, #020617 80%);
+        pointer-events: none;
+    }
+
+    .glass-card {
+        background: var(--card-bg);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--card-border);
+        border-radius: 16px;
+        box-shadow: var(--glass-shadow);
+        transition: transform 0.3s ease, border-color 0.3s;
+        overflow: hidden;
+    }
+
+    .glass-card:hover {
+        border-color: rgba(139, 92, 246, 0.3);
+        transform: translateY(-2px);
+    }
+
+    .card-header-clean {
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid var(--card-border);
+        padding: 1.25rem 1.5rem;
+    }
+
+    /* دکمه‌های نئونی */
+    .btn-glow-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        border: none; color: white;
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+    }
+    .btn-glow-warning {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        border: none; color: white;
+        box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+    }
+    
+    .btn-glow-success:hover, .btn-glow-warning:hover {
+        transform: translateY(-2px);
+        color: white;
+    }
+
+    /* ترمینال لاگ */
+    .terminal-window {
+        background-color: var(--terminal-bg);
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        font-family: 'Fira Code', 'Courier New', monospace;
+        color: #10b981;
+        padding: 1rem;
+        height: 350px;
+        overflow-y: auto;
+        font-size: 0.85rem;
+        line-height: 1.5;
+        box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+    }
+    
+    .terminal-window::-webkit-scrollbar { width: 8px; }
+    .terminal-window::-webkit-scrollbar-track { background: #020617; }
+    .terminal-window::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+
+    .form-control {
+        background-color: rgba(15, 23, 42, 0.6) !important;
+        border: 1px solid var(--card-border) !important;
+        color: #fff !important;
+    }
+    
+    .fade-in-up { animation: fadeInUp 0.6s ease-out forwards; opacity: 0; transform: translateY(20px); }
+    @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.2s; }
+</style>
+
+<!-- بوم پس‌زمینه -->
+<canvas id="starfield"></canvas>
+
+<div class="container-fluid py-4 px-lg-5">
+    
+    <!-- هدر صفحه -->
+    <div class="d-flex justify-content-between align-items-center mb-5 fade-in-up">
+        <div>
+            <h2 class="fw-bold text-white mb-1">مدیریت سیستم</h2>
+            <p class="text-secondary mb-0">بروزرسانی، پشتیبان‌گیری و نظارت بر لاگ‌ها</p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Version Info -->
+        <div class="col-lg-6 fade-in-up delay-1">
+            <div class="glass-card h-100">
+                <div class="card-header-clean d-flex align-items-center">
+                    <div class="bg-success bg-opacity-10 text-success rounded p-2 me-3">
+                        <i class="fas fa-code-branch"></i>
+                    </div>
+                    <h5 class="mb-0 text-white">وضعیت نسخه</h5>
+                </div>
+                <div class="p-4 text-center">
+                    <div class="mb-4">
+                        <span class="text-secondary small d-block mb-2">شناسه نسخه فعلی (Commit ID)</span>
+                        <div class="d-inline-block bg-dark bg-opacity-50 px-4 py-2 rounded-3 border border-success border-opacity-25">
+                            <h3 class="mb-0 text-white font-monospace">{{ current_version }}</h3>
+                        </div>
+                    </div>
+                    
+                    <div id="updateStatus" class="alert alert-info bg-info bg-opacity-10 border-info border-opacity-25 text-info mb-4 d-none rounded-3">
+                        <i class="fas fa-spinner fa-spin me-2"></i> در حال بررسی...
+                    </div>
+                    
+                    <div class="d-flex gap-2 justify-content-center">
+                        <button class="btn btn-outline-light border-opacity-25 px-4" id="checkUpdateBtn" onclick="checkUpdate()">
+                            <i class="fas fa-sync-alt me-2"></i> بررسی آپدیت
+                        </button>
+                        <button class="btn btn-glow-success px-4 d-none" id="doUpdateBtn" onclick="doUpdate()">
+                            <i class="fas fa-cloud-download-alt me-2"></i> دریافت و نصب
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- System Actions -->
+        <div class="col-lg-6 fade-in-up delay-1">
+            <div class="glass-card h-100">
+                <div class="card-header-clean d-flex align-items-center">
+                    <div class="bg-warning bg-opacity-10 text-warning rounded p-2 me-3">
+                        <i class="fas fa-cogs"></i>
+                    </div>
+                    <h5 class="mb-0 text-white">عملیات نگهداری</h5>
+                </div>
+                <div class="p-4">
+                    <div class="row g-3 mb-4">
+                        <div class="col-6">
+                            <button class="btn btn-outline-warning w-100 h-100 py-3 border-opacity-50 hover-bg-warning text-white" onclick="restartService()">
+                                <div class="d-flex flex-column align-items-center">
+                                    <i class="fas fa-power-off fa-lg mb-2"></i>
+                                    <span>ریستارت سرویس</span>
+                                </div>
+                            </button>
+                        </div>
+                        <div class="col-6">
+                            <button class="btn btn-outline-info w-100 h-100 py-3 border-opacity-50 text-white" onclick="createBackup()">
+                                <div class="d-flex flex-column align-items-center">
+                                    <i class="fas fa-save fa-lg mb-2"></i>
+                                    <span>تهیه بکاپ</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-dark bg-opacity-50 p-3 rounded-3 border border-white border-opacity-10">
+                        <label class="form-label text-white small mb-2"><i class="fas fa-upload me-2 text-secondary"></i>بازگردانی بکاپ (Restore)</label>
+                        <div class="input-group">
+                            <input type="file" class="form-control bg-transparent text-secondary border-secondary border-opacity-25" id="backupFile" accept=".tar.gz">
+                            <button class="btn btn-danger" type="button" onclick="restoreBackup()">
+                                <i class="fas fa-file-import"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logs Section -->
+    <div class="row mt-4 mb-5 fade-in-up delay-2">
+        <div class="col-12">
+            <div class="glass-card">
+                <div class="card-header-clean d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-primary bg-opacity-10 text-primary rounded p-2 me-3">
+                            <i class="fas fa-terminal"></i>
+                        </div>
+                        <h5 class="mb-0 text-white">لاگ‌های سیستم</h5>
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="loadLogs()">
+                        <i class="fas fa-sync-alt me-1"></i> بروزرسانی
+                    </button>
+                </div>
+                <div class="p-0">
+                    <pre id="logViewer" class="terminal-window m-0 border-0 rounded-0">در حال بارگذاری لاگ‌ها...</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    // --- Starfield Animation ---
+    const canvas = document.getElementById('starfield');
+    const ctx = canvas.getContext('2d');
+    let width, height, stars = [];
+    const resizeCanvas = () => { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; };
+    class Star {
+        constructor() { this.reset(); }
+        reset() { this.x = Math.random()*width; this.y = Math.random()*height; this.size = Math.random()*1.5+0.5; this.speed = Math.random()*0.1+0.02; this.opacity = Math.random()*0.8; }
+        update() { this.y -= this.speed; if(this.y<0) this.reset(); }
+        draw() { ctx.fillStyle = `rgba(255,255,255,${this.opacity})`; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill(); }
+    }
+    const initStars = () => { stars = Array.from({length:100}, () => new Star()); };
+    const animateStars = () => { ctx.clearRect(0,0,width,height); stars.forEach(s => { s.update(); s.draw(); }); requestAnimationFrame(animateStars); };
+    window.addEventListener('resize', () => { resizeCanvas(); initStars(); });
+    resizeCanvas(); initStars(); animateStars();
+
+    // --- System Logic ---
+
+    function checkUpdate() {
+        const btn = document.getElementById('checkUpdateBtn');
+        const status = document.getElementById('updateStatus');
+        const updateBtn = document.getElementById('doUpdateBtn');
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> صبر کنید...';
+        status.classList.remove('d-none');
+        status.className = 'alert alert-info bg-info bg-opacity-10 border-info border-opacity-25 text-info mb-4 rounded-3';
+        status.innerHTML = '<i class="fas fa-satellite-dish me-2"></i>در حال ارتباط با سرور گیت...';
+        
+        fetch('{{ url_for("system.check_update") }}', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i> بررسی مجدد';
+                
+                if (data.status === 'update_available') {
+                    status.className = 'alert alert-warning bg-warning bg-opacity-10 border-warning border-opacity-25 text-warning mb-4 rounded-3';
+                    status.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i>نسخه جدید موجود است! (${data.message})`;
+                    updateBtn.classList.remove('d-none');
+                } else if (data.status === 'up_to_date') {
+                    status.className = 'alert alert-success bg-success bg-opacity-10 border-success border-opacity-25 text-success mb-4 rounded-3';
+                    status.innerHTML = '<i class="fas fa-check-circle me-2"></i>سیستم شما به‌روز است.';
+                    updateBtn.classList.add('d-none');
+                } else {
+                    status.className = 'alert alert-danger bg-danger bg-opacity-10 border-danger border-opacity-25 text-danger mb-4 rounded-3';
+                    status.innerText = 'خطا: ' + data.message;
+                }
+            })
+            .catch(err => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i> بررسی مجدد';
+                status.className = 'alert alert-danger bg-danger bg-opacity-10 border-danger border-opacity-25 text-danger mb-4 rounded-3';
+                status.innerText = 'خطای ارتباط با سرور';
+            });
+    }
+
+    function doUpdate() {
+        Swal.fire({
+            title: '<h5 class="text-white">آیا مطمئن هستید؟</h5>',
+            html: '<p class="text-secondary">سرویس ریستارت خواهد شد و ممکن است چند لحظه قطع شود.</p>',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'بله، آپدیت کن',
+            cancelButtonText: 'انصراف',
+            background: '#1e293b',
+            color: '#fff',
+            customClass: { popup: 'border border-secondary border-opacity-25 rounded-4' }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const btn = document.getElementById('doUpdateBtn');
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> در حال نصب...';
+                
+                fetch('{{ url_for("system.do_update") }}', { method: 'POST' })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            Swal.fire({title:'موفق', text:'به‌روزرسانی انجام شد. صفحه رفرش می‌شود.', icon:'success', background:'#1e293b', color:'#fff'})
+                            .then(() => location.reload());
+                        } else {
+                            Swal.fire({title:'خطا', text:data.message, icon:'error', background:'#1e293b', color:'#fff'});
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-cloud-download-alt me-2"></i> دریافت و نصب';
+                        }
+                    });
+            }
+        });
+    }
+
+    function restartService() {
+        Swal.fire({
+            title: '<h5 class="text-white">ریستارت سرویس</h5>',
+            text: "آیا از ریستارت کردن پنل اطمینان دارید؟",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'بله',
+            cancelButtonText: 'خیر',
+            confirmButtonColor: '#f59e0b',
+            background: '#1e293b', color: '#fff'
+        }).then((result) => {
+            if(result.isConfirmed) {
+                fetch('{{ url_for("system.restart_service") }}', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') Swal.fire({title:'انجام شد', text:'دستور ریستارت ارسال شد.', icon:'success', background:'#1e293b', color:'#fff'});
+                    else Swal.fire({title:'خطا', text:data.message, icon:'error', background:'#1e293b', color:'#fff'});
+                });
+            }
+        });
+    }
+
+    function createBackup() {
+        Swal.fire({
+            title: '<h5 class="text-white">تهیه نسخه پشتیبان</h5>',
+            text: "یک فایل فشرده از دیتابیس و تنظیمات ایجاد خواهد شد.",
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonText: 'ایجاد بکاپ',
+            background: '#1e293b', color: '#fff'
+        }).then((result) => {
+            if(result.isConfirmed) {
+                Swal.fire({title: 'لطفاً صبر کنید...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background:'#1e293b', color:'#fff'});
+                
+                fetch('{{ url_for("system.backup") }}', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        Swal.fire({
+                            title: 'بکاپ آماده شد!',
+                            icon: 'success',
+                            showCancelButton: true,
+                            confirmButtonText: 'دانلود فایل',
+                            cancelButtonText: 'بستن',
+                            background: '#1e293b', color: '#fff'
+                        }).then((res) => {
+                            if (res.isConfirmed) window.location.href = '/system/download_backup/' + data.filename;
+                        });
+                    } else {
+                        Swal.fire({title:'خطا', text:data.message, icon:'error', background:'#1e293b', color:'#fff'});
+                    }
+                });
+            }
+        });
+    }
+
+    function restoreBackup() {
+        const fileInput = document.getElementById('backupFile');
+        const file = fileInput.files[0];
+        
+        if (!file) {
+            Swal.fire({title:'خطا', text:'لطفاً یک فایل انتخاب کنید.', icon:'warning', background:'#1e293b', color:'#fff'});
+            return;
+        }
+        
+        Swal.fire({
+            title: '<h5 class="text-white text-danger">هشدار جدی</h5>',
+            html: '<p class="text-white">با بازگردانی بکاپ، تمامی اطلاعات فعلی حذف و با اطلاعات فایل جایگزین می‌شوند. <b>سیستم ریستارت خواهد شد.</b></p>',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            confirmButtonText: 'بله، بازگردانی کن',
+            cancelButtonText: 'لغو',
+            background: '#1e293b', color: '#fff'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const formData = new FormData();
+                formData.append('backup_file', file);
+                
+                Swal.fire({title: 'در حال آپلود و بازگردانی...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background:'#1e293b', color:'#fff'});
+                
+                fetch('{{ url_for("system.restore") }}', { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        Swal.fire({title:'موفق', text:'بکاپ بازگردانی شد. سیستم در حال ریستارت است...', icon:'success', timer: 3000, showConfirmButton: false, background:'#1e293b', color:'#fff'})
+                        .then(() => location.reload());
+                    } else {
+                        Swal.fire({title:'خطا', text:data.message, icon:'error', background:'#1e293b', color:'#fff'});
+                    }
+                })
+                .catch(err => Swal.fire({title:'خطا', text:'ارتباط با سرور قطع شد.', icon:'error', background:'#1e293b', color:'#fff'}));
+            }
+        });
+    }
+
+    function loadLogs() {
+        const viewer = document.getElementById('logViewer');
+        viewer.innerText = 'در حال دریافت اطلاعات...';
+        fetch('{{ url_for("system.logs") }}')
+            .then(res => res.json())
+            .then(data => {
+                viewer.innerText = data.content;
+                viewer.scrollTop = viewer.scrollHeight; // Auto scroll to bottom
+            })
+            .catch(() => viewer.innerText = 'خطا در دریافت لاگ‌ها.');
+    }
+    
+    // Load logs on start
+    loadLogs();
+</script>
+{% endblock %}
