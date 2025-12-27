@@ -6,7 +6,7 @@ import psutil
 import secrets
 from datetime import datetime, timedelta
 from telebot import types
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from app.utils.helpers import (
     get_setting,
     set_setting,
@@ -64,7 +64,7 @@ def back_keyboard():
 def proxy_menu_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     markup.add("📋 لیست پروکسی‌ها", "➕ افزودن پروکسی")
-    markup.add("🔙 بازگشت")
+    markup.add("� جستجو", "� بازگشت")
     return markup
 
 def firewall_menu_keyboard():
@@ -136,19 +136,34 @@ def run_telegram_bot(app):
                 cpu = psutil.cpu_percent(interval=None)
                 ram = psutil.virtual_memory().percent
                 disk = psutil.disk_usage('/').percent
-                
+                boot_time = datetime.fromtimestamp(psutil.boot_time())
+                uptime = datetime.now() - boot_time
+                uptime_str = str(uptime).split('.')[0]
+
                 with app.app_context():
                     proxy_count = Proxy.query.count()
                     active_count = Proxy.query.filter_by(status='running').count()
                     total_upload = db.session.query(func.sum(Proxy.upload)).scalar() or 0
                     total_download = db.session.query(func.sum(Proxy.download)).scalar() or 0
+                    
+                    total_active_conns = db.session.query(func.sum(Proxy.active_connections)).scalar() or 0
+                    total_up_speed = db.session.query(func.sum(Proxy.upload_rate_bps)).scalar() or 0
+                    total_down_speed = db.session.query(func.sum(Proxy.download_rate_bps)).scalar() or 0
                 
+                def format_speed(bps):
+                    if bps < 1024: return f"{bps} B/s"
+                    elif bps < 1024**2: return f"{round(bps/1024, 1)} KB/s"
+                    else: return f"{round(bps/(1024**2), 1)} MB/s"
+
                 msg = (
                     f"📊 <b>System Status</b>\n\n"
+                    f"⏳ Uptime: <code>{uptime_str}</code>\n"
                     f"💻 CPU: <code>{cpu}%</code>\n"
                     f"🧠 RAM: <code>{ram}%</code>\n"
                     f"💾 Disk: <code>{disk}%</code>\n\n"
                     f"🚀 Proxies: <code>{active_count}/{proxy_count}</code> Active\n"
+                    f"🔌 Connections: <code>{total_active_conns}</code>\n"
+                    f"⚡ Speed: ⬆️ {format_speed(total_up_speed)} | ⬇️ {format_speed(total_down_speed)}\n\n"
                     f"⬆️ Upload: <code>{round(total_upload / (1024**3), 2)} GB</code>\n"
                     f"⬇️ Download: <code>{round(total_download / (1024**3), 2)} GB</code>"
                 )
@@ -165,23 +180,76 @@ def run_telegram_bot(app):
         @bot.message_handler(func=lambda m: m.text == "📋 لیست پروکسی‌ها")
         def list_proxies(message):
             if not is_admin(message.chat.id): return
+            set_state(message.chat.id, 'viewing_list', {'query': None})
+            show_proxy_list_page(message.chat.id, 1)
+
+        def show_proxy_list_page(chat_id, page, message_id=None):
+            state = get_state(chat_id)
+            query_filter = None
+            if state and state.get('step') == 'viewing_list':
+                query_filter = state.get('data', {}).get('query')
+
             with app.app_context():
-                proxies = Proxy.query.all()
-                if not proxies:
-                    bot.reply_to(message, "هیچ پروکسی وجود ندارد.")
-                    return
+                per_page = 10
+                q = Proxy.query.order_by(Proxy.id.desc())
                 
-                # Chunk list to avoid message too long
-                chunk_size = 10
-                for i in range(0, len(proxies), chunk_size):
-                    chunk = proxies[i:i + chunk_size]
-                    markup = types.InlineKeyboardMarkup()
-                    for p in chunk:
-                        status_icon = "🟢" if p.status == 'running' else "🔴"
-                        btn_text = f"{status_icon} {p.port} | {p.name or p.tag or 'No Name'}"
-                        markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"p_{p.id}"))
-                    
-                    bot.reply_to(message, f"لیست پروکسی‌ها (صفحه {i//chunk_size + 1}):", reply_markup=markup)
+                if query_filter:
+                    filters = []
+                    if query_filter.isdigit():
+                        filters.append(Proxy.port == int(query_filter))
+                    filters.append(Proxy.tag.ilike(f"%{query_filter}%"))
+                    filters.append(Proxy.name.ilike(f"%{query_filter}%"))
+                    q = q.filter(or_(*filters))
+
+                proxies = q.paginate(page=page, per_page=per_page, error_out=False)
+                
+                if not proxies.items and page == 1:
+                    msg_text = "هیچ پروکسی یافت نشد."
+                    if message_id:
+                        try:
+                            bot.edit_message_text(msg_text, chat_id, message_id)
+                        except:
+                            bot.send_message(chat_id, msg_text)
+                    else:
+                        bot.send_message(chat_id, msg_text)
+                    return
+
+                markup = types.InlineKeyboardMarkup()
+                for p in proxies.items:
+                    status_icon = "🟢" if p.status == 'running' else "🔴"
+                    btn_text = f"{status_icon} {p.port} | {p.name or p.tag or 'No Name'}"
+                    markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"p_{p.id}"))
+                
+                # Pagination Buttons
+                nav_btns = []
+                if proxies.has_prev:
+                    nav_btns.append(types.InlineKeyboardButton("⬅️ قبلی", callback_data=f"list_page_{proxies.prev_num}"))
+                
+                nav_btns.append(types.InlineKeyboardButton(f"📄 {page}/{proxies.pages}", callback_data="noop"))
+                
+                if proxies.has_next:
+                    nav_btns.append(types.InlineKeyboardButton("بعدی ➡️", callback_data=f"list_page_{proxies.next_num}"))
+                
+                markup.row(*nav_btns)
+                
+                text = f"📋 لیست پروکسی‌ها (صفحه {page}):"
+                if query_filter:
+                    text += f"\n🔍 فیلتر: {query_filter}"
+
+                if message_id:
+                    try:
+                        bot.edit_message_text(text, chat_id, message_id, reply_markup=markup)
+                    except Exception as e:
+                        # In case message content is same
+                        pass
+                else:
+                    bot.send_message(chat_id, text, reply_markup=markup)
+
+        @bot.message_handler(func=lambda m: m.text == "🔍 جستجو")
+        def search_proxy_init(message):
+            if not is_admin(message.chat.id): return
+            set_state(message.chat.id, 'search_proxy')
+            bot.reply_to(message, "🔍 لطفاً متن جستجو (پورت، نام یا تگ) را وارد کنید:", reply_markup=back_keyboard())
 
         @bot.message_handler(func=lambda m: m.text == "➕ افزودن پروکسی")
         def add_proxy_step1(message):
@@ -283,7 +351,66 @@ def run_telegram_bot(app):
             data = state['data']
             
             # --- Add Proxy Wizard ---
-            if step == 'add_proxy_port':
+            if step == 'search_proxy':
+                query = message.text.strip()
+                set_state(message.chat.id, 'viewing_list', {'query': query})
+                show_proxy_list_page(message.chat.id, 1)
+
+            elif step == 'edit_proxy_tag':
+                pid = data['id']
+                tag = message.text.strip()
+                if tag.lower() == 'none': tag = None
+                with app.app_context():
+                    p = Proxy.query.get(pid)
+                    if p:
+                        p.tag = tag
+                        db.session.commit()
+                        bot.reply_to(message, "✅ تگ ویرایش شد.", reply_markup=proxy_menu_keyboard())
+                    else:
+                        bot.reply_to(message, "❌ پروکسی یافت نشد.")
+                clear_state(message.chat.id)
+
+            elif step == 'edit_proxy_expiry':
+                pid = data['id']
+                try:
+                    days = int(message.text.strip())
+                    with app.app_context():
+                        p = Proxy.query.get(pid)
+                        if p:
+                            if days > 0:
+                                p.expiry_date = datetime.utcnow() + timedelta(days=days)
+                            else:
+                                p.expiry_date = None
+                            db.session.commit()
+                            bot.reply_to(message, "✅ زمان انقضا ویرایش شد.", reply_markup=proxy_menu_keyboard())
+                        else:
+                            bot.reply_to(message, "❌ پروکسی یافت نشد.")
+                except ValueError:
+                    bot.reply_to(message, "❌ لطفاً عدد وارد کنید.")
+                    return
+                clear_state(message.chat.id)
+
+            elif step == 'edit_proxy_quota':
+                pid = data['id']
+                try:
+                    gb = float(message.text.strip())
+                    with app.app_context():
+                        p = Proxy.query.get(pid)
+                        if p:
+                            if gb > 0:
+                                p.quota_bytes = int(gb * 1024 * 1024 * 1024)
+                            else:
+                                p.quota_bytes = 0
+                            db.session.commit()
+                            bot.reply_to(message, "✅ حجم مجاز ویرایش شد.", reply_markup=proxy_menu_keyboard())
+                        else:
+                            bot.reply_to(message, "❌ پروکسی یافت نشد.")
+                except ValueError:
+                    bot.reply_to(message, "❌ لطفاً عدد معتبر وارد کنید.")
+                    return
+                clear_state(message.chat.id)
+
+            elif step == 'add_proxy_port':
                 try:
                     port = int(message.text)
                     with app.app_context():
@@ -429,6 +556,20 @@ def run_telegram_bot(app):
                 clear_state(message.chat.id)
 
         # --- Callbacks ---
+        @bot.callback_query_handler(func=lambda call: call.data.startswith('list_page_'))
+        def list_page_callback(call):
+            if not is_admin(call.message.chat.id): return
+            try:
+                page = int(call.data.split('_')[2])
+                show_proxy_list_page(call.message.chat.id, page, call.message.message_id)
+                bot.answer_callback_query(call.id)
+            except Exception as e:
+                print(f"Pagination error: {e}")
+
+        @bot.callback_query_handler(func=lambda call: call.data == 'noop')
+        def noop_callback(call):
+            bot.answer_callback_query(call.id)
+
         @bot.callback_query_handler(func=lambda call: call.data.startswith('p_'))
         def proxy_detail_callback(call):
             if not is_admin(call.message.chat.id): return
@@ -475,8 +616,10 @@ def run_telegram_bot(app):
                     markup.add(types.InlineKeyboardButton("🔗 لینک اتصال", callback_data=f"link_{p.id}"),
                                types.InlineKeyboardButton("♻️ ریست مصرف", callback_data=f"reset_{p.id}"))
                     
-                    markup.add(types.InlineKeyboardButton("🗑️ حذف", callback_data=f"del_{p.id}"),
-                               types.InlineKeyboardButton("🔙 بازگشت", callback_data="back_list"))
+                    markup.add(types.InlineKeyboardButton("✏️ ویرایش", callback_data=f"edit_{p.id}"),
+                               types.InlineKeyboardButton("🗑️ حذف", callback_data=f"del_{p.id}"))
+
+                    markup.add(types.InlineKeyboardButton("🔙 بازگشت", callback_data="back_list"))
                     
                     bot.edit_message_text(msg, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode='HTML')
             except Exception as e:
@@ -489,6 +632,39 @@ def run_telegram_bot(app):
             # Or just send text "Select from list" and re-call list_proxies logic logic
             # Simpler: just acknowledge
             bot.answer_callback_query(call.id, "منو را از کیبورد انتخاب کنید.")
+
+        @bot.callback_query_handler(func=lambda call: call.data.startswith('edit_'))
+        def edit_proxy_menu(call):
+            if not is_admin(call.message.chat.id): return
+            try:
+                pid = int(call.data.split('_')[1])
+                markup = types.InlineKeyboardMarkup()
+                markup.add(types.InlineKeyboardButton("🏷️ تگ", callback_data=f"edittag_{pid}"),
+                           types.InlineKeyboardButton("⏳ انقضا", callback_data=f"editexp_{pid}"))
+                markup.add(types.InlineKeyboardButton("💾 حجم", callback_data=f"editquota_{pid}"),
+                           types.InlineKeyboardButton("🔙 بازگشت", callback_data=f"p_{pid}"))
+                
+                bot.edit_message_text("✏️ چه چیزی را می‌خواهید ویرایش کنید؟", call.message.chat.id, call.message.message_id, reply_markup=markup)
+            except Exception as e:
+                print(f"Edit Menu Error: {e}")
+
+        @bot.callback_query_handler(func=lambda call: call.data.startswith(('edittag_', 'editexp_', 'editquota_')))
+        def edit_proxy_field(call):
+            if not is_admin(call.message.chat.id): return
+            action, pid = call.data.split('_')
+            pid = int(pid)
+            
+            if action == 'edittag':
+                set_state(call.message.chat.id, 'edit_proxy_tag', {'id': pid})
+                bot.send_message(call.message.chat.id, "🏷️ تگ جدید را وارد کنید (یا 'none' برای حذف):", reply_markup=back_keyboard())
+            elif action == 'editexp':
+                set_state(call.message.chat.id, 'edit_proxy_expiry', {'id': pid})
+                bot.send_message(call.message.chat.id, "⏳ تعداد روز اعتبار جدید را وارد کنید (0 برای نامحدود):", reply_markup=back_keyboard())
+            elif action == 'editquota':
+                set_state(call.message.chat.id, 'edit_proxy_quota', {'id': pid})
+                bot.send_message(call.message.chat.id, "💾 حجم جدید (GB) را وارد کنید (0 برای نامحدود):", reply_markup=back_keyboard())
+            
+            bot.answer_callback_query(call.id)
 
         @bot.callback_query_handler(func=lambda call: call.data.startswith(('stop_', 'start_', 'restart_', 'link_', 'del_', 'reset_')))
         def action_callback(call):
