@@ -81,9 +81,10 @@ def users_menu_keyboard():
     return markup
 
 # --- Helper Logic ---
-def is_admin(chat_id):
-    admin_id = get_setting('telegram_chat_id')
-    return str(chat_id) == str(admin_id)
+def is_admin(chat_id, app):
+    with app.app_context():
+        admin_id = get_setting('telegram_chat_id')
+        return str(chat_id) == str(admin_id)
 
 def set_state(chat_id, step, data=None):
     _user_states[chat_id] = {'step': step, 'data': data or {}}
@@ -125,17 +126,18 @@ def run_telegram_bot(app):
         @bot.message_handler(commands=['start', 'help'])
         def send_welcome(message):
             chat_id = str(message.chat.id)
-            admin_id = get_setting('telegram_chat_id')
-            
-            if not admin_id:
-                # First time setup
-                set_setting('telegram_chat_id', chat_id)
-                bot.reply_to(message, "✅ تبریک! شما به عنوان مدیر ربات شناخته شدید.", reply_markup=main_menu_keyboard())
-                return
+            with app.app_context():
+                admin_id = get_setting('telegram_chat_id')
+                
+                if not admin_id:
+                    # First time setup
+                    set_setting('telegram_chat_id', chat_id)
+                    bot.reply_to(message, "✅ تبریک! شما به عنوان مدیر ربات شناخته شدید.", reply_markup=main_menu_keyboard())
+                    return
 
-            if chat_id != admin_id:
-                bot.reply_to(message, "⛔ دسترسی غیرمجاز است.")
-                return
+                if chat_id != admin_id:
+                    bot.reply_to(message, "⛔ دسترسی غیرمجاز است.")
+                    return
                 
             clear_state(message.chat.id)
             bot.reply_to(message, f"👋 به پنل مدیریت پیشرفته HoseinProxy خوش آمدید.", reply_markup=main_menu_keyboard())
@@ -148,7 +150,7 @@ def run_telegram_bot(app):
         # --- System Status ---
         @bot.message_handler(func=lambda m: m.text == "📊 وضعیت سیستم")
         def status_handler(message):
-            if not is_admin(message.chat.id): return
+            if not is_admin(message.chat.id, app): return
             
             try:
                 cpu = psutil.cpu_percent(interval=None)
@@ -192,12 +194,12 @@ def run_telegram_bot(app):
         # --- Proxy Management ---
         @bot.message_handler(func=lambda m: m.text == "🚀 مدیریت پروکسی")
         def proxy_menu(message):
-            if not is_admin(message.chat.id): return
+            if not is_admin(message.chat.id, app): return
             bot.reply_to(message, "مدیریت پروکسی:", reply_markup=proxy_menu_keyboard())
 
         @bot.message_handler(func=lambda m: m.text == "📋 لیست پروکسی‌ها")
         def list_proxies(message):
-            if not is_admin(message.chat.id): return
+            if not is_admin(message.chat.id, app): return
             set_state(message.chat.id, 'viewing_list', {'query': None})
             show_proxy_list_page(message.chat.id, 1)
 
@@ -265,25 +267,25 @@ def run_telegram_bot(app):
 
         @bot.message_handler(func=lambda m: m.text == "🔍 جستجو")
         def search_proxy_init(message):
-            if not is_admin(message.chat.id): return
+            if not is_admin(message.chat.id, app): return
             set_state(message.chat.id, 'search_proxy')
             bot.reply_to(message, "🔍 لطفاً متن جستجو (پورت، نام یا تگ) را وارد کنید:", reply_markup=back_keyboard())
 
         @bot.message_handler(func=lambda m: m.text == "➕ افزودن پروکسی")
         def add_proxy_step1(message):
-            if not is_admin(message.chat.id): return
+            if not is_admin(message.chat.id, app): return
             set_state(message.chat.id, 'add_proxy_port')
             bot.reply_to(message, "🔢 لطفاً <b>شماره پورت</b> را وارد کنید:\n(مثال: 443)", reply_markup=back_keyboard(), parse_mode='HTML')
 
         # --- Firewall Management ---
         @bot.message_handler(func=lambda m: m.text == "🛡️ فایروال")
         def firewall_menu(message):
-            if not is_admin(message.chat.id): return
+            if not is_admin(message.chat.id, app): return
             bot.reply_to(message, "مدیریت فایروال:", reply_markup=firewall_menu_keyboard())
 
         @bot.message_handler(func=lambda m: m.text == "📋 لیست سیاه")
         def list_firewall(message):
-            if not is_admin(message.chat.id): return
+            if not is_admin(message.chat.id, app): return
             with app.app_context():
                 blocked = BlockedIP.query.all()
                 if not blocked:
@@ -296,25 +298,25 @@ def run_telegram_bot(app):
 
         @bot.message_handler(func=lambda m: m.text == "⛔ مسدود کردن IP")
         def block_ip_step1(message):
-            if not is_admin(message.chat.id): return
+            if not is_admin(message.chat.id, app): return
             set_state(message.chat.id, 'block_ip_addr')
             bot.reply_to(message, "🚫 لطفاً <b>آی‌پی</b> مورد نظر برای مسدودسازی را وارد کنید:", reply_markup=back_keyboard(), parse_mode='HTML')
 
         @bot.message_handler(func=lambda m: m.text == "🔓 آزاد کردن IP")
         def unblock_ip_step1(message):
-            if not is_admin(message.chat.id): return
+            if not is_admin(message.chat.id, app): return
             set_state(message.chat.id, 'unblock_ip_addr')
             bot.reply_to(message, "🔓 لطفاً <b>آی‌پی</b> مورد نظر برای آزادسازی را وارد کنید:", reply_markup=back_keyboard(), parse_mode='HTML')
 
         # --- User Management ---
         @bot.message_handler(func=lambda m: m.text == "👥 مدیران")
         def users_menu(message):
-            if not is_admin(message.chat.id): return
+            if not is_admin(message.chat.id, app): return
             bot.reply_to(message, "مدیریت کاربران:", reply_markup=users_menu_keyboard())
 
         @bot.message_handler(func=lambda m: m.text == "📋 لیست مدیران")
         def list_users(message):
-            if not is_admin(message.chat.id): return
+            if not is_admin(message.chat.id, app): return
             with app.app_context():
                 users = User.query.all()
                 msg = "👤 <b>Admins:</b>\n\n"
@@ -324,21 +326,21 @@ def run_telegram_bot(app):
 
         @bot.message_handler(func=lambda m: m.text == "➕ افزودن مدیر")
         def add_user_step1(message):
-            if not is_admin(message.chat.id): return
+            if not is_admin(message.chat.id, app): return
             set_state(message.chat.id, 'add_user_name')
             bot.reply_to(message, "👤 نام کاربری جدید را وارد کنید:", reply_markup=back_keyboard())
 
         # --- Settings ---
         @bot.message_handler(func=lambda m: m.text == "⚙️ تنظیمات")
         def settings_menu(message):
-            if not is_admin(message.chat.id): return
+            if not is_admin(message.chat.id, app): return
             msg = "⚙️ <b>تنظیمات</b>\n\nهم‌اکنون فقط از طریق پنل وب قابل دسترسی است."
             bot.reply_to(message, msg, parse_mode='HTML')
 
         # --- Backup ---
         @bot.message_handler(func=lambda m: m.text == "📦 دریافت بکاپ")
         def backup_handler(message):
-            if not is_admin(message.chat.id): return
+            if not is_admin(message.chat.id, app): return
             bot.reply_to(message, "⏳ در حال تهیه بکاپ...")
             try:
                 with app.app_context():
@@ -363,7 +365,7 @@ def run_telegram_bot(app):
         # --- State Handlers (Wizard Logic) ---
         @bot.message_handler(func=lambda m: get_state(m.chat.id) is not None)
         def state_handler(message):
-            if not is_admin(message.chat.id): return
+            if not is_admin(message.chat.id, app): return
             state = get_state(message.chat.id)
             step = state['step']
             data = state['data']
@@ -576,7 +578,7 @@ def run_telegram_bot(app):
         # --- Callbacks ---
         @bot.callback_query_handler(func=lambda call: call.data.startswith('list_page_'))
         def list_page_callback(call):
-            if not is_admin(call.message.chat.id): return
+            if not is_admin(call.message.chat.id, app): return
             try:
                 page = int(call.data.split('_')[2])
                 show_proxy_list_page(call.message.chat.id, page, call.message.message_id)
@@ -588,9 +590,42 @@ def run_telegram_bot(app):
         def noop_callback(call):
             bot.answer_callback_query(call.id)
 
+        @bot.callback_query_handler(func=lambda call: call.data.startswith('edit_'))
+        def edit_proxy_menu(call):
+            if not is_admin(call.message.chat.id, app): return
+            try:
+                pid = int(call.data.split('_')[1])
+                markup = types.InlineKeyboardMarkup()
+                markup.add(types.InlineKeyboardButton("🏷️ تگ", callback_data=f"edittag_{pid}"),
+                           types.InlineKeyboardButton("⏳ انقضا", callback_data=f"editexp_{pid}"))
+                markup.add(types.InlineKeyboardButton("💾 حجم", callback_data=f"editquota_{pid}"),
+                           types.InlineKeyboardButton("🔙 بازگشت", callback_data=f"p_{pid}"))
+                
+                bot.edit_message_text("✏️ چه چیزی را می‌خواهید ویرایش کنید؟", call.message.chat.id, call.message.message_id, reply_markup=markup)
+            except Exception as e:
+                print(f"Edit Menu Error: {e}")
+
+        @bot.callback_query_handler(func=lambda call: call.data.startswith(('edittag_', 'editexp_', 'editquota_')))
+        def edit_proxy_field(call):
+            if not is_admin(call.message.chat.id, app): return
+            action, pid = call.data.split('_')
+            pid = int(pid)
+            
+            if action == 'edittag':
+                set_state(call.message.chat.id, 'edit_proxy_tag', {'id': pid})
+                bot.send_message(call.message.chat.id, "🏷️ تگ جدید را وارد کنید (یا 'none' برای حذف):", reply_markup=back_keyboard())
+            elif action == 'editexp':
+                set_state(call.message.chat.id, 'edit_proxy_expiry', {'id': pid})
+                bot.send_message(call.message.chat.id, "⏳ تعداد روز اعتبار جدید را وارد کنید (0 برای نامحدود):", reply_markup=back_keyboard())
+            elif action == 'editquota':
+                set_state(call.message.chat.id, 'edit_proxy_quota', {'id': pid})
+                bot.send_message(call.message.chat.id, "💾 حجم جدید (GB) را وارد کنید (0 برای نامحدود):", reply_markup=back_keyboard())
+            
+            bot.answer_callback_query(call.id)
+
         @bot.callback_query_handler(func=lambda call: call.data.startswith('p_'))
         def proxy_detail_callback(call):
-            if not is_admin(call.message.chat.id): return
+            if not is_admin(call.message.chat.id, app): return
             try:
                 proxy_id = int(call.data.split('_')[1])
                 with app.app_context():
@@ -651,42 +686,9 @@ def run_telegram_bot(app):
             # Simpler: just acknowledge
             bot.answer_callback_query(call.id, "منو را از کیبورد انتخاب کنید.")
 
-        @bot.callback_query_handler(func=lambda call: call.data.startswith('edit_'))
-        def edit_proxy_menu(call):
-            if not is_admin(call.message.chat.id): return
-            try:
-                pid = int(call.data.split('_')[1])
-                markup = types.InlineKeyboardMarkup()
-                markup.add(types.InlineKeyboardButton("🏷️ تگ", callback_data=f"edittag_{pid}"),
-                           types.InlineKeyboardButton("⏳ انقضا", callback_data=f"editexp_{pid}"))
-                markup.add(types.InlineKeyboardButton("💾 حجم", callback_data=f"editquota_{pid}"),
-                           types.InlineKeyboardButton("🔙 بازگشت", callback_data=f"p_{pid}"))
-                
-                bot.edit_message_text("✏️ چه چیزی را می‌خواهید ویرایش کنید؟", call.message.chat.id, call.message.message_id, reply_markup=markup)
-            except Exception as e:
-                print(f"Edit Menu Error: {e}")
-
-        @bot.callback_query_handler(func=lambda call: call.data.startswith(('edittag_', 'editexp_', 'editquota_')))
-        def edit_proxy_field(call):
-            if not is_admin(call.message.chat.id): return
-            action, pid = call.data.split('_')
-            pid = int(pid)
-            
-            if action == 'edittag':
-                set_state(call.message.chat.id, 'edit_proxy_tag', {'id': pid})
-                bot.send_message(call.message.chat.id, "🏷️ تگ جدید را وارد کنید (یا 'none' برای حذف):", reply_markup=back_keyboard())
-            elif action == 'editexp':
-                set_state(call.message.chat.id, 'edit_proxy_expiry', {'id': pid})
-                bot.send_message(call.message.chat.id, "⏳ تعداد روز اعتبار جدید را وارد کنید (0 برای نامحدود):", reply_markup=back_keyboard())
-            elif action == 'editquota':
-                set_state(call.message.chat.id, 'edit_proxy_quota', {'id': pid})
-                bot.send_message(call.message.chat.id, "💾 حجم جدید (GB) را وارد کنید (0 برای نامحدود):", reply_markup=back_keyboard())
-            
-            bot.answer_callback_query(call.id)
-
         @bot.callback_query_handler(func=lambda call: call.data.startswith(('stop_', 'start_', 'restart_', 'link_', 'del_', 'reset_')))
         def action_callback(call):
-            if not is_admin(call.message.chat.id): return
+            if not is_admin(call.message.chat.id, app): return
             action, pid = call.data.split('_')
             pid = int(pid)
             
