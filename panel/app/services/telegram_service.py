@@ -182,7 +182,6 @@ def run_telegram_bot(app):
                     f"🧠 RAM: <code>{ram}%</code>\n"
                     f"💾 Disk: <code>{disk}%</code>\n\n"
                     f"🚀 Proxies: <code>{active_count}/{proxy_count}</code> Active\n"
-                    f"🔌 Connections: <code>{total_active_conns}</code>\n"
                     f"⚡ Speed: ⬆️ {format_speed(total_up_speed)} | ⬇️ {format_speed(total_down_speed)}\n\n"
                     f"⬆️ Upload: <code>{round(total_upload / (1024**3), 2)} GB</code>\n"
                     f"⬇️ Download: <code>{round(total_download / (1024**3), 2)} GB</code>"
@@ -682,9 +681,11 @@ def run_telegram_bot(app):
                         remaining = (p.expiry_date - datetime.utcnow()).days
                         expiry_str = f"{remaining} days" if remaining > 0 else "Expired"
                         
+                    # Usage calculation (Download only as requested)
+                    used_gb = round(p.download / (1024**3), 2)
+                    
                     quota_str = "Unlimited"
                     if p.quota_bytes and p.quota_bytes > 0:
-                        used_gb = round((p.upload + p.download) / (1024**3), 2)
                         limit_gb = round(p.quota_bytes / (1024**3), 2)
                         quota_str = f"{used_gb}/{limit_gb} GB"
 
@@ -694,10 +695,8 @@ def run_telegram_bot(app):
                         f"Tag: {p.tag or '-'}\n"
                         f"Status: {status_icon} {p.status}\n"
                         f"⏳ Expiry: {expiry_str}\n"
-                        f"💾 Quota: {quota_str}\n"
-                        f"👥 Users: {p.active_connections}\n"
-                        f"⬆️ UP: {round(p.upload / (1024**2), 2)} MB\n"
-                        f"⬇️ DL: {round(p.download / (1024**2), 2)} MB\n"
+                        f"💾 Usage: {quota_str}\n"
+                        f"⬇️ Download: {round(p.download / (1024**2), 2)} MB\n"
                     )
                     
                     markup = types.InlineKeyboardMarkup(row_width=2)
@@ -797,9 +796,11 @@ def run_telegram_bot(app):
                         remaining = (p.expiry_date - datetime.utcnow()).days
                         expiry_str = f"{remaining} days" if remaining > 0 else "Expired"
                         
+                    # Usage calculation (Download only as requested)
+                    used_gb = round(p.download / (1024**3), 2)
+                    
                     quota_str = "Unlimited"
                     if p.quota_bytes and p.quota_bytes > 0:
-                        used_gb = round((p.upload + p.download) / (1024**3), 2)
                         limit_gb = round(p.quota_bytes / (1024**3), 2)
                         quota_str = f"{used_gb}/{limit_gb} GB"
 
@@ -809,10 +810,8 @@ def run_telegram_bot(app):
                         f"Tag: {p.tag or '-'}\n"
                         f"Status: {status_icon} {p.status}\n"
                         f"⏳ Expiry: {expiry_str}\n"
-                        f"💾 Quota: {quota_str}\n"
-                        f"👥 Users: {p.active_connections}\n"
-                        f"⬆️ UP: 0.0 MB\n"
-                        f"⬇️ DL: 0.0 MB\n"
+                        f"💾 Usage: {quota_str}\n"
+                        f"⬇️ Download: 0.0 MB\n"
                     )
                     
                     markup = types.InlineKeyboardMarkup(row_width=2)
@@ -873,9 +872,11 @@ def run_telegram_bot(app):
                             remaining = (p.expiry_date - datetime.utcnow()).days
                             expiry_str = f"{remaining} days" if remaining > 0 else "Expired"
                             
+                        # Usage calculation (Download only as requested)
+                        used_gb = round(p.download / (1024**3), 2)
+
                         quota_str = "Unlimited"
                         if p.quota_bytes and p.quota_bytes > 0:
-                            used_gb = round((p.upload + p.download) / (1024**3), 2)
                             limit_gb = round(p.quota_bytes / (1024**3), 2)
                             quota_str = f"{used_gb}/{limit_gb} GB"
 
@@ -885,10 +886,8 @@ def run_telegram_bot(app):
                             f"Tag: {p.tag or '-'}\n"
                             f"Status: {status_icon} {p.status}\n"
                             f"⏳ Expiry: {expiry_str}\n"
-                            f"💾 Quota: {quota_str}\n"
-                            f"👥 Users: {p.active_connections}\n"
-                            f"⬆️ UP: {round(p.upload / (1024**2), 2)} MB\n"
-                            f"⬇️ DL: {round(p.download / (1024**2), 2)} MB\n"
+                            f"💾 Usage: {quota_str}\n"
+                            f"⬇️ Download: {round(p.download / (1024**2), 2)} MB\n"
                         )
                         
                         markup = types.InlineKeyboardMarkup(row_width=2)
