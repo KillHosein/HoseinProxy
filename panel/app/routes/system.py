@@ -165,6 +165,22 @@ def restore():
             service = BackupService(app_root)
             service.restore_backup(backup_path)
             
+            # Sync Proxies (Recreate missing containers)
+            # We import sync_proxies from telegram_service which has the logic
+            # But wait, telegram_service.sync_proxies might depend on bot instance or specific context?
+            # Let's check telegram_service.py content again.
+            # It uses app.app_context().
+            # Alternatively, we can move sync_proxies to a shared service like proxy_service.py
+            # For now, let's import it if possible, or replicate simple sync logic here.
+            
+            # Better approach: Call a helper that does what telegram_service.sync_proxies does.
+            # Since we are in system.py, we can import from app.services.telegram_service import sync_proxies
+            # But that might cause circular imports if telegram_service imports system routes (unlikely).
+            
+            from app.services.telegram_service import sync_proxies
+            from flask import current_app
+            sync_proxies(current_app._get_current_object()) 
+            
             # Restart Service
             service.restart_service()
             
