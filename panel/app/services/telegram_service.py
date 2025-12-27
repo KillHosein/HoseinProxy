@@ -16,10 +16,11 @@ from app.utils.helpers import (
     extract_tls_domain_from_ee_secret,
     parse_mtproxy_secret_input,
 )
-from app.models import Proxy, User, BlockedIP, Settings
+from app.models import Proxy, User, BlockedIP, Settings, ActivityLog
 from app.extensions import db
 from app.services.docker_client import client as docker_client
 from app.services.firewall_service import _apply_firewall_rule
+from app.utils.helpers import log_activity
 
 _bot_instance = None
 _user_states = {} # {chat_id: {'step': '...', 'data': {...}}}
@@ -56,7 +57,7 @@ def main_menu_keyboard():
     markup.add("📊 وضعیت سیستم", "🚀 مدیریت پروکسی")
     markup.add("🛡️ فایروال", "👥 مدیران")
     markup.add("⚙️ تنظیمات", "📦 بکاپ")
-    markup.add("📜 لاگ سیستم")
+    markup.add("📜 لاگ سیستم", "📝 گزارش فعالیت‌ها")
     return markup
 
 def back_keyboard():
@@ -68,6 +69,13 @@ def proxy_menu_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     markup.add("📋 لیست پروکسی‌ها", "➕ افزودن پروکسی")
     markup.add("� جستجو", "� بازگشت")
+    return markup
+
+def proxy_menu_keyboard():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add("📋 لیست پروکسی‌ها", "➕ افزودن پروکسی")
+    markup.add("⚡ ساخت سریع", "🔍 جستجو")
+    markup.add("🔙 بازگشت")
     return markup
 
 def firewall_menu_keyboard():
@@ -238,11 +246,16 @@ def run_telegram_bot(app):
             
             try:
                 cpu = psutil.cpu_percent(interval=None)
-                ram = psutil.virtual_memory().percent
-                disk = psutil.disk_usage('/').percent
+                ram = psutil.virtual_memory()
+                disk = psutil.disk_usage('/')
                 boot_time = datetime.fromtimestamp(psutil.boot_time())
                 uptime = datetime.now() - boot_time
                 uptime_str = str(uptime).split('.')[0]
+                
+                # Network stats (Total System)
+                net = psutil.net_io_counters()
+                sent_gb = round(net.bytes_sent / (1024**3), 2)
+                recv_gb = round(net.bytes_recv / (1024**3), 2)
 
                 with app.app_context():
                     proxy_count = Proxy.query.count()
@@ -263,16 +276,102 @@ def run_telegram_bot(app):
                     f"📊 <b>System Status</b>\n\n"
                     f"⏳ Uptime: <code>{uptime_str}</code>\n"
                     f"💻 CPU: <code>{cpu}%</code>\n"
-                    f"🧠 RAM: <code>{ram}%</code>\n"
-                    f"💾 Disk: <code>{disk}%</code>\n\n"
+                    f"🧠 RAM: <code>{ram.percent}%</code> (Used: {round(ram.used/1024**3, 1)}GB / Total: {round(ram.total/1024**3, 1)}GB)\n"
+                    f"💾 Disk: <code>{disk.percent}%</code> (Free: {round(disk.free/1024**3, 1)}GB)\n"
+                    f"🌐 Net Total: ⬆️ {sent_gb} GB | ⬇️ {recv_gb} GB\n\n"
                     f"🚀 Proxies: <code>{active_count}/{proxy_count}</code> Active\n"
-                    f"⚡ Speed: ⬆️ {format_speed(total_up_speed)} | ⬇️ {format_speed(total_down_speed)}\n\n"
-                    f"⬆️ Upload: <code>{round(total_upload / (1024**3), 2)} GB</code>\n"
-                    f"⬇️ Download: <code>{round(total_download / (1024**3), 2)} GB</code>"
+                    f"🔌 Connections: <code>{total_active_conns}</code>\n"
+                    f"⚡ Proxy Speed: ⬆️ {format_speed(total_up_speed)} | ⬇️ {format_speed(total_down_speed)}\n"
+                    f"📊 Proxy Traffic: ⬆️ {round(total_upload / (1024**3), 2)} GB | ⬇️ {round(total_download / (1024**3), 2)} GB"
                 )
                 bot.reply_to(message, msg, parse_mode='HTML')
             except Exception as e:
                 bot.reply_to(message, f"Error: {e}")
+
+        @bot.message_handler(func=lambda m: m.text == "📝 گزارش فعالیت‌ها")
+        def activity_report(message):
+            if not is_admin(message.chat.id, app): return
+            with app.app_context():
+                logs = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).limit(10).all()
+                if not logs:
+                    bot.reply_to(message, "📜 فعالیتی ثبت نشده است.")
+                    return
+                msg = "📝 <b>Last 10 Activities:</b>\n\n"
+                for l in logs:
+                    time_str = l.timestamp.strftime("%Y-%m-%d %H:%M")
+                    msg += f"🔹 <b>{l.action}</b> ({time_str})\n   {l.details}\n"
+                bot.reply_to(message, msg, parse_mode='HTML')
+
+        @bot.message_handler(func=lambda m: m.text == "⚡ ساخت سریع")
+        def quick_create_proxy(message):
+            if not is_admin(message.chat.id, app): return
+            
+            with app.app_context():
+                # Find a free port
+                used_ports = {p.port for p in Proxy.query.all()}
+                
+                # Try common ports first
+                candidates = [443, 80, 8080, 8443, 8888, 2053, 2083, 2096]
+                final_port = None
+                for p in candidates:
+                    if p not in used_ports:
+                        final_port = p
+                        break
+                
+                if not final_port:
+                    # Find first available from 443 upwards
+                    for p in range(443, 65535):
+                        if p not in used_ports:
+                            final_port = p
+                            break
+                
+                if not final_port:
+                    bot.reply_to(message, "❌ هیچ پورت خالی یافت نشد!")
+                    return
+                
+                # Create Proxy
+                try:
+                    if not docker_client:
+                        bot.reply_to(message, "❌ خطا: داکر متصل نیست.")
+                        return
+
+                    secret = secrets.token_hex(16)
+                    parsed = parse_mtproxy_secret_input(None, secret)
+                    
+                    container = docker_client.containers.run(
+                        'telegrammessenger/proxy',
+                        detach=True,
+                        ports={'443/tcp': final_port},
+                        environment={
+                            'SECRET': parsed["base_secret"],
+                            'TAG': '',
+                            'WORKERS': 1
+                        },
+                        restart_policy={"Name": "always"},
+                        name=f"mtproto_{final_port}"
+                    )
+                    
+                    p = Proxy(
+                        port=final_port,
+                        secret=parsed["base_secret"],
+                        proxy_type=parsed["proxy_type"],
+                        tls_domain=parsed["tls_domain"],
+                        tag="Quick Create",
+                        workers=1,
+                        container_id=container.id,
+                        status="running",
+                        expiry_date=None,
+                        quota_bytes=0
+                    )
+                    db.session.add(p)
+                    db.session.commit()
+                    
+                    log_activity("Quick Create", f"Created proxy on port {final_port}")
+                    
+                    bot.reply_to(message, f"✅ <b>پروکسی سریع ساخته شد!</b>\n\n🔌 پورت: <code>{final_port}</code>\n🔑 سکرت: <code>{parsed['base_secret']}</code>", parse_mode='HTML')
+                    
+                except Exception as e:
+                    bot.reply_to(message, f"❌ خطا: {e}")
 
         # --- Proxy Management ---
         @bot.message_handler(func=lambda m: m.text == "🚀 مدیریت پروکسی")
