@@ -51,8 +51,12 @@ class Proxy(db.Model):
 
     @property
     def display_secret(self):
-        from app.utils.helpers import format_mtproxy_client_secret
-        return format_mtproxy_client_secret(self.proxy_type, self.secret, self.tls_domain)
+        try:
+            from app.utils.helpers import format_mtproxy_client_secret
+            return format_mtproxy_client_secret(self.proxy_type, self.secret, self.tls_domain)
+        except Exception as e:
+            print(f"Error generating display_secret for proxy {self.id}: {e}")
+            return self.secret
 
 class ProxyStats(db.Model):
     id = db.Column(db.Integer, primary_key=True)
