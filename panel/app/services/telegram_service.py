@@ -385,7 +385,7 @@ def run_telegram_bot(app):
             bot.reply_to(message, msg, parse_mode='HTML')
 
         # --- Backup ---
-        @bot.message_handler(func=lambda m: m.text == "📦 دریافت بکاپ")
+        @bot.message_handler(func=lambda m: m.text == "📦 بکاپ")
         def backup_handler(message):
             if not is_admin(message.chat.id, app): return
             wait_msg = bot.reply_to(message, "⏳ در حال تهیه نسخه پشتیبان... لطفاً صبر کنید.")
