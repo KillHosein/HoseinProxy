@@ -549,24 +549,61 @@ update_panel() {
 }
 
 uninstall_panel() {
-  if ! ask_yesno "WARNING: All panel data will be deleted. Continue?" "N"; then
+  echo -e "${RED}${BOLD}⚠️  DANGER ZONE ⚠️${NC}"
+  echo -e "You are about to perform a ${RED}FULL UNINSTALLATION${NC}."
+  echo "This action will:"
+  echo " 1. Stop and delete the Control Panel service."
+  echo " 2. Stop and remove ALL created Proxy containers (Docker)."
+  echo " 3. Delete Nginx configurations and SSL certificates."
+  echo " 4. WIPE the installation directory ($INSTALL_DIR) and logs."
+  echo ""
+  
+  if ! ask_yesno "Are you absolutely sure you want to proceed?" "N"; then
     return 0
   fi
 
-  show_progress "Removing components..."
+  show_progress "Stopping services..."
   systemctl stop "$SERVICE_NAME" >/dev/null 2>&1 || true
   systemctl disable "$SERVICE_NAME" >/dev/null 2>&1 || true
+  
+  # Docker Cleanup
+  if command -v docker >/dev/null 2>&1; then
+    show_progress "Removing proxies (Docker)..."
+    # Stop and remove containers created by proxy.sh (mtproto_PORT)
+    # Using specific filter to avoid deleting other unrelated containers
+    docker ps -a --filter "name=mtproto_" -q | xargs -r docker rm -f >/dev/null 2>&1 || true
+    
+    # If there is a compose file in install dir
+    if [ -f "$INSTALL_DIR/docker-compose.yml" ]; then
+       docker compose -f "$INSTALL_DIR/docker-compose.yml" down >/dev/null 2>&1 || true
+    fi
+  fi
+
+  show_progress "Removing system configurations..."
   rm -f "/etc/systemd/system/${SERVICE_NAME}.service"
+  rm -f "/etc/logrotate.d/${SERVICE_NAME}"
   systemctl daemon-reload
 
   rm -f "/etc/nginx/sites-enabled/${NGINX_SITE_NAME}" || true
   rm -f "/etc/nginx/sites-available/${NGINX_SITE_NAME}" || true
   systemctl restart nginx || true
 
-  rm -rf "$INSTALL_DIR"
-  echo -e "${GREEN}✅ Panel has been removed.${NC}"
-  pause
-  ok "Uninstalled."
+  show_progress "Cleaning up files..."
+  rm -f "$LOG_FILE"
+  rm -f "${LOG_FILE}.*" 2>/dev/null || true
+
+  # Change directory to home before deleting INSTALL_DIR to avoid "No such file or directory" errors
+  cd "$HOME" || cd /
+
+  if [ -d "$INSTALL_DIR" ]; then
+    rm -rf "$INSTALL_DIR"
+  fi
+
+  echo -e "${GREEN}✅ Full uninstallation completed.${NC}"
+  echo -e "${YELLOW}ℹ️  Returned to: $(pwd)${NC}"
+  
+  # Exit script since it might be deleted
+  exit 0
 }
 
 backup_panel() {
