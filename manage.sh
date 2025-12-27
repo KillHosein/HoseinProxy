@@ -62,11 +62,11 @@ install_dependencies() {
     
     # Wait for package manager lock to be released (max 60 seconds)
     local lock_wait=0
-    while [ $lock_wait -lt 60 ] && { [ -f /var/lib/dpkg/lock-frontend ] || [ -f /var/lib/dpkg/lock ]; }; do
-        info "Waiting for package manager lock to be released... ($lock_wait/60)"
-        sleep 2
-        ((lock_wait++))
-    done
+    while pgrep -x apt >/dev/null || pgrep -x apt-get >/dev/null || pgrep -x dpkg >/dev/null; do
+    info "Waiting for active apt/dpkg process to finish..."
+    sleep 2
+done
+
     
     # Kill any hanging apt processes if lock persists
     if [ -f /var/lib/dpkg/lock-frontend ]; then
