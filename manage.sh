@@ -268,7 +268,8 @@ enable_bbr() {
   show_progress "🚀 Enabling TCP BBR..."
   
   if grep -q "net.core.default_qdisc=fq" /etc/sysctl.conf && grep -q "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.conf; then
-    whiptail --msgbox "✅ TCP BBR is already enabled." 10 70
+    echo -e "${GREEN}✅ TCP BBR is already enabled.${NC}"
+    pause
     ok "TCP BBR already enabled."
     return 0
   fi
@@ -277,13 +278,14 @@ enable_bbr() {
   echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
   sysctl -p >>"$LOG_FILE" 2>&1
   
-  whiptail --msgbox "✅ TCP BBR enabled successfully." 10 70
+  echo -e "${GREEN}✅ TCP BBR enabled successfully.${NC}"
+  pause
   ok "TCP BBR enabled."
 }
 
 configure_firewall() {
   if ! require_cmd ufw; then
-    if whiptail --title "🔥 Firewall" --yesno "UFW is not installed. Install it?" 10 70; then
+    if ask_yesno "UFW is not installed. Install it?" "Y"; then
       apt-get install -y ufw >>"$LOG_FILE" 2>&1
     else
       return 1
@@ -304,7 +306,8 @@ configure_firewall() {
     echo "y" | ufw enable >>"$LOG_FILE" 2>&1
   fi
   
-  whiptail --msgbox "✅ Firewall configured (SSH, HTTP, HTTPS, Panel Port)." 10 70
+  echo -e "${GREEN}✅ Firewall configured (SSH, HTTP, HTTPS, Panel Port).${NC}"
+  pause
   ok "Firewall configured."
 }
 
@@ -417,8 +420,8 @@ install_panel() {
   fi
 
   local admin_user admin_pass
-  admin_user="$(whiptail --inputbox "👤 Admin Username:" 10 70 "admin" 3>&1 1>&2 2>&3 || true)"
-  admin_pass="$(whiptail --passwordbox "🔑 Admin Password:" 10 70 3>&1 1>&2 2>&3 || true)"
+  ask_input "👤 Admin Username" "admin" admin_user
+  ask_password "🔑 Admin Password" admin_pass
 
   [ -n "${admin_user:-}" ] || die "Admin username cannot be empty."
   [ -n "${admin_pass:-}" ] || die "Admin password cannot be empty."
@@ -490,14 +493,18 @@ EOF
 
   local ip
   ip="$(get_public_ip)"
-  whiptail --title "✅ Installation Complete" --msgbox \
-"Panel installed successfully!
-
-🌐 Panel URL: http://${ip}:${NGINX_PORT}
-👤 Username: ${admin_user}
-
-Logs: ${LOG_FILE}" 13 72
-
+  
+  echo -e "\n${GREEN}✅ Installation Complete!${NC}"
+  echo "-------------------------------------"
+  echo -e "🌐 Panel URL: http://${ip}:${NGINX_PORT}"
+  echo -e "👤 Username: ${admin_user}"
+  echo -e "📄 Logs: ${LOG_FILE}"
+  
+  if ask_yesno "Do you want to configure SSL (HTTPS) now?" "Y"; then
+    configure_ssl
+  fi
+  
+  pause
   ok "Installation finished."
 }
 
@@ -522,23 +529,27 @@ update_panel() {
   fi
 
   if [ "$local_rev" = "$remote_rev" ] && [ "${1:-}" != "force" ]; then
-    whiptail --title "✅ Up to date" --msgbox "Your system is already up to date." 10 70
+    echo -e "${GREEN}✅ Your system is already up to date.${NC}"
+    pause
     ok "Already up to date."
     return 0
   fi
 
-  if [ "${1:-}" = "force" ] || whiptail --title "♻️ Update Available" --yesno "A new version is available. Update now?" 10 70; then
+  if [ "${1:-}" = "force" ] || ask_yesno "A new version is available. Update now?" "Y"; then
     info "Updating..."
     git reset --hard >>"$LOG_FILE" 2>&1
     git pull >>"$LOG_FILE" 2>&1
     systemctl restart "$SERVICE_NAME" || true
-    [ "${1:-}" = "force" ] || whiptail --title "✅ Success" --msgbox "Update completed successfully." 10 70
+    if [ "${1:-}" != "force" ]; then
+        echo -e "${GREEN}✅ Update completed successfully.${NC}"
+        pause
+    fi
     ok "Update completed."
   fi
 }
 
 uninstall_panel() {
-  if ! whiptail --title "🗑️ Uninstall Panel" --yesno "WARNING: All panel data will be deleted.\nContinue?" 10 70; then
+  if ! ask_yesno "WARNING: All panel data will be deleted. Continue?" "N"; then
     return 0
   fi
 
@@ -553,7 +564,8 @@ uninstall_panel() {
   systemctl restart nginx || true
 
   rm -rf "$INSTALL_DIR"
-  whiptail --title "✅ Done" --msgbox "Panel has been removed." 10 70
+  echo -e "${GREEN}✅ Panel has been removed.${NC}"
+  pause
   ok "Uninstalled."
 }
 
@@ -565,16 +577,18 @@ backup_panel() {
   show_progress "💾 Creating backup..."
   tar -czf "$file" -C "$INSTALL_DIR" --exclude='venv' --exclude='__pycache__' panel >>"$LOG_FILE" 2>&1
 
-  whiptail --title "✅ Backup Created" --msgbox "Backup saved to:\n${file}" 10 70
+  echo -e "${GREEN}✅ Backup created: ${file}${NC}"
+  pause
   ok "Backup: $file"
 }
 
 restore_panel() {
   local file
-  file="$(whiptail --inputbox "Backup file path:" 10 70 "$BACKUP_DIR/" 3>&1 1>&2 2>&3 || true)"
+  ask_input "Backup file path" "$BACKUP_DIR/" file
 
   if [ ! -f "${file:-}" ]; then
-    whiptail --title "❌ Error" --msgbox "File not found." 10 70
+    echo -e "${RED}❌ File not found.${NC}"
+    pause
     return 1
   fi
 
@@ -583,7 +597,8 @@ restore_panel() {
   tar -xzf "$file" -C "$INSTALL_DIR" >>"$LOG_FILE" 2>&1
   systemctl restart "$SERVICE_NAME" >/dev/null 2>&1 || true
 
-  whiptail --title "✅ Restore Complete" --msgbox "Backup restored successfully." 10 70
+  echo -e "${GREEN}✅ Backup restored successfully.${NC}"
+  pause
   ok "Restored from $file"
 }
 
@@ -591,13 +606,15 @@ schedule_updates() {
   local cmd
   cmd="0 3 * * * /bin/bash $INSTALL_DIR/manage.sh update_silent >> $LOG_FILE 2>&1"
 
-  if whiptail --title "⏰ Auto-Update" --yesno "Enable daily auto-update at 03:00?" 10 70; then
+  if ask_yesno "Enable daily auto-update at 03:00?" "Y"; then
     (crontab -l 2>/dev/null | grep -v "update_silent" || true; echo "$cmd") | crontab -
-    whiptail --msgbox "✅ Auto-update enabled." 10 70
+    echo -e "${GREEN}✅ Auto-update enabled.${NC}"
+    pause
     ok "Auto-update enabled."
   else
     (crontab -l 2>/dev/null | grep -v "update_silent" || true) | crontab -
-    whiptail --msgbox "⛔ Auto-update disabled." 10 70
+    echo -e "${YELLOW}⛔ Auto-update disabled.${NC}"
+    pause
     ok "Auto-update disabled."
   fi
 }
@@ -605,13 +622,15 @@ schedule_updates() {
 restart_service() {
   show_progress "🔄 Restarting service..."
   systemctl restart "$SERVICE_NAME" >>"$LOG_FILE" 2>&1 || true
-  whiptail --msgbox "✅ Service restarted." 10 70
+  echo -e "${GREEN}✅ Service restarted.${NC}"
+  pause
   ok "Service restarted."
 }
 
 view_logs() {
-  tail -n 80 "$LOG_FILE" > /tmp/hoseinproxy_manager_tail.log 2>/dev/null || true
-  whiptail --title "📜 Latest Logs" --textbox /tmp/hoseinproxy_manager_tail.log 22 90
+  clear
+  echo -e "${CYAN}📜 Latest Logs (Press q to exit)${NC}"
+  tail -n 100 "$LOG_FILE" | less +G
 }
 
 # ----------------------------
@@ -621,28 +640,30 @@ show_menu() {
   show_header
   get_system_stats
 
-  local menu_text
-  menu_text="📊 Server Dashboard\n"
-  menu_text+="──────────────────────────────\n"
-  menu_text+="▫️ Service:    ${STATUS_PLAIN}\n"
-  menu_text+="▫️ IP Address: ${IP}\n"
-  menu_text+="▫️ Resources:  CPU: ${CPU} | RAM: ${RAM}\n"
-  menu_text+="▫️ Disk:       ${DISK} | Uptime: ${UPTIME}\n"
-  menu_text+="▫️ TCP BBR:    ${BBR_STATUS}\n"
-  menu_text+="\n👇 Select an operation:"
+  echo -e "📊 ${BOLD}Server Dashboard${NC}"
+  echo "──────────────────────────────────────────────────────"
+  echo -e "▫️ Service:    ${STATUS_PLAIN}"
+  echo -e "▫️ IP Address: ${IP}"
+  echo -e "▫️ Resources:  CPU: ${CPU} | RAM: ${RAM}"
+  echo -e "▫️ Disk:       ${DISK} | Uptime: ${UPTIME}"
+  echo -e "▫️ TCP BBR:    ${BBR_STATUS}"
+  echo "──────────────────────────────────────────────────────"
+  
+  echo -e "👇 Select an operation:"
+  echo " 1) 🚀 Install Panel"
+  echo " 2) ♻️  Update Panel"
+  echo " 3) 🗑️  Uninstall Panel"
+  echo " 4) 💾 Backup Data"
+  echo " 5) 📦 Restore Data"
+  echo " 6) ⏰ Auto-Update Config"
+  echo " 7) 🔄 Restart Service"
+  echo " 8) 📜 View Logs"
+  echo " 9) 🛠️  Advanced Tools"
+  echo " 0) 🚪 Exit"
+  echo ""
 
   local option
-  option="$(whiptail --title "$APP_TITLE" --menu "$menu_text" 22 80 10 \
-    "1" "🚀 Install Panel" \
-    "2" "♻️  Update Panel" \
-    "3" "🗑️  Uninstall Panel" \
-    "4" "💾 Backup Data" \
-    "5" "📦 Restore Data" \
-    "6" "⏰ Auto-Update Config" \
-    "7" "🔄 Restart Service" \
-    "8" "📜 View Logs" \
-    "9" "🛠️ Advanced Tools" \
-    "0" "🚪 Exit" 3>&1 1>&2 2>&3 || true)"
+  ask_input "Choose an option" "" option
 
   case "${option:-}" in
     1) install_panel ;;
@@ -655,6 +676,7 @@ show_menu() {
     8) view_logs ;;
     9) advanced_tools ;;
     0|"") exit 0 ;;
+    *) echo -e "${RED}Invalid option.${NC}"; sleep 1 ;;
   esac
 }
 
@@ -662,7 +684,6 @@ show_menu() {
 # Entry Point
 # ----------------------------
 check_root
-ensure_whiptail
 
 if [ "${1:-}" = "update_silent" ]; then
   update_panel force
