@@ -67,45 +67,28 @@ def logs():
     except:
         return jsonify({'content': 'Log file not found.'})
 
+from app.services.backup_service import BackupService
+
 @system_bp.route('/backup', methods=['POST'])
 @login_required
 def backup():
     try:
-        # Assuming app is in panel/app/.. so we go up two levels to find root panel dir?
-        # Current file is panel/app/routes/system.py
-        # Root is panel/
+        # Initialize Service
+        app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # panel/app/.. -> panel/
+        service = BackupService(app_root)
         
-        # Or better, use app.root_path or __file__ relative.
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # panel/
+        file_path, filename = service.create_backup()
         
-        backup_dir = os.path.join(base_dir, 'backups')
-        if not os.path.exists(backup_dir):
-            os.makedirs(backup_dir)
-            
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"hoseinproxy_backup_{timestamp}.tar.gz"
-        backup_file = os.path.join(backup_dir, filename)
-        
-        with tarfile.open(backup_file, "w:gz") as tar:
-            # Critical files
-            if os.path.exists(os.path.join(base_dir, 'panel.db')):
-                tar.add(os.path.join(base_dir, 'panel.db'), arcname='panel.db')
-            if os.path.exists(os.path.join(base_dir, 'app.py')): # Old app.py, maybe should backup run.py too
-                tar.add(os.path.join(base_dir, 'app.py'), arcname='app.py')
-            if os.path.exists(os.path.join(base_dir, 'requirements.txt')):
-                tar.add(os.path.join(base_dir, 'requirements.txt'), arcname='requirements.txt')
-            if os.path.exists(os.path.join(base_dir, 'secret.key')):
-                tar.add(os.path.join(base_dir, 'secret.key'), arcname='secret.key')
-                
-        # Send to Telegram
+        # Send to Telegram (Optional)
         bot_token = get_valid_bot_token()
         chat_id = get_setting('telegram_chat_id')
         sent_to_telegram = False
         
         if bot_token and chat_id:
             try:
-                with open(backup_file, 'rb') as f:
+                with open(file_path, 'rb') as f:
                     url = f"https://api.telegram.org/bot{bot_token}/sendDocument"
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     data = {'chat_id': chat_id, 'caption': f'📦 Backup: {filename}\n📅 {timestamp}'}
                     files = {'document': f}
                     resp = requests.post(url, data=data, files=files, timeout=30)
@@ -114,20 +97,11 @@ def backup():
             except Exception as e:
                 print(f"Telegram Upload Error: {e}")
 
-        # Cleanup old backups
-        try:
-            files = sorted([os.path.join(backup_dir, f) for f in os.listdir(backup_dir) if f.endswith('.tar.gz')], key=os.path.getmtime)
-            while len(files) > 5:
-                os.remove(files[0])
-                files.pop(0)
-        except:
-            pass
-            
-        msg = 'نسخه پشتیبان ایجاد شد.'
+        msg = 'نسخه پشتیبان کامل ایجاد شد.'
         if sent_to_telegram:
             msg += ' و به تلگرام ارسال شد.'
             
-        return jsonify({'status': 'success', 'path': backup_file, 'filename': filename, 'message': msg})
+        return jsonify({'status': 'success', 'path': file_path, 'filename': filename, 'message': msg})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 
@@ -135,9 +109,9 @@ def backup():
 @login_required
 def download_backup(filename):
     try:
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        backup_dir = os.path.join(base_dir, 'backups')
-        return send_from_directory(backup_dir, filename, as_attachment=True)
+        app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        service = BackupService(app_root)
+        return send_from_directory(service.backup_dir, filename, as_attachment=True)
     except Exception as e:
         flash(f'خطا در دانلود فایل: {e}', 'danger')
         return redirect(url_for('system.page'))
@@ -159,22 +133,20 @@ def restore():
         backup_path = f"/tmp/{file.filename}"
         file.save(backup_path)
         
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        
-        with tarfile.open(backup_path, "r:gz") as tar:
-            names = tar.getnames()
-            if 'panel.db' not in names and './panel.db' not in names:
-                 return jsonify({'status': 'error', 'message': 'فایل بکاپ معتبر نیست (panel.db یافت نشد).'})
+        try:
+            app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            service = BackupService(app_root)
+            service.restore_backup(backup_path)
             
-            tar.extract('panel.db', path=base_dir)
+            # Restart Service
+            service.restart_service()
             
-        os.remove(backup_path)
-        
-        # Restart Service
-        subprocess.Popen(['systemctl', 'restart', 'hoseinproxy'])
-        
-        flash('بکاپ با موفقیت بازگردانی شد. سرویس در حال ریستارت است...', 'success')
-        return jsonify({'status': 'success'})
+            flash('بکاپ با موفقیت بازگردانی شد. سرویس در حال ریستارت است...', 'success')
+            return jsonify({'status': 'success'})
+            
+        finally:
+            if os.path.exists(backup_path):
+                os.remove(backup_path)
         
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})

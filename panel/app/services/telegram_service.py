@@ -97,6 +97,61 @@ def clear_state(chat_id):
     if chat_id in _user_states:
         del _user_states[chat_id]
 
+def sync_proxies(app):
+    """Restores/Syncs proxy containers from DB"""
+    with app.app_context():
+        try:
+            proxies = Proxy.query.filter_by(status='running').all()
+            created_count = 0
+            for p in proxies:
+                try:
+                    # Check if container exists
+                    exists = False
+                    if docker_client and p.container_id:
+                        try:
+                            c = docker_client.containers.get(p.container_id)
+                            if c.status == 'running':
+                                exists = True
+                            elif c.status != 'running':
+                                c.start()
+                                exists = True
+                        except docker.errors.NotFound:
+                            pass
+                        except Exception:
+                            pass
+                    
+                    if exists: continue
+
+                    # Recreate
+                    if docker_client:
+                        ports_config = {'443/tcp': p.port}
+                        if p.proxy_ip:
+                             ports_config = {'443/tcp': (p.proxy_ip, p.port)}
+
+                        c = docker_client.containers.run(
+                            "telegrammessenger/proxy",
+                            detach=True,
+                            ports=ports_config,
+                            environment={
+                                'SECRET': p.secret,
+                                'TAG': p.tag,
+                                'WORKERS': p.workers
+                            },
+                            restart_policy={"Name": "always"},
+                            name=f"mtproto_{p.port}"
+                        )
+                        p.container_id = c.id
+                        created_count += 1
+                except Exception as e:
+                    print(f"Failed to sync proxy {p.port}: {e}")
+            
+            if created_count > 0:
+                db.session.commit()
+            return created_count
+        except Exception as e:
+            print(f"Sync Proxies Error: {e}")
+            return 0
+
 # --- Bot Runner ---
 def run_telegram_bot(app):
     # Try to acquire a lock to ensure only one instance runs (for Gunicorn)
@@ -384,73 +439,122 @@ def run_telegram_bot(app):
             msg = "⚙️ <b>تنظیمات</b>\n\nهم‌اکنون فقط از طریق پنل وب قابل دسترسی است."
             bot.reply_to(message, msg, parse_mode='HTML')
 
-        # --- Backup ---
+        # --- Backup & Restore ---
         @bot.message_handler(func=lambda m: m.text == "📦 بکاپ")
-        def backup_handler(message):
+        def backup_menu(message):
             if not is_admin(message.chat.id, app): return
-            wait_msg = bot.reply_to(message, "⏳ در حال تهیه نسخه پشتیبان... لطفاً صبر کنید.")
-            try:
-                import tarfile
-                with app.app_context():
-                    # Calculate paths
-                    # __file__ = panel/app/services/telegram_service.py
-                    # dirname(dirname(dirname(__file__))) = panel/
-                    panel_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                    backup_dir = os.path.join(panel_dir, 'backups')
-                    
-                    if not os.path.exists(backup_dir): 
-                        os.makedirs(backup_dir)
-                    
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"hoseinproxy_backup_{timestamp}.tar.gz"
-                    backup_path = os.path.join(backup_dir, filename)
-                    
-                    # Files to backup
-                    # Check for panel.db in panel_dir or current working directory
-                    db_path = os.path.join(panel_dir, 'panel.db')
-                    if not os.path.exists(db_path):
-                        cwd_db = os.path.join(os.getcwd(), 'panel.db')
-                        if os.path.exists(cwd_db):
-                            db_path = cwd_db
-                    
-                    files_to_backup = [
-                        ('panel.db', db_path),
-                        ('secret.key', os.path.join(panel_dir, 'secret.key')),
-                        ('config.env', os.path.join(os.path.dirname(panel_dir), 'config.env')),
-                    ]
-                    
-                    added_count = 0
-                    with tarfile.open(backup_path, "w:gz") as tar:
-                        for arcname, fullpath in files_to_backup:
-                            if os.path.exists(fullpath):
-                                tar.add(fullpath, arcname=arcname)
-                                added_count += 1
-                            else:
-                                print(f"Backup Warning: File not found: {fullpath}")
-                    
-                    if added_count == 0:
-                        bot.edit_message_text("❌ هیچ فایلی برای بکاپ یافت نشد.", message.chat.id, wait_msg.message_id)
-                        return
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("📥 دانلود بکاپ", callback_data="backup_download"),
+                       types.InlineKeyboardButton("📤 بازیابی (Restore)", callback_data="backup_restore"))
+            bot.reply_to(message, "📦 <b>مدیریت پشتیبان‌گیری</b>\n\nلطفاً یک گزینه را انتخاب کنید:\n\n• <b>دانلود بکاپ:</b> دریافت فایل کامل اطلاعات.\n• <b>بازیابی:</b> آپلود فایل بکاپ جهت بازگردانی اطلاعات.", reply_markup=markup, parse_mode='HTML')
 
-                    if not os.path.exists(backup_path) or os.path.getsize(backup_path) == 0:
-                        bot.edit_message_text("❌ فایل بکاپ ایجاد نشد یا خالی است.", message.chat.id, wait_msg.message_id)
+        @bot.callback_query_handler(func=lambda call: call.data == "backup_download")
+        def do_backup_callback(call):
+            if not is_admin(call.message.chat.id, app): return
+            wait_msg = bot.send_message(call.message.chat.id, "⏳ در حال تهیه نسخه پشتیبان... لطفاً صبر کنید.")
+            try:
+                from app.services.backup_service import BackupService
+                
+                with app.app_context():
+                    # Initialize Service
+                    # telegram_service.py is in panel/app/services/
+                    # we need panel/ (root of panel app)
+                    # panel/app/services/../../ -> panel/
+                    panel_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                    service = BackupService(panel_dir)
+                    
+                    file_path, filename = service.create_backup()
+                    
+                    if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
+                        bot.edit_message_text("❌ فایل بکاپ ایجاد نشد یا خالی است.", call.message.chat.id, wait_msg.message_id)
                         return
                     
                     # Send file
-                    with open(backup_path, 'rb') as f:
+                    with open(file_path, 'rb') as f:
                         bot.send_document(
-                            message.chat.id, 
+                            call.message.chat.id, 
                             f, 
-                            caption=f"📦 <b>نسخه پشتیبان کامل</b>\n📅 تاریخ: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n🔐 شامل دیتابیس و کلیدهای امنیتی",
+                            caption=f"📦 <b>نسخه پشتیبان کامل</b>\n📅 تاریخ: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n🔐 شامل دیتابیس، تنظیمات و کلیدهای امنیتی",
                             parse_mode='HTML',
                             timeout=120
                         )
                     
-                    bot.delete_message(message.chat.id, wait_msg.message_id)
+                    bot.delete_message(call.message.chat.id, wait_msg.message_id)
+                    bot.answer_callback_query(call.id, "بکاپ ارسال شد.")
                     
             except Exception as e:
-                bot.edit_message_text(f"❌ خطا در تهیه بکاپ:\n{str(e)}", message.chat.id, wait_msg.message_id)
+                bot.edit_message_text(f"❌ خطا در تهیه بکاپ:\n{str(e)}", call.message.chat.id, wait_msg.message_id)
                 print(f"Backup Error: {e}")
+
+        @bot.callback_query_handler(func=lambda call: call.data == "backup_restore")
+        def ask_restore_callback(call):
+             if not is_admin(call.message.chat.id, app): return
+             set_state(call.message.chat.id, 'waiting_restore_file')
+             bot.send_message(call.message.chat.id, "📤 لطفاً فایل بکاپ (.tar.gz) خود را ارسال کنید:", reply_markup=back_keyboard())
+             bot.answer_callback_query(call.id)
+
+        @bot.message_handler(content_types=['document'])
+        def handle_restore_file(message):
+            state = get_state(message.chat.id)
+            if not state or state.get('step') != 'waiting_restore_file':
+                return
+            
+            if not is_admin(message.chat.id, app): return
+            
+            wait_msg = bot.reply_to(message, "⏳ در حال دانلود و بررسی فایل...")
+            
+            temp_path = None
+            try:
+                file_info = bot.get_file(message.document.file_id)
+                downloaded_file = bot.download_file(file_info.file_path)
+                
+                # Create temp file
+                temp_path = os.path.join(os.getcwd(), 'restore_upload.tar.gz')
+                
+                with open(temp_path, 'wb') as new_file:
+                    new_file.write(downloaded_file)
+                
+                import tarfile
+                if not tarfile.is_tarfile(temp_path):
+                    bot.edit_message_text("❌ فایل ارسال شده معتبر نیست (باید tar.gz باشد).", message.chat.id, wait_msg.message_id)
+                    if os.path.exists(temp_path): os.remove(temp_path)
+                    return
+
+                # Restore using Service
+                from app.services.backup_service import BackupService
+                
+                # Close DB connections before restore
+                db.session.remove()
+                try:
+                    db.engine.dispose()
+                except: pass
+                
+                panel_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                service = BackupService(panel_dir)
+                
+                service.restore_backup(temp_path)
+                
+                if os.path.exists(temp_path): os.remove(temp_path)
+                
+                bot.edit_message_text("✅ فایل‌ها جایگزین شدند. در حال همگام‌سازی پروکسی‌ها...", message.chat.id, wait_msg.message_id)
+                
+                # Sync Proxies
+                synced = sync_proxies(app)
+                
+                bot.send_message(message.chat.id, f"✅ <b>بازیابی با موفقیت انجام شد!</b>\n\n🔄 دیتابیس و تنظیمات بازیابی شدند.\n🚀 تعداد {synced} پروکسی همگام‌سازی شدند.\n\n⚠️ سرویس به زودی ریستارت می‌شود...", parse_mode='HTML')
+                clear_state(message.chat.id)
+                
+                # Restart Service after short delay to allow message sending
+                def delayed_restart():
+                    time.sleep(2)
+                    service.restart_service()
+                
+                import threading
+                threading.Thread(target=delayed_restart).start()
+            
+            except Exception as e:
+                bot.edit_message_text(f"❌ خطا در بازیابی:\n{e}", message.chat.id, wait_msg.message_id)
+                if temp_path and os.path.exists(temp_path): os.remove(temp_path)
 
         # --- State Handlers (Wizard Logic) ---
         @bot.message_handler(func=lambda m: get_state(m.chat.id) is not None)
