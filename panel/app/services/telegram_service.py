@@ -78,7 +78,7 @@ def firewall_menu_keyboard():
 def users_menu_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     markup.add("📋 لیست مدیران", "➕ افزودن مدیر")
-    markup.add("🔙 بازگشت")
+    markup.add("🗑️ حذف مدیر", "🔙 بازگشت")
     return markup
 
 # --- Helper Logic ---
@@ -147,6 +147,33 @@ def run_telegram_bot(app):
         def go_back(message):
             clear_state(message.chat.id)
             bot.reply_to(message, "منوی اصلی:", reply_markup=main_menu_keyboard())
+
+        @bot.message_handler(func=lambda m: m.text == "📜 لاگ سیستم")
+        def show_logs(message):
+            if not is_admin(message.chat.id, app): return
+            try:
+                log_path = '/var/log/hoseinproxy_manager.log'
+                if not os.path.exists(log_path):
+                    bot.reply_to(message, "❌ فایل لاگ یافت نشد.")
+                    return
+                
+                # Read last 15 lines
+                lines = []
+                with open(log_path, 'r') as f:
+                    # Simple efficient tail
+                    f.seek(0, 2)
+                    fsize = f.tell()
+                    f.seek(max(fsize - 4096, 0), 0)
+                    lines = f.readlines()[-15:]
+                
+                log_content = "".join(lines)
+                # Escape HTML
+                log_content = log_content.replace("<", "&lt;").replace(">", "&gt;")
+                
+                msg = f"📜 <b>System Logs (Last 15 lines):</b>\n\n<pre>{log_content}</pre>"
+                bot.reply_to(message, msg, parse_mode='HTML')
+            except Exception as e:
+                bot.reply_to(message, f"Error: {e}")
 
         # --- System Status ---
         @bot.message_handler(func=lambda m: m.text == "📊 وضعیت سیستم")
@@ -329,6 +356,26 @@ def run_telegram_bot(app):
             if not is_admin(message.chat.id, app): return
             set_state(message.chat.id, 'add_user_name')
             bot.reply_to(message, "👤 نام کاربری جدید را وارد کنید:", reply_markup=back_keyboard())
+
+        @bot.message_handler(func=lambda m: m.text == "🗑️ حذف مدیر")
+        def delete_user_step1(message):
+            if not is_admin(message.chat.id, app): return
+            
+            with app.app_context():
+                users = User.query.all()
+                if not users:
+                    bot.reply_to(message, "❌ کاربری یافت نشد.")
+                    return
+                
+                markup = types.InlineKeyboardMarkup()
+                for u in users:
+                    # Don't allow deleting self? Assuming current chat_id is mapped to a user?
+                    # But telegram_chat_id is in Settings, not User model directly linked often.
+                    # Just list all.
+                    markup.add(types.InlineKeyboardButton(f"❌ {u.username}", callback_data=f"deluser_{u.id}"))
+                
+                markup.add(types.InlineKeyboardButton("🔙 بازگشت", callback_data="back_users"))
+                bot.reply_to(message, "👤 کاربری که می‌خواهید حذف کنید را انتخاب نمایید:", reply_markup=markup)
 
         # --- Settings ---
         @bot.message_handler(func=lambda m: m.text == "⚙️ تنظیمات")
@@ -640,18 +687,27 @@ def run_telegram_bot(app):
                 markup.add(types.InlineKeyboardButton("🏷️ تگ", callback_data=f"edittag_{pid}"),
                            types.InlineKeyboardButton("⏳ انقضا", callback_data=f"editexp_{pid}"))
                 markup.add(types.InlineKeyboardButton("💾 حجم", callback_data=f"editquota_{pid}"),
-                           types.InlineKeyboardButton("🔙 بازگشت", callback_data=f"p_{pid}"))
+                           types.InlineKeyboardButton("🔑 سکرت", callback_data=f"newsec_{pid}"))
+                markup.add(types.InlineKeyboardButton("🔙 بازگشت", callback_data=f"p_{pid}"))
                 
                 bot.edit_message_text("✏️ چه چیزی را می‌خواهید ویرایش کنید؟", call.message.chat.id, call.message.message_id, reply_markup=markup)
             except Exception as e:
                 print(f"Edit Menu Error: {e}")
 
-        @bot.callback_query_handler(func=lambda call: call.data.startswith(('edittag_', 'editexp_', 'editquota_')))
+        @bot.callback_query_handler(func=lambda call: call.data.startswith(('edittag_', 'editexp_', 'editquota_', 'newsec_')))
         def edit_proxy_field(call):
             if not is_admin(call.message.chat.id, app): return
             action, pid = call.data.split('_')
             pid = int(pid)
             
+            if action == 'newsec':
+                markup = types.InlineKeyboardMarkup()
+                markup.add(types.InlineKeyboardButton("✅ بله، تغییر سکرت", callback_data=f"confirmsec_{pid}"),
+                           types.InlineKeyboardButton("❌ خیر", callback_data=f"edit_{pid}"))
+                bot.edit_message_text("⚠️ <b>آیا از تغییر سکرت اطمینان دارید؟</b>\nکاربران فعلی قطع خواهند شد.", 
+                                      call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode='HTML')
+                return
+
             if action == 'edittag':
                 set_state(call.message.chat.id, 'edit_proxy_tag', {'id': pid})
                 bot.send_message(call.message.chat.id, "🏷️ تگ جدید را وارد کنید (یا 'none' برای حذف):", reply_markup=back_keyboard())
@@ -727,6 +783,34 @@ def run_telegram_bot(app):
             # Simpler: just acknowledge
             bot.answer_callback_query(call.id, "منو را از کیبورد انتخاب کنید.")
 
+        @bot.callback_query_handler(func=lambda call: call.data == "back_users")
+        def back_users_callback(call):
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+            bot.answer_callback_query(call.id, "منوی مدیریت کاربران")
+
+        @bot.callback_query_handler(func=lambda call: call.data.startswith('deluser_'))
+        def delete_user_callback(call):
+            if not is_admin(call.message.chat.id, app): return
+            uid = int(call.data.split('_')[1])
+            with app.app_context():
+                u = User.query.get(uid)
+                if u:
+                    if u.username == 'admin': # Protect main admin if named 'admin'
+                         bot.answer_callback_query(call.id, "❌ امکان حذف کاربر اصلی وجود ندارد.")
+                         return
+                    db.session.delete(u)
+                    db.session.commit()
+                    bot.answer_callback_query(call.id, f"کاربر {u.username} حذف شد.")
+                    # Refresh list
+                    users = User.query.all()
+                    markup = types.InlineKeyboardMarkup()
+                    for u in users:
+                        markup.add(types.InlineKeyboardButton(f"❌ {u.username}", callback_data=f"deluser_{u.id}"))
+                    markup.add(types.InlineKeyboardButton("🔙 بازگشت", callback_data="back_users"))
+                    bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=markup)
+                else:
+                    bot.answer_callback_query(call.id, "کاربر یافت نشد.")
+
         @bot.callback_query_handler(func=lambda call: call.data.startswith('del_'))
         def confirm_delete_proxy(call):
             if not is_admin(call.message.chat.id, app): return
@@ -780,7 +864,10 @@ def run_telegram_bot(app):
                     if p.tls_domain:
                         secret = f"ee{p.secret}{p.tls_domain.encode().hex()}"
                     link = f"https://t.me/proxy?server={server_ip}&port={p.port}&secret={secret}"
-                    bot.send_message(call.message.chat.id, f"🔗 <b>لینک اتصال:</b>\n\n<code>{link}</code>", parse_mode='HTML')
+                    
+                    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={link}"
+                    bot.send_photo(call.message.chat.id, qr_url, caption=f"🔗 <b>لینک اتصال:</b>\n\n<code>{link}</code>", parse_mode='HTML')
+                    
                     bot.answer_callback_query(call.id, "لینک ارسال شد.")
                     return
                 
