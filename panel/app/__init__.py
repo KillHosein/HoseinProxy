@@ -66,6 +66,10 @@ def create_app(config_class=Config):
         bot_thread = threading.Thread(target=run_telegram_bot, args=(app,), daemon=True)
         bot_thread.start()
 
+        # Backup Scheduler
+        from app.services.scheduler import start_scheduler
+        start_scheduler(app)
+
     return app
 
 @login_manager.user_loader

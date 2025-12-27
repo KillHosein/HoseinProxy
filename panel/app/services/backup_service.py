@@ -3,8 +3,9 @@ import shutil
 import tarfile
 import subprocess
 import re
+import requests
 from datetime import datetime
-from app.utils.helpers import get_setting
+from app.utils.helpers import get_setting, get_valid_bot_token
 
 class BackupService:
     def __init__(self, app_root):
@@ -18,7 +19,69 @@ class BackupService:
         if not os.path.exists(self.backup_dir):
             os.makedirs(self.backup_dir)
 
-    def create_backup(self):
+    def list_backups(self):
+        """Returns a list of available backups with metadata."""
+        backups = []
+        if not os.path.exists(self.backup_dir):
+            return backups
+            
+        for f in os.listdir(self.backup_dir):
+            if f.endswith('.tar.gz'):
+                path = os.path.join(self.backup_dir, f)
+                size_mb = round(os.path.getsize(path) / (1024 * 1024), 2)
+                mod_time = os.path.getmtime(path)
+                dt = datetime.fromtimestamp(mod_time)
+                
+                backups.append({
+                    'filename': f,
+                    'path': path,
+                    'size_mb': size_mb,
+                    'date': dt.strftime('%Y-%m-%d %H:%M:%S'),
+                    'timestamp': mod_time
+                })
+        
+        # Sort by newest first
+        backups.sort(key=lambda x: x['timestamp'], reverse=True)
+        return backups
+
+    def delete_backup(self, filename):
+        """Deletes a specific backup file."""
+        path = os.path.join(self.backup_dir, filename)
+        if os.path.exists(path) and path.startswith(self.backup_dir):
+            os.remove(path)
+            return True
+        return False
+
+    def send_backup_to_telegram(self, filename, chat_id=None):
+        """Sends a specific backup file to Telegram."""
+        path = os.path.join(self.backup_dir, filename)
+        if not os.path.exists(path):
+            return False, "File not found"
+
+        bot_token = get_valid_bot_token()
+        if not chat_id:
+            chat_id = get_setting('telegram_chat_id')
+
+        if not bot_token or not chat_id:
+            return False, "Telegram not configured"
+
+        try:
+            with open(path, 'rb') as f:
+                url = f"https://api.telegram.org/bot{bot_token}/sendDocument"
+                timestamp = datetime.fromtimestamp(os.path.getmtime(path)).strftime("%Y-%m-%d %H:%M:%S")
+                caption = f'📦 <b>Auto Backup</b>\n📄 File: {filename}\n📅 Date: {timestamp}\n💾 Size: {round(os.path.getsize(path)/1024/1024, 2)} MB'
+                data = {'chat_id': chat_id, 'caption': caption, 'parse_mode': 'HTML'}
+                files = {'document': f}
+                resp = requests.post(url, data=data, files=files, timeout=60)
+                
+                if resp.status_code == 200:
+                    return True, "Sent successfully"
+                else:
+                    return False, f"Telegram API Error: {resp.text}"
+        except Exception as e:
+            return False, str(e)
+
+    def create_backup(self, keep=5):
         """
         Creates a comprehensive backup of the entire project + dependencies.
         Returns: (file_path, filename)
@@ -29,13 +92,9 @@ class BackupService:
         
         with tarfile.open(file_path, "w:gz") as tar:
             # 1. Backup Entire Project Directory (excluding junk)
-            # We add everything in self.project_root to tar root
             exclude_dirs = {'venv', '.git', 'backups', '__pycache__', 'restore_temp', 'static'} 
-            # Note: static is usually safe to backup, but if it contains huge user uploads, exclude it.
-            # Here static is likely small (css/js), so we KEEP it.
             
             for root, dirs, files in os.walk(self.project_root):
-                # Modify dirs in-place to skip excluded ones
                 dirs[:] = [d for d in dirs if d not in exclude_dirs]
                 
                 for file in files:
@@ -43,7 +102,6 @@ class BackupService:
                         continue
                         
                     full_path = os.path.join(root, file)
-                    # Relpath inside tar
                     arcname = os.path.relpath(full_path, self.project_root)
                     tar.add(full_path, arcname=arcname)
             
@@ -56,14 +114,11 @@ class BackupService:
                 ssl_files = self._find_ssl_files(nginx_conf)
                 for f in ssl_files:
                     if os.path.exists(f):
-                        # Add to external/ssl/path/to/file
-                        # arcname needs to be unique to avoid collisions
-                        # We use 'external/ssl' + absolute path stripped of leading slash
                         arcname = 'external/ssl/' + f.lstrip('/')
                         tar.add(f, arcname=arcname)
 
-        # Cleanup old backups (keep last 10)
-        self._cleanup_old_backups()
+        # Cleanup old backups
+        self._cleanup_old_backups(keep)
         
         return file_path, filename
 
@@ -74,7 +129,6 @@ class BackupService:
         if not tarfile.is_tarfile(backup_file_path):
             raise Exception("Invalid backup file format (must be tar.gz)")
 
-        # Create temp extract dir
         extract_dir = os.path.join(self.backup_dir, 'restore_temp')
         if os.path.exists(extract_dir):
             shutil.rmtree(extract_dir)
@@ -85,13 +139,10 @@ class BackupService:
                 tar.extractall(path=extract_dir)
                 
             # 1. Restore Project Files
-            # Walk through extract_dir and copy to project_root
-            # But skip 'external' folder
             for root, dirs, files in os.walk(extract_dir):
                 if 'external' in root.split(os.sep):
                     continue
                 
-                # Relative path from extract_dir
                 rel_path = os.path.relpath(root, extract_dir)
                 target_root = os.path.join(self.project_root, rel_path)
                 
@@ -111,7 +162,6 @@ class BackupService:
                 nginx_src = os.path.join(external_dir, 'nginx_hoseinproxy.conf')
                 if os.path.exists(nginx_src):
                     dst_nginx = "/etc/nginx/sites-available/hoseinproxy"
-                    # Only restore if destination dir exists (to avoid restoring on dev machine randomly)
                     if os.path.exists(os.path.dirname(dst_nginx)):
                          try:
                              shutil.copy2(nginx_src, dst_nginx)
@@ -124,13 +174,9 @@ class BackupService:
                     for root, dirs, files in os.walk(ssl_dir):
                         for file in files:
                             src_file = os.path.join(root, file)
-                            # Reconstruct original absolute path
-                            # src is .../external/ssl/etc/letsencrypt/...
-                            # rel is etc/letsencrypt/...
                             rel = os.path.relpath(src_file, ssl_dir)
-                            dst_file = '/' + rel # /etc/letsencrypt/...
+                            dst_file = '/' + rel 
                             
-                            # Restore only if dir exists (safety)
                             if os.path.exists(os.path.dirname(dst_file)):
                                 try:
                                     shutil.copy2(src_file, dst_file)
@@ -148,7 +194,6 @@ class BackupService:
         try:
             with open(nginx_conf_path, 'r') as f:
                 content = f.read()
-                # Find ssl_certificate /path/to/file;
                 certs = re.findall(r'ssl_certificate\s+([^;]+);', content)
                 keys = re.findall(r'ssl_certificate_key\s+([^;]+);', content)
                 
@@ -158,7 +203,7 @@ class BackupService:
             pass
         return list(files)
 
-    def _cleanup_old_backups(self, keep=10):
+    def _cleanup_old_backups(self, keep=5):
         try:
             files = sorted(
                 [os.path.join(self.backup_dir, f) for f in os.listdir(self.backup_dir) if f.endswith('.tar.gz')],

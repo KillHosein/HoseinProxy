@@ -6,6 +6,7 @@ from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, flash, send_from_directory, redirect, url_for
 from flask_login import login_required
 from app.utils.helpers import get_setting, get_valid_bot_token
+from app.services.backup_service import BackupService
 
 system_bp = Blueprint('system', __name__, url_prefix='/system')
 
@@ -17,7 +18,12 @@ def page():
     except:
         current_version = "Unknown"
         
-    return render_template('pages/admin/system.html', current_version=current_version)
+    # Get Backups
+    app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    service = BackupService(app_root)
+    backups = service.list_backups()
+        
+    return render_template('pages/admin/system.html', current_version=current_version, backups=backups)
 
 @system_bp.route('/check_update', methods=['POST'])
 @login_required
@@ -67,35 +73,29 @@ def logs():
     except:
         return jsonify({'content': 'Log file not found.'})
 
-from app.services.backup_service import BackupService
-
 @system_bp.route('/backup', methods=['POST'])
 @login_required
 def backup():
     try:
-        # Initialize Service
-        app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # panel/app/.. -> panel/
+        app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         service = BackupService(app_root)
         
-        file_path, filename = service.create_backup()
+        file_path, filename = service.create_backup(keep=5)
         
-        # Send to Telegram (Optional)
+        # Send to Telegram if requested (though we have a separate endpoint now, we can keep logic or remove)
+        # User asked for "Send to telegram AND download".
+        # We'll just return success and let UI handle list refresh or offer download.
+        
+        # We can still auto-send if configured, but let's stick to the new "Send" button in list.
+        # However, for manual creation, auto-sending is nice.
+        
         bot_token = get_valid_bot_token()
         chat_id = get_setting('telegram_chat_id')
         sent_to_telegram = False
         
         if bot_token and chat_id:
-            try:
-                with open(file_path, 'rb') as f:
-                    url = f"https://api.telegram.org/bot{bot_token}/sendDocument"
-                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    data = {'chat_id': chat_id, 'caption': f'📦 Backup: {filename}\n📅 {timestamp}'}
-                    files = {'document': f}
-                    resp = requests.post(url, data=data, files=files, timeout=30)
-                    if resp.status_code == 200:
-                        sent_to_telegram = True
-            except Exception as e:
-                print(f"Telegram Upload Error: {e}")
+             success, msg = service.send_backup_to_telegram(filename, chat_id)
+             sent_to_telegram = success
 
         msg = 'نسخه پشتیبان کامل ایجاد شد.'
         if sent_to_telegram:
@@ -115,6 +115,33 @@ def download_backup(filename):
     except Exception as e:
         flash(f'خطا در دانلود فایل: {e}', 'danger')
         return redirect(url_for('system.page'))
+
+@system_bp.route('/delete_backup/<filename>', methods=['POST'])
+@login_required
+def delete_backup(filename):
+    try:
+        app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        service = BackupService(app_root)
+        if service.delete_backup(filename):
+             return jsonify({'status': 'success', 'message': 'بکاپ حذف شد.'})
+        else:
+             return jsonify({'status': 'error', 'message': 'فایل یافت نشد.'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+
+@system_bp.route('/send_backup/<filename>', methods=['POST'])
+@login_required
+def send_backup(filename):
+    try:
+        app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        service = BackupService(app_root)
+        success, msg = service.send_backup_to_telegram(filename)
+        if success:
+             return jsonify({'status': 'success', 'message': 'بکاپ به تلگرام ارسال شد.'})
+        else:
+             return jsonify({'status': 'error', 'message': msg})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
 
 @system_bp.route('/restore', methods=['POST'])
 @login_required
