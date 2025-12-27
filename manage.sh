@@ -33,6 +33,11 @@ success() {
     log "SUCCESS: $1"
 }
 
+warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+    log "WARNING: $1"
+}
+
 error() {
     echo -e "${RED}[ERROR]${NC} $1"
     log "ERROR: $1"
