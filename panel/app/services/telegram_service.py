@@ -524,10 +524,11 @@ def run_telegram_bot(app):
                 from app.services.backup_service import BackupService
                 
                 # Close DB connections before restore
-                db.session.remove()
-                try:
-                    db.engine.dispose()
-                except: pass
+                with app.app_context():
+                     db.session.remove()
+                     try:
+                         db.engine.dispose()
+                     except: pass
                 
                 panel_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
                 service = BackupService(panel_dir)
