@@ -114,7 +114,7 @@ def normalize_tls_domain(raw):
         return None
     if len(d) > 253:
         return None
-    if not re.fullmatch(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$", d):
+    if not re.fullmatch(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]", d):
         return None
     return d
 
@@ -135,10 +135,7 @@ def extract_tls_domain_from_ee_secret(secret):
         return None
     base = payload[:32]
     domain_hex = payload[32:]
-    if not _is_hex(base):
-        return None
-    # Only check domain_hex if it exists and is not empty
-    if domain_hex and (not _is_hex(domain_hex) or len(domain_hex) % 2 != 0):
+    if not _is_hex(base) or not _is_hex(domain_hex) or len(domain_hex) % 2 != 0:
         return None
     try:
         domain_bytes = bytes.fromhex(domain_hex)
@@ -169,7 +166,7 @@ def parse_mtproxy_secret_input(proxy_type, secret, tls_domain=None):
             raise ValueError("Secret در حالت DD باید ۳۲ کاراکتر hex باشد (با یا بدون پیشوند dd).")
         return {"proxy_type": "dd", "base_secret": raw, "tls_domain": None}
 
-    if ptype == "tls" and raw.startswith("ee"):
+    if raw.startswith("ee"):
         payload = raw[2:]
         if len(payload) <= 32:
             raise ValueError("Secret در حالت FakeTLS نامعتبر است.")
@@ -178,7 +175,7 @@ def parse_mtproxy_secret_input(proxy_type, secret, tls_domain=None):
         if not _is_hex(base):
             raise ValueError("Secret در حالت FakeTLS نامعتبر است.")
         extracted = None
-        if domain_hex and _is_hex(domain_hex) and len(domain_hex) % 2 == 0:
+        if _is_hex(domain_hex) and len(domain_hex) % 2 == 0 and domain_hex:
             try:
                 extracted = bytes.fromhex(domain_hex).decode("utf-8", errors="strict")
             except Exception:
@@ -189,27 +186,16 @@ def parse_mtproxy_secret_input(proxy_type, secret, tls_domain=None):
             raise ValueError("دامنه FakeTLS نامعتبر است.")
         return {"proxy_type": "tls", "base_secret": base, "tls_domain": final_domain}
 
-    if ptype == "tls":
-        if not _is_hex(raw) or len(raw) != 32:
-            raise ValueError("Secret در حالت FakeTLS باید ۳۲ کاراکتر hex باشد.")
-        final_domain = normalize_tls_domain(tls_domain) if tls_domain else None
-        if not final_domain:
-            raise ValueError("دامنه FakeTLS نامعتبر است.")
-        return {"proxy_type": "tls", "base_secret": raw, "tls_domain": final_domain}
-    
-    # Fallback for unknown types
-    raise ValueError(f"نوع پروکسی نامعتبر: {ptype}")
+    if not _is_hex(raw) or len(raw) != 32:
+        raise ValueError("Secret در حالت FakeTLS باید ۳۲ کاراکتر hex باشد.")
+    final_domain = normalize_tls_domain(tls_domain) if tls_domain else None
+    if not final_domain:
+        raise ValueError("دامنه FakeTLS نامعتبر است.")
+    return {"proxy_type": "tls", "base_secret": raw, "tls_domain": final_domain}
 
 def format_mtproxy_client_secret(proxy_type, base_secret, tls_domain=None):
     ptype = (proxy_type or "standard").strip().lower()
     base = (base_secret or "").strip().lower()
     if ptype == "dd":
         return "dd" + base
-    if ptype == "tls":
-        # For TLS, construct the full secret with 'ee' prefix and domain
-        domain = normalize_tls_domain(tls_domain) if tls_domain else None
-        if domain:
-            domain_hex = domain.encode('utf-8').hex()
-            return "ee" + base + domain_hex
-        return "ee" + base
     return base

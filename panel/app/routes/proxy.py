@@ -32,14 +32,8 @@ def _assert_container_running(container):
         except Exception:
             pass
         raise RuntimeError(f"container_status={status}\n{logs}".strip())
-    except RuntimeError:
-        # Only re-raise RuntimeError (which we raised ourselves for bad status)
+    except Exception:
         raise
-    except Exception as e:
-        # For other exceptions (network issues, etc), just log and continue
-        # The container might still be starting up
-        print(f"Warning: Could not check container status: {e}")
-        return
 
 @proxy_bp.route('/add', methods=['POST'])
 @login_required
@@ -75,24 +69,9 @@ def add():
     proxy_type = parsed["proxy_type"]
     base_secret = parsed["base_secret"]
     tls_domain = parsed["tls_domain"]
-    
-    # Use custom fake TLS image for TLS proxies
     if proxy_type == "tls":
-        image_name = "mtproxy-faketls:latest"
-        environment = {
-            'SECRET': base_secret,
-            'TLS_DOMAIN': tls_domain,
-            'TAG': tag,
-            'WORKERS': workers,
-            'PORT': port  # Add port for Fake TLS
-        }
-    else:
-        image_name = _mtproxy_image()
-        environment = {
-            'SECRET': base_secret,
-            'TAG': tag,
-            'WORKERS': workers
-        }
+        flash('FakeTLS با ایمیج فعلی پشتیبانی نمی‌شود. از Standard یا DD استفاده کنید.', 'danger')
+        return redirect(url_for('main.dashboard'))
 
     if not port:
          flash('شماره پورت الزامی است.', 'danger')
@@ -104,32 +83,25 @@ def add():
 
     if docker_client:
         try:
-            # Configure ports
-            # Both standard and Fake TLS images listen on port 443 inside the container
             ports_config = {'443/tcp': port}
             if proxy_ip:
                 ports_config = {'443/tcp': (proxy_ip, port)}
 
             container = docker_client.containers.run(
-                image_name,
+                _mtproxy_image(),
                 detach=True,
                 ports=ports_config,
-                environment=environment,
+                environment={
+                    'SECRET': base_secret,
+                    'TAG': tag,
+                    'WORKERS': workers
+                },
                 restart_policy={"Name": "always"},
                 name=f"mtproto_{port}"
             )
 
-            time.sleep(2)  # Give container more time to start
-            try:
-                _assert_container_running(container)
-            except RuntimeError as e:
-                # If container failed to start, clean up and show error
-                try:
-                    container.stop()
-                    container.remove()
-                except:
-                    pass
-                raise RuntimeError(f"Container failed to start properly: {e}")
+            time.sleep(0.2)
+            _assert_container_running(container)
             
             new_proxy = Proxy(
                 port=port,
@@ -204,9 +176,6 @@ def bulk_create():
                 restart_policy={"Name": "always"},
                 name=f"mtproto_{current_port}"
             )
-            
-            # Give container time to start
-            time.sleep(1)
             
             p_name = None
             if base_name:
@@ -306,29 +275,19 @@ def update(id):
         if new_secret and new_secret != proxy.secret:
             s0 = new_secret.strip().lower()
             requested_type = inferred_type
-            
-            # Handle fake TLS secrets
-            if s0.startswith("ee") and inferred_type == "tls":
-                parsed = parse_mtproxy_secret_input(requested_type, new_secret, tls_domain=inferred_domain or new_tls_domain_raw)
-                changes.append("Secret changed (FakeTLS)")
-                proxy.secret = parsed["base_secret"]
-                proxy.proxy_type = parsed["proxy_type"]
-                proxy.tls_domain = parsed["tls_domain"]
-                inferred_type = proxy.proxy_type
-                inferred_domain = proxy.tls_domain
-                recreate_container = True
-            elif s0.startswith("ee") and inferred_type != "tls":
-                flash('Secret FakeTLS نیازمند نوع پروکسی TLS است.', 'danger')
+            if s0.startswith("ee"):
+                flash('FakeTLS با ایمیج فعلی پشتیبانی نمی‌شود. از Standard یا DD استفاده کنید.', 'danger')
                 return redirect(url_for('main.dashboard'))
-            else:
-                parsed = parse_mtproxy_secret_input(requested_type, new_secret, tls_domain=inferred_domain or new_tls_domain_raw)
-                changes.append("Secret changed")
-                proxy.secret = parsed["base_secret"]
-                proxy.proxy_type = parsed["proxy_type"]
-                proxy.tls_domain = parsed["tls_domain"]
-                inferred_type = proxy.proxy_type
-                inferred_domain = proxy.tls_domain
-                recreate_container = True
+            elif s0.startswith("dd"):
+                requested_type = "dd"
+            parsed = parse_mtproxy_secret_input(requested_type, new_secret, tls_domain=inferred_domain or new_tls_domain_raw)
+            changes.append("Secret changed")
+            proxy.secret = parsed["base_secret"]
+            proxy.proxy_type = parsed["proxy_type"]
+            proxy.tls_domain = parsed["tls_domain"]
+            inferred_type = proxy.proxy_type
+            inferred_domain = proxy.tls_domain
+            recreate_container = True
             
         # Standard Update fields
         if tag != proxy.tag:
@@ -368,9 +327,9 @@ def update(id):
         if new_status and new_status != proxy.status:
             if new_status == 'stopped':
                 if docker_client and proxy.container_id:
-                    try:
+                     try:
                         docker_client.containers.get(proxy.container_id).stop()
-                    except: pass
+                     except: pass
                 proxy.status = 'stopped'
                 changes.append("Stopped")
             elif new_status == 'running':
@@ -378,73 +337,48 @@ def update(id):
                 if not recreate_container:
                     if docker_client and proxy.container_id:
                         try:
-                            docker_client.containers.get(proxy.container_id).start()
+                           docker_client.containers.get(proxy.container_id).start()
                         except: pass
                     proxy.status = 'running'
                     changes.append("Started")
 
         # Apply Recreate if needed
         if recreate_container and proxy.status != 'stopped':
-            if docker_client:
-                try:
-                    # Remove old
-                    if proxy.container_id:
-                        try:
-                            old_c = docker_client.containers.get(proxy.container_id)
-                            old_c.remove(force=True)
-                        except: pass
-                    
-                    # Create new with appropriate image
-                    # Both standard and Fake TLS images listen on port 443 inside the container
-                    ports_config = {'443/tcp': proxy.port}
-                    if proxy.proxy_ip:
-                        ports_config = {'443/tcp': (proxy.proxy_ip, proxy.port)}
+             if docker_client:
+                 try:
+                     # Remove old
+                     if proxy.container_id:
+                         try:
+                             old_c = docker_client.containers.get(proxy.container_id)
+                             old_c.remove(force=True)
+                         except: pass
+                     
+                     # Create new
+                     ports_config = {'443/tcp': proxy.port}
+                     if proxy.proxy_ip:
+                         ports_config = {'443/tcp': (proxy.proxy_ip, proxy.port)}
 
-                    if proxy.proxy_type == "tls":
-                        image_name = "mtproxy-faketls:latest"
-                        environment = {
-                            'SECRET': proxy.secret,
-                            'TLS_DOMAIN': proxy.tls_domain,
-                            'TAG': proxy.tag,
-                            'WORKERS': proxy.workers,
-                            'PORT': proxy.port
-                        }
-                    else:
-                        image_name = _mtproxy_image()
-                        environment = {
+                     container = docker_client.containers.run(
+                        _mtproxy_image(),
+                        detach=True,
+                        ports=ports_config,
+                        environment={
                             'SECRET': proxy.secret,
                             'TAG': proxy.tag,
                             'WORKERS': proxy.workers
-                        }
-
-                    container = docker_client.containers.run(
-                        image_name,
-                        detach=True,
-                        ports=ports_config,
-                        environment=environment,
+                        },
                         restart_policy={"Name": "always"},
                         name=f"mtproto_{proxy.port}"
                     )
-                    
-                    time.sleep(2)  # Give container more time to start
-                    try:
-                        _assert_container_running(container)
-                        proxy.container_id = container.id
-                    except RuntimeError as e:
-                        # If container failed to start, clean up and show error
-                        try:
-                            container.stop()
-                            container.remove()
-                        except:
-                            pass
-                        raise RuntimeError(f"Container failed to start properly: {e}")
-                    proxy.status = "running"
-                    changes.append("Container Recreated")
-                    
-                except Exception as e:
-                    flash(f'خطا در بازسازی کانتینر: {e}', 'danger')
-                    log_activity("Update Error", str(e))
-                    return redirect(url_for('main.dashboard'))
+                     time.sleep(0.2)
+                     _assert_container_running(container)
+                     proxy.container_id = container.id
+                     proxy.status = "running"
+                     changes.append("Container Recreated")
+                 except Exception as e:
+                     flash(f'خطا در بازسازی کانتینر: {e}', 'danger')
+                     log_activity("Update Error", str(e))
+                     return redirect(url_for('main.dashboard'))
 
         db.session.commit()
         if changes:
