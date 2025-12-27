@@ -198,4 +198,11 @@ def format_mtproxy_client_secret(proxy_type, base_secret, tls_domain=None):
     base = (base_secret or "").strip().lower()
     if ptype == "dd":
         return "dd" + base
+    if ptype == "tls":
+        # For TLS, construct the full secret with 'ee' prefix and domain
+        domain = normalize_tls_domain(tls_domain) if tls_domain else None
+        if domain:
+            domain_hex = domain.encode('utf-8').hex()
+            return "ee" + base + domain_hex
+        return "ee" + base
     return base
