@@ -1027,7 +1027,17 @@
         copyToClipboard(link);
     };
     
-    const toggleProxyFields = () => {};
+    const toggleProxyFields = () => {
+        const type = document.getElementById('proxyType').value;
+        const ddFields = document.getElementById('ddDomainsField');
+        if (ddFields) {
+            if (type === 'dd') {
+                ddFields.classList.remove('d-none');
+            } else {
+                ddFields.classList.add('d-none');
+            }
+        }
+    };
     
     function showLink(port, secret, proxyIp) {
         const serverIp = proxyIp || '{{ server_ip }}' || window.location.hostname;
