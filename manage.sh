@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # HoseinProxy Smart Manager
-# Version: 7.0 (Professional Edition)
+# Version: 7.1 (Advanced Professional Edition)
 # Author: Hosein (refined)
 
 set -Eeuo pipefail
@@ -16,6 +16,7 @@ export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 # ----------------------------
 # Configuration
 # ----------------------------
+# Default Configuration
 APP_TITLE="HoseinProxy Smart Manager"
 INSTALL_DIR="/root/HoseinProxy"
 PANEL_DIR="$INSTALL_DIR/panel"
@@ -27,6 +28,16 @@ NGINX_SITE_NAME="hoseinproxy"
 NGINX_PORT="1111"
 GUNICORN_BIND="127.0.0.1:5000"
 GUNICORN_WORKERS="2"
+
+# Load External Configuration
+CONFIG_FILE="$INSTALL_DIR/config.env"
+if [ -f "$CONFIG_FILE" ]; then
+  # shellcheck disable=SC1090
+  source "$CONFIG_FILE"
+fi
+
+# Ensure derived variables are set correctly if not in config
+PANEL_DIR="${PANEL_DIR:-$INSTALL_DIR/panel}"
 
 # ----------------------------
 # Colors
@@ -83,17 +94,10 @@ spinner() {
   printf "      \b\b\b\b\b\b"
 }
 
-# Whiptail gauge wrapper
+# Text-based progress wrapper
 show_progress() {
   local message="$1"
-  (
-    local p=0
-    while [ "$p" -le 100 ]; do
-      echo "$p"
-      sleep 0.03
-      p=$((p + 2))
-    done
-  ) | whiptail --gauge "$message" 6 70 0
+  echo -e "${BLUE}➤ ${message}${NC}"
 }
 
 require_cmd() {
@@ -101,20 +105,79 @@ require_cmd() {
 }
 
 # ----------------------------
+# Input Helpers
+# ----------------------------
+pause() {
+  read -rp "Press [Enter] to continue..."
+}
+
+ask_yesno() {
+  local prompt="$1"
+  local default="${2:-N}"
+  local reply
+  
+  if [ "${default,,}" = "y" ]; then
+    prompt="$prompt [Y/n]"
+  else
+    prompt="$prompt [y/N]"
+  fi
+  
+  read -rp "$prompt " reply
+  if [ -z "$reply" ]; then
+    reply="$default"
+  fi
+  
+  if [[ "${reply,,}" =~ ^(y|yes)$ ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+ask_input() {
+  local prompt="$1"
+  local default="${2:-}"
+  local var_name="$3"
+  local reply
+  
+  local p_text="$prompt"
+  [ -n "$default" ] && p_text="$p_text [$default]"
+  
+  read -rp "$p_text: " reply
+  
+  if [ -z "$reply" ]; then
+    eval "$var_name='$default'"
+  else
+    eval "$var_name='$reply'"
+  fi
+}
+
+ask_password() {
+  local prompt="$1"
+  local var_name="$2"
+  local reply
+  
+  echo -n "$prompt: "
+  read -rs reply
+  echo
+  eval "$var_name='$reply'"
+}
+
+# ----------------------------
 # UI
 # ----------------------------
 show_header() {
   clear
-  echo -e "${MAGENTA}"
-  echo " █   █           █            █▀▀▀▀█                          "
-  echo " █   █           █            █    █                          "
-  echo " █▀▀▀█  ▄▀▀▄  ▄▀▀█   ▄▀▀▄     █▀▀▀▀▄  █▄ ▄█  ▄▀▀▄  ▀▄  ▄▀  ▀▄ ▄▀ "
-  echo " █   █  █  █  ▀▄▄█   █▄▄▀     █     █  █▀ ▀█  █  █   ▀▄▀    █   "
-  echo " █   █  ▀▄▄▀  ▀▄▄█▄  ▀▄▄▀     █▄▄▄▄█   █    █  ▀▄▄▀   ▄▀▄     █   "
-  echo "                                                      ▀  ▀    ▀   "
+  echo -e "${RED}"
+  echo " ██╗  ██╗██╗██╗     ██╗     ██╗  ██╗ ██████╗ ███████╗███████╗██╗███╗   ██╗"
+  echo " ██║ ██╔╝██║██║     ██║     ██║  ██║██╔═══██╗██╔════╝██╔════╝██║████╗  ██║"
+  echo " █████╔╝ ██║██║     ██║     ███████║██║   ██║███████╗█████╗  ██║██╔██╗ ██║"
+  echo " ██╔═██╗ ██║██║     ██║     ██╔══██║██║   ██║╚════██║██╔══╝  ██║██║╚██╗██║"
+  echo " ██║  ██╗██║███████╗███████╗██║  ██║╚██████╔╝███████║███████╗██║██║ ╚████║"
+  echo " ╚═╝  ╚═╝╚═╝╚══════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝╚═╝╚═╝  ╚═══╝"
   echo -e "${NC}"
-  echo -e "${CYAN}${BOLD}       💎 ${APP_TITLE} - v7.0 (Professional) 💎${NC}"
-  echo -e "${BLUE}       ==================================================${NC}"
+  echo -e "${CYAN}${BOLD}        ☠  KillHosein Control Panel  ☠${NC}"
+  echo -e "${BLUE}        ======================================================${NC}"
   echo ""
 }
 
@@ -152,6 +215,13 @@ get_system_stats() {
 
   DISK="$(df -h / | awk 'NR==2 {print $5}')"
   UPTIME="$(uptime -p | sed 's/^up //')"
+  
+  # Check if BBR is enabled for display
+  if grep -q "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.conf 2>/dev/null; then
+    BBR_STATUS="ON"
+  else
+    BBR_STATUS="OFF"
+  fi
 }
 
 # ----------------------------
@@ -192,11 +262,118 @@ install_deps() {
 }
 
 # ----------------------------
+# Optimization & Advanced Tools
+# ----------------------------
+enable_bbr() {
+  show_progress "🚀 Enabling TCP BBR..."
+  
+  if grep -q "net.core.default_qdisc=fq" /etc/sysctl.conf && grep -q "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.conf; then
+    whiptail --msgbox "✅ TCP BBR is already enabled." 10 70
+    ok "TCP BBR already enabled."
+    return 0
+  fi
+
+  echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
+  echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
+  sysctl -p >>"$LOG_FILE" 2>&1
+  
+  whiptail --msgbox "✅ TCP BBR enabled successfully." 10 70
+  ok "TCP BBR enabled."
+}
+
+configure_firewall() {
+  if ! require_cmd ufw; then
+    if whiptail --title "🔥 Firewall" --yesno "UFW is not installed. Install it?" 10 70; then
+      apt-get install -y ufw >>"$LOG_FILE" 2>&1
+    else
+      return 1
+    fi
+  fi
+
+  show_progress "🛡️ Configuring Firewall..."
+  
+  ufw allow ssh >/dev/null 2>&1
+  ufw allow http >/dev/null 2>&1
+  ufw allow https >/dev/null 2>&1
+  ufw allow "${NGINX_PORT}/tcp" >/dev/null 2>&1
+  
+  # Allow proxy ports if known, otherwise warn
+  # For now just basic ports
+  
+  if ! ufw status | grep -q "Status: active"; then
+    echo "y" | ufw enable >>"$LOG_FILE" 2>&1
+  fi
+  
+  whiptail --msgbox "✅ Firewall configured (SSH, HTTP, HTTPS, Panel Port)." 10 70
+  ok "Firewall configured."
+}
+
+configure_ssl() {
+  if ! require_cmd certbot; then
+    warn "Certbot not found. Installing..."
+    apt-get install -y certbot python3-certbot-nginx >>"$LOG_FILE" 2>&1
+  fi
+
+  local domain
+  echo -e "\n${MAGENTA}🔐 SSL Configuration (Let's Encrypt)${NC}"
+  echo "-------------------------------------"
+  ask_input "Enter your domain name (e.g., panel.example.com)" "" domain
+  
+  if [ -z "$domain" ]; then
+    err "Domain name is required."
+    return 1
+  fi
+
+  show_progress "Obtaining SSL certificate for $domain..."
+  
+  # Ensure Nginx is running
+  systemctl start nginx || true
+  
+  # Run certbot
+  if certbot --nginx -d "$domain" --non-interactive --agree-tos --register-unsafely-without-email --redirect; then
+    ok "SSL Certificate installed successfully for $domain"
+    echo -e "${GREEN}✅ HTTPS enabled! Access your panel at https://$domain${NC}"
+  else
+    err "Certbot failed. Check logs."
+    echo "Check /var/log/letsencrypt/letsencrypt.log for details."
+    return 1
+  fi
+}
+
+advanced_tools() {
+  local tool_opt
+  
+  echo -e "\n${MAGENTA}🛠️  Advanced Tools${NC}"
+  echo "1) 🚀 Enable TCP BBR"
+  echo "2) 🛡️  Configure UFW Firewall"
+  echo "3) 🔐 Configure SSL (Certbot)"
+  echo "4) 🧹 Clean System Logs & Cache"
+  echo "5) 🔙 Back to Main Menu"
+  
+  ask_input "Select a tool" "5" tool_opt
+    
+  case "${tool_opt:-}" in
+    1) enable_bbr ;;
+    2) configure_firewall ;;
+    3) configure_ssl ;;
+    4) 
+       show_progress "🧹 Cleaning up..."
+       apt-get clean >/dev/null 2>&1
+       journalctl --vacuum-time=3d >/dev/null 2>&1
+       rm -f /var/log/*.gz
+       echo -e "${GREEN}✅ System cleaned.${NC}"
+       pause
+       ;;
+    5|"") return 0 ;;
+  esac
+}
+
+# ----------------------------
 # Operations
 # ----------------------------
 install_panel() {
   show_header
-  if ! whiptail --title "🚀 Install Panel" --yesno "Ready to install the latest panel version?" 10 70; then
+  if ! ask_yesno "Ready to install the latest panel version?" "Y"; then
     return 0
   fi
 
@@ -206,8 +383,9 @@ install_panel() {
   local ram_kb
   ram_kb="$(awk '/MemTotal/ {print $2}' /proc/meminfo || echo 0)"
   if [ "${ram_kb:-0}" -lt 500000 ]; then
-    whiptail --title "⚠️ Resource Warning" --msgbox "System RAM is below 500MB.\nPanel may run slowly." 10 70
+    echo -e "${YELLOW}⚠️  Resource Warning: System RAM is below 500MB.${NC}"
     warn "RAM below 500MB."
+    pause
   fi
 
   mkdir -p "$INSTALL_DIR"
@@ -295,6 +473,20 @@ EOF
   systemctl daemon-reload
   systemctl enable "${SERVICE_NAME}" >/dev/null 2>&1
   systemctl restart "${SERVICE_NAME}"
+
+  info "Setting up Log Rotation..."
+  cat >"/etc/logrotate.d/${SERVICE_NAME}" <<EOF
+$LOG_FILE {
+    daily
+    missingok
+    rotate 7
+    compress
+    delaycompress
+    notifempty
+    create 0640 root root
+}
+EOF
+  ok "Log rotation configured."
 
   local ip
   ip="$(get_public_ip)"
@@ -436,6 +628,7 @@ show_menu() {
   menu_text+="▫️ IP Address: ${IP}\n"
   menu_text+="▫️ Resources:  CPU: ${CPU} | RAM: ${RAM}\n"
   menu_text+="▫️ Disk:       ${DISK} | Uptime: ${UPTIME}\n"
+  menu_text+="▫️ TCP BBR:    ${BBR_STATUS}\n"
   menu_text+="\n👇 Select an operation:"
 
   local option
@@ -448,6 +641,7 @@ show_menu() {
     "6" "⏰ Auto-Update Config" \
     "7" "🔄 Restart Service" \
     "8" "📜 View Logs" \
+    "9" "🛠️ Advanced Tools" \
     "0" "🚪 Exit" 3>&1 1>&2 2>&3 || true)"
 
   case "${option:-}" in
@@ -459,6 +653,7 @@ show_menu() {
     6) schedule_updates ;;
     7) restart_service ;;
     8) view_logs ;;
+    9) advanced_tools ;;
     0|"") exit 0 ;;
   esac
 }
