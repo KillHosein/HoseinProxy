@@ -341,26 +341,49 @@ def run_telegram_bot(app):
         @bot.message_handler(func=lambda m: m.text == "📦 دریافت بکاپ")
         def backup_handler(message):
             if not is_admin(message.chat.id, app): return
-            bot.reply_to(message, "⏳ در حال تهیه بکاپ...")
+            wait_msg = bot.reply_to(message, "⏳ در حال تهیه نسخه پشتیبان... لطفاً صبر کنید.")
             try:
+                import tarfile
                 with app.app_context():
-                    backup_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'backups')
-                    if not os.path.exists(backup_dir): os.makedirs(backup_dir)
+                    # Calculate paths
+                    # __file__ = panel/app/services/telegram_service.py
+                    # dirname(dirname(dirname(__file__))) = panel/
+                    panel_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                    backup_dir = os.path.join(panel_dir, 'backups')
+                    
+                    if not os.path.exists(backup_dir): 
+                        os.makedirs(backup_dir)
+                    
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     filename = f"hoseinproxy_backup_{timestamp}.tar.gz"
-                    backup_file = os.path.join(backup_dir, filename)
+                    backup_path = os.path.join(backup_dir, filename)
                     
-                    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                    # Files to backup
+                    files_to_backup = [
+                        ('panel.db', os.path.join(panel_dir, 'panel.db')),
+                        ('secret.key', os.path.join(panel_dir, 'secret.key')),
+                        ('config.env', os.path.join(os.path.dirname(panel_dir), 'config.env')), # One level up if exists
+                    ]
                     
-                    with tarfile.open(backup_file, "w:gz") as tar:
-                        if os.path.exists(os.path.join(base_dir, 'panel.db')): tar.add(os.path.join(base_dir, 'panel.db'), arcname='panel.db')
-                        if os.path.exists(os.path.join(base_dir, 'requirements.txt')): tar.add(os.path.join(base_dir, 'requirements.txt'), arcname='requirements.txt')
-                        if os.path.exists(os.path.join(base_dir, 'secret.key')): tar.add(os.path.join(base_dir, 'secret.key'), arcname='secret.key')
+                    with tarfile.open(backup_path, "w:gz") as tar:
+                        for arcname, fullpath in files_to_backup:
+                            if os.path.exists(fullpath):
+                                tar.add(fullpath, arcname=arcname)
                     
-                    with open(backup_file, 'rb') as f:
-                        bot.send_document(message.chat.id, f, caption=f"📦 Backup: {filename}")
+                    # Send file
+                    with open(backup_path, 'rb') as f:
+                        bot.send_document(
+                            message.chat.id, 
+                            f, 
+                            caption=f"📦 <b>نسخه پشتیبان کامل</b>\n📅 تاریخ: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n🔐 شامل دیتابیس و کلیدهای امنیتی",
+                            parse_mode='HTML'
+                        )
+                    
+                    bot.delete_message(message.chat.id, wait_msg.message_id)
+                    
             except Exception as e:
-                bot.reply_to(message, f"Error: {e}")
+                bot.edit_message_text(f"❌ خطا در تهیه بکاپ:\n{str(e)}", message.chat.id, wait_msg.message_id)
+                print(f"Backup Error: {e}")
 
         # --- State Handlers (Wizard Logic) ---
         @bot.message_handler(func=lambda m: get_state(m.chat.id) is not None)
@@ -575,6 +598,24 @@ def run_telegram_bot(app):
                         bot.reply_to(message, f"✅ مدیر {data['username']} اضافه شد.", reply_markup=users_menu_keyboard())
                 clear_state(message.chat.id)
 
+        @bot.message_handler(commands=['restart_panel'])
+        def restart_panel_cmd(message):
+            if not is_admin(message.chat.id, app): return
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("✅ بله، ریستارت شود", callback_data="confirm_restart_panel"),
+                       types.InlineKeyboardButton("❌ خیر", callback_data="noop"))
+            bot.reply_to(message, "⚠️ <b>آیا از ریستارت کردن پنل اطمینان دارید؟</b>\nربات برای لحظاتی قطع خواهد شد.", reply_markup=markup, parse_mode='HTML')
+
+        @bot.callback_query_handler(func=lambda call: call.data == "confirm_restart_panel")
+        def do_restart_panel(call):
+            if not is_admin(call.message.chat.id, app): return
+            bot.edit_message_text("🔄 در حال ریستارت سرویس...", call.message.chat.id, call.message.message_id)
+            import subprocess
+            try:
+                subprocess.Popen(['systemctl', 'restart', 'hoseinproxy'])
+            except Exception as e:
+                bot.send_message(call.message.chat.id, f"❌ خطا: {e}")
+
         # --- Callbacks ---
         @bot.callback_query_handler(func=lambda call: call.data.startswith('list_page_'))
         def list_page_callback(call):
@@ -686,7 +727,42 @@ def run_telegram_bot(app):
             # Simpler: just acknowledge
             bot.answer_callback_query(call.id, "منو را از کیبورد انتخاب کنید.")
 
-        @bot.callback_query_handler(func=lambda call: call.data.startswith(('stop_', 'start_', 'restart_', 'link_', 'del_', 'reset_')))
+        @bot.callback_query_handler(func=lambda call: call.data.startswith('del_'))
+        def confirm_delete_proxy(call):
+            if not is_admin(call.message.chat.id, app): return
+            pid = int(call.data.split('_')[1])
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("✅ بله، حذف شود", callback_data=f"confirmdel_{pid}"),
+                       types.InlineKeyboardButton("❌ خیر، لغو", callback_data=f"p_{pid}"))
+            bot.edit_message_text("⚠️ <b>آیا از حذف این پروکسی اطمینان دارید؟</b>\nاین عملیات غیرقابل بازگشت است.", 
+                                  call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode='HTML')
+
+        @bot.callback_query_handler(func=lambda call: call.data.startswith('confirmdel_'))
+        def delete_proxy_confirmed(call):
+            if not is_admin(call.message.chat.id, app): return
+            pid = int(call.data.split('_')[1])
+            with app.app_context():
+                p = Proxy.query.get(pid)
+                if p:
+                    try:
+                        if docker_client and p.container_id:
+                            try:
+                                container = docker_client.containers.get(p.container_id)
+                                container.stop()
+                                container.remove()
+                            except: pass
+                        db.session.delete(p)
+                        db.session.commit()
+                        bot.answer_callback_query(call.id, "پروکسی با موفقیت حذف شد.")
+                        bot.delete_message(call.message.chat.id, call.message.message_id)
+                        # Optional: Go back to list
+                        show_proxy_list_page(call.message.chat.id, 1)
+                    except Exception as e:
+                        bot.answer_callback_query(call.id, f"خطا: {e}")
+                else:
+                    bot.answer_callback_query(call.id, "پروکسی یافت نشد.")
+
+        @bot.callback_query_handler(func=lambda call: call.data.startswith(('stop_', 'start_', 'restart_', 'link_', 'reset_')))
         def action_callback(call):
             if not is_admin(call.message.chat.id, app): return
             action, pid = call.data.split('_')
@@ -700,7 +776,10 @@ def run_telegram_bot(app):
 
                 if action == 'link':
                     server_ip = get_setting('server_ip') or 'YOUR_IP'
-                    link = f"https://t.me/proxy?server={server_ip}&port={p.port}&secret={p.secret}"
+                    secret = p.secret
+                    if p.tls_domain:
+                        secret = f"ee{p.secret}{p.tls_domain.encode().hex()}"
+                    link = f"https://t.me/proxy?server={server_ip}&port={p.port}&secret={secret}"
                     bot.send_message(call.message.chat.id, f"🔗 <b>لینک اتصال:</b>\n\n<code>{link}</code>", parse_mode='HTML')
                     bot.answer_callback_query(call.id, "لینک ارسال شد.")
                     return
@@ -753,6 +832,7 @@ def run_telegram_bot(app):
                     return
                 
                 if action == 'del':
+                    # Legacy fallback, though new handler catches confirmdel
                     try:
                         if docker_client and p.container_id:
                             try:
