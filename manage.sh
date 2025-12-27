@@ -787,6 +787,10 @@ class FakeTLSProxy:
                 '149.154.175.50', 443
             )
             
+            # Forward the initial data we read!
+            telegram_writer.write(data)
+            await telegram_writer.drain()
+            
             # Start relaying data
             await asyncio.gather(
                 self._relay_data(reader, telegram_writer),
