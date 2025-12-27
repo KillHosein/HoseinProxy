@@ -5,6 +5,7 @@ import os
 import psutil
 import secrets
 import docker
+import sys
 from datetime import datetime, timedelta
 from telebot import types
 from sqlalchemy import func, or_
@@ -58,6 +59,7 @@ def main_menu_keyboard():
     markup.add("🛡️ فایروال", "👥 مدیران")
     markup.add("⚙️ تنظیمات", "📦 بکاپ")
     markup.add("📜 لاگ سیستم", "📝 گزارش فعالیت‌ها")
+    markup.add("🛠️ ابزارها")
     return markup
 
 def back_keyboard():
@@ -74,7 +76,15 @@ def proxy_menu_keyboard():
 def proxy_menu_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     markup.add("📋 لیست پروکسی‌ها", "➕ افزودن پروکسی")
-    markup.add("⚡ ساخت سریع", "🔍 جستجو")
+    markup.add("⚡ ساخت سریع", "🔢 ساخت گروهی")
+    markup.add("📤 خروجی لینک‌ها", "🧹 پاکسازی")
+    markup.add("🔍 جستجو", "�️ فیلتر وضعیت")
+    markup.add("� بازگشت")
+    return markup
+
+def cleanup_menu_keyboard():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add("🗑️ حذف منقضی‌ها", "🗑️ حذف بدون مصرف")
     markup.add("🔙 بازگشت")
     return markup
 
@@ -82,6 +92,33 @@ def firewall_menu_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     markup.add("📋 لیست سیاه", "⛔ مسدود کردن IP")
     markup.add("🔓 آزاد کردن IP", "🔙 بازگشت")
+    return markup
+
+def reports_menu_keyboard():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add("📜 آخرین فعالیت‌ها", "📊 پرمصرف‌ترین‌ها")
+    markup.add("🔍 تحلیل شبکه", "⏳ در حال انقضا")
+    markup.add("🔙 بازگشت")
+    return markup
+
+def settings_menu_keyboard():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add("🔔 تنظیمات اعلان", "�️ تنظیمات امنیتی")
+    markup.add("🔑 تغییر رمز پنل", "🔙 بازگشت")
+    return markup
+
+def tools_menu_keyboard():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add("🚀 تست سرعت", "📢 ست کردن تگ تبلیغاتی")
+    markup.add("🛑 توقف همه", "▶️ شروع همه")
+    markup.add("� مدیریت سرور", "� آپدیت پنل")
+    markup.add("🔙 بازگشت")
+    return markup
+
+def server_menu_keyboard():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add("🔄 ریستارت سرور", "🧹 پاکسازی رم")
+    markup.add("🐳 ریستارت داکر", "🔙 بازگشت")
     return markup
 
 def users_menu_keyboard():
@@ -201,7 +238,18 @@ def run_telegram_bot(app):
                     return
 
                 if chat_id != admin_id:
-                    bot.reply_to(message, "⛔ دسترسی غیرمجاز است.")
+                    access_denied_msg = (
+                        "⛔️ <b>دسترسی غیرمجاز!</b>\n"
+                        "شما اجازه ورود به بخش مدیریت را ندارید.\n\n"
+                        "💎 <b>HoseinProxy Advanced Panel</b>\n"
+                        "━━━━━━━━━━━━━━━━\n"
+                        "🚀 <b>اولین پنل پروکسی ۱۰۰٪ پایدار و بدون قطعی</b>\n"
+                        "🛡 مجهز به سیستم‌های ضد فیلترینگ پیشرفته\n"
+                        "✨ دارای فیچرهای اختصاصی و نایاب\n\n"
+                        "👨‍💻 <b>Designed by:</b> @killHosein"
+                    )
+                    # پارامتر parse_mode='HTML' برای اعمال بولد و فرمت‌دهی ضروری است
+                    bot.reply_to(message, access_denied_msg, parse_mode='HTML')
                     return
                 
             clear_state(message.chat.id)
@@ -284,11 +332,20 @@ def run_telegram_bot(app):
                     f"⚡ Proxy Speed: ⬆️ {format_speed(total_up_speed)} | ⬇️ {format_speed(total_down_speed)}\n"
                     f"📊 Proxy Traffic: ⬆️ {round(total_upload / (1024**3), 2)} GB | ⬇️ {round(total_download / (1024**3), 2)} GB"
                 )
-                bot.reply_to(message, msg, parse_mode='HTML')
+                
+                markup = types.InlineKeyboardMarkup()
+                markup.add(types.InlineKeyboardButton("🔴 مانیتور زنده (Live)", callback_data="start_live_monitor"))
+                
+                bot.reply_to(message, msg, parse_mode='HTML', reply_markup=markup)
             except Exception as e:
                 bot.reply_to(message, f"Error: {e}")
 
         @bot.message_handler(func=lambda m: m.text == "📝 گزارش فعالیت‌ها")
+        def reports_menu(message):
+             if not is_admin(message.chat.id, app): return
+             bot.reply_to(message, "📊 منوی گزارشات:", reply_markup=reports_menu_keyboard())
+
+        @bot.message_handler(func=lambda m: m.text == "📜 آخرین فعالیت‌ها")
         def activity_report(message):
             if not is_admin(message.chat.id, app): return
             with app.app_context():
@@ -301,6 +358,170 @@ def run_telegram_bot(app):
                     time_str = l.timestamp.strftime("%Y-%m-%d %H:%M")
                     msg += f"🔹 <b>{l.action}</b> ({time_str})\n   {l.details}\n"
                 bot.reply_to(message, msg, parse_mode='HTML')
+
+        @bot.message_handler(func=lambda m: m.text == "📊 پرمصرف‌ترین‌ها")
+        def top_usage_report(message):
+            if not is_admin(message.chat.id, app): return
+            with app.app_context():
+                proxies = Proxy.query.all()
+                # Sort by total usage (upload + download)
+                sorted_proxies = sorted(proxies, key=lambda p: (p.upload + p.download), reverse=True)[:10]
+                
+                if not sorted_proxies:
+                    bot.reply_to(message, "❌ پروکسی یافت نشد.")
+                    return
+                    
+                msg = "📊 <b>Top 10 High Usage Proxies:</b>\n\n"
+                for i, p in enumerate(sorted_proxies, 1):
+                    total = p.upload + p.download
+                    total_gb = round(total / (1024**3), 2)
+                    msg += f"{i}. <b>Port {p.port}</b> | {total_gb} GB\n"
+                    
+                bot.reply_to(message, msg, parse_mode='HTML')
+
+        @bot.message_handler(func=lambda m: m.text == "🔢 ساخت گروهی")
+        def bulk_create_init(message):
+            if not is_admin(message.chat.id, app): return
+            set_state(message.chat.id, 'bulk_count')
+            bot.reply_to(message, "🔢 تعداد پروکسی مورد نظر را وارد کنید (مثلاً 5):", reply_markup=back_keyboard())
+
+        @bot.message_handler(func=lambda m: m.text == "🔍 تحلیل شبکه")
+        def network_analysis(message):
+            if not is_admin(message.chat.id, app): return
+            wait_msg = bot.reply_to(message, "⏳ در حال آنالیز اتصالات شبکه...")
+            
+            try:
+                import collections
+                # Get all connections
+                conns = psutil.net_connections(kind='inet')
+                ip_counts = collections.defaultdict(int)
+                
+                # Filter ESTABLISHED and Foreign IP
+                for c in conns:
+                    if c.status == 'ESTABLISHED' and c.raddr:
+                        ip = c.raddr.ip
+                        if ip != '127.0.0.1' and not ip.startswith('0.0.0.0'):
+                            ip_counts[ip] += 1
+                
+                # Sort Top 10
+                top_ips = sorted(ip_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+                
+                if not top_ips:
+                    bot.edit_message_text("✅ ترافیک مشکوکی مشاهده نشد (اتصال فعالی وجود ندارد).", message.chat.id, wait_msg.message_id)
+                    return
+                
+                msg = "🔍 <b>Top Network Connections:</b>\n\n"
+                markup = types.InlineKeyboardMarkup()
+                
+                for ip, count in top_ips:
+                    # Resolve country? (Optional, maybe slow, skip for now)
+                    msg += f"📡 <code>{ip}</code> : <b>{count}</b> connections\n"
+                    markup.add(types.InlineKeyboardButton(f"🚫 مسدود کردن {ip}", callback_data=f"blockip_{ip}"))
+                
+                msg += "\n⚠️ برای مسدودسازی آنی، روی دکمه مربوطه کلیک کنید."
+                bot.edit_message_text(msg, message.chat.id, wait_msg.message_id, parse_mode='HTML', reply_markup=markup)
+                
+            except Exception as e:
+                bot.edit_message_text(f"❌ خطا: {e}", message.chat.id, wait_msg.message_id)
+
+        @bot.callback_query_handler(func=lambda call: call.data.startswith('blockip_'))
+        def quick_block_ip(call):
+            if not is_admin(call.message.chat.id, app): return
+            ip = call.data.split('_')[1]
+            
+            with app.app_context():
+                if not BlockedIP.query.filter_by(ip_address=ip).first():
+                    b = BlockedIP(ip_address=ip, reason="Telegram Quick Block")
+                    db.session.add(b)
+                    db.session.commit()
+                    _apply_firewall_rule(ip, 'block')
+                    bot.answer_callback_query(call.id, f"آی‌پی {ip} مسدود شد.")
+                    bot.send_message(call.message.chat.id, f"⛔ آی‌پی {ip} با موفقیت به لیست سیاه اضافه شد.")
+                else:
+                    bot.answer_callback_query(call.id, "این آی‌پی قبلاً مسدود شده است.")
+
+        @bot.message_handler(func=lambda m: m.text == "⏳ در حال انقضا")
+        def expiring_report(message):
+            if not is_admin(message.chat.id, app): return
+            with app.app_context():
+                now = datetime.utcnow()
+                limit_date = now + timedelta(days=3) # Next 3 days
+                
+                proxies = Proxy.query.filter(
+                    Proxy.expiry_date != None,
+                    Proxy.expiry_date <= limit_date,
+                    Proxy.expiry_date >= now
+                ).order_by(Proxy.expiry_date.asc()).all()
+                
+                if not proxies:
+                    bot.reply_to(message, "✅ هیچ پروکسی در ۳ روز آینده منقضی نمی‌شود.")
+                    return
+                    
+                msg = "⏳ <b>Expiring Soon (Next 3 Days):</b>\n\n"
+                for p in proxies:
+                    remaining = (p.expiry_date - now).total_seconds() / 3600
+                    remaining_str = f"{int(remaining)}h" if remaining < 24 else f"{int(remaining/24)}d"
+                    msg += f"🔸 <b>Port {p.port}</b> | {p.name or p.tag or '-'} | ⏱️ {remaining_str}\n"
+                
+                bot.reply_to(message, msg, parse_mode='HTML')
+
+        @bot.message_handler(func=lambda m: m.text == "📤 خروجی لینک‌ها")
+        def export_proxies_cmd(message):
+            if not is_admin(message.chat.id, app): return
+            wait_msg = bot.reply_to(message, "⏳ در حال آماده‌سازی فایل...")
+            
+            try:
+                server_ip = get_setting('server_ip') or 'YOUR_IP'
+                with app.app_context():
+                    proxies = Proxy.query.all()
+                    if not proxies:
+                        bot.edit_message_text("❌ هیچ پروکسی وجود ندارد.", message.chat.id, wait_msg.message_id)
+                        return
+                    
+                    lines = []
+                    for p in proxies:
+                        secret = p.secret
+                        if p.tls_domain:
+                            secret = f"ee{p.secret}{p.tls_domain.encode().hex()}"
+                        link = f"https://t.me/proxy?server={server_ip}&port={p.port}&secret={secret}"
+                        info = f"{p.port}"
+                        if p.tag: info += f" | {p.tag}"
+                        lines.append(f"Proxy {info}\n{link}\n")
+                    
+                    # Create file
+                    filename = f"proxies_export_{datetime.now().strftime('%Y%m%d_%H%M')}.txt"
+                    filepath = os.path.join(os.getcwd(), filename)
+                    with open(filepath, 'w', encoding='utf-8') as f:
+                        f.write("\n".join(lines))
+                    
+                    with open(filepath, 'rb') as f:
+                        bot.send_document(message.chat.id, f, caption=f"📤 <b>لیست کامل پروکسی‌ها</b>\nتعداد: {len(proxies)}", parse_mode='HTML')
+                    
+                    os.remove(filepath)
+                    bot.delete_message(message.chat.id, wait_msg.message_id)
+            except Exception as e:
+                bot.edit_message_text(f"❌ خطا: {e}", message.chat.id, wait_msg.message_id)
+
+        @bot.message_handler(func=lambda m: m.text == "🧹 پاکسازی")
+        def cleanup_menu(message):
+            if not is_admin(message.chat.id, app): return
+            bot.reply_to(message, "🧹 منوی پاکسازی:", reply_markup=cleanup_menu_keyboard())
+
+        @bot.message_handler(func=lambda m: m.text == "🗑️ حذف منقضی‌ها")
+        def delete_expired_confirm(message):
+            if not is_admin(message.chat.id, app): return
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("✅ بله، حذف شوند", callback_data="confirm_del_expired"),
+                       types.InlineKeyboardButton("❌ لغو", callback_data="noop"))
+            bot.reply_to(message, "⚠️ <b>آیا مطمئن هستید؟</b>\nتمام پروکسی‌هایی که تاریخ انقضای آن‌ها گذشته است حذف خواهند شد.", reply_markup=markup, parse_mode='HTML')
+
+        @bot.message_handler(func=lambda m: m.text == "🗑️ حذف بدون مصرف")
+        def delete_unused_confirm(message):
+            if not is_admin(message.chat.id, app): return
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("✅ بله، حذف شوند", callback_data="confirm_del_unused"),
+                       types.InlineKeyboardButton("❌ لغو", callback_data="noop"))
+            bot.reply_to(message, "⚠️ <b>آیا مطمئن هستید؟</b>\nپروکسی‌هایی که <b>هیچ مصرفی (آپلود/دانلود 0)</b> نداشته‌اند حذف خواهند شد.", reply_markup=markup, parse_mode='HTML')
 
         @bot.message_handler(func=lambda m: m.text == "⚡ ساخت سریع")
         def quick_create_proxy(message):
@@ -373,6 +594,58 @@ def run_telegram_bot(app):
                 except Exception as e:
                     bot.reply_to(message, f"❌ خطا: {e}")
 
+        @bot.message_handler(func=lambda m: m.text == "🛠️ ابزارها")
+        def tools_menu(message):
+            if not is_admin(message.chat.id, app): return
+            bot.reply_to(message, "🛠️ منوی ابزارها:", reply_markup=tools_menu_keyboard())
+
+        @bot.message_handler(func=lambda m: m.text == "🚀 تست سرعت")
+        def run_speedtest(message):
+            if not is_admin(message.chat.id, app): return
+            wait_msg = bot.reply_to(message, "⏳ در حال تست سرعت... (ممکن است ۳۰ ثانیه طول بکشد)")
+            
+            def _test():
+                try:
+                    import subprocess
+                    try:
+                        # Try speedtest-cli command
+                        output = subprocess.check_output(['speedtest-cli', '--simple', '--secure'], timeout=90).decode()
+                    except:
+                        try:
+                            # Try python module way
+                            output = subprocess.check_output([sys.executable, '-m', 'speedtest', '--simple', '--secure'], timeout=90).decode()
+                        except:
+                            output = "❌ خطا: ابزار speedtest-cli یافت نشد یا اجرا نشد."
+
+                    bot.edit_message_text(f"✅ <b>نتیجه تست سرعت:</b>\n\n<pre>{output}</pre>", message.chat.id, wait_msg.message_id, parse_mode='HTML')
+                except Exception as e:
+                    bot.edit_message_text(f"❌ خطا در تست سرعت:\n{e}", message.chat.id, wait_msg.message_id)
+                    
+            import threading
+            threading.Thread(target=_test).start()
+
+        @bot.message_handler(func=lambda m: m.text == "🛑 توقف همه")
+        def stop_all_confirm(message):
+            if not is_admin(message.chat.id, app): return
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("✅ بله، همه متوقف شوند", callback_data="confirm_stop_all"),
+                       types.InlineKeyboardButton("❌ لغو", callback_data="noop"))
+            bot.reply_to(message, "⚠️ <b>آیا مطمئن هستید؟</b>\nتمام پروکسی‌های فعال متوقف خواهند شد.", reply_markup=markup, parse_mode='HTML')
+
+        @bot.message_handler(func=lambda m: m.text == "▶️ شروع همه")
+        def start_all_confirm(message):
+            if not is_admin(message.chat.id, app): return
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("✅ بله، همه روشن شوند", callback_data="confirm_start_all"),
+                       types.InlineKeyboardButton("❌ لغو", callback_data="noop"))
+            bot.reply_to(message, "⚠️ <b>آیا مطمئن هستید؟</b>\nتمام پروکسی‌های متوقف شده روشن خواهند شد.", reply_markup=markup, parse_mode='HTML')
+
+        @bot.message_handler(func=lambda m: m.text == "📢 ست کردن تگ تبلیغاتی")
+        def set_global_tag_step1(message):
+            if not is_admin(message.chat.id, app): return
+            set_state(message.chat.id, 'set_global_tag')
+            bot.reply_to(message, "📢 لطفاً تگ تبلیغاتی جدید را وارد کنید (یا 'none' برای حذف تگ از همه):", reply_markup=back_keyboard())
+
         # --- Proxy Management ---
         @bot.message_handler(func=lambda m: m.text == "🚀 مدیریت پروکسی")
         def proxy_menu(message):
@@ -397,11 +670,28 @@ def run_telegram_bot(app):
                 
                 if query_filter:
                     filters = []
-                    if query_filter.isdigit():
+                    if query_filter.startswith('status:'):
+                        status_val = query_filter.split(':')[1]
+                        if status_val == 'running':
+                            filters.append(Proxy.status == 'running')
+                        elif status_val == 'stopped':
+                            filters.append(Proxy.status != 'running')
+                        elif status_val == 'warning':
+                            # Assuming warning means active connections > threshold? Or simply 'stopped' for now?
+                            # Let's say "not running" or we can implement more complex logic if needed
+                            # For now, let's map warning to stopped or error
+                            filters.append(Proxy.status.in_(['stopped', 'error']))
+                    elif query_filter.isdigit():
                         filters.append(Proxy.port == int(query_filter))
-                    filters.append(Proxy.tag.ilike(f"%{query_filter}%"))
-                    filters.append(Proxy.name.ilike(f"%{query_filter}%"))
-                    q = q.filter(or_(*filters))
+                    else:
+                        filters.append(Proxy.tag.ilike(f"%{query_filter}%"))
+                        filters.append(Proxy.name.ilike(f"%{query_filter}%"))
+                    
+                    if filters:
+                        if query_filter.startswith('status:'):
+                             q = q.filter(*filters)
+                        else:
+                             q = q.filter(or_(*filters))
 
                 proxies = q.paginate(page=page, per_page=per_page, error_out=False)
                 
@@ -453,11 +743,135 @@ def run_telegram_bot(app):
             set_state(message.chat.id, 'search_proxy')
             bot.reply_to(message, "🔍 لطفاً متن جستجو (پورت، نام یا تگ) را وارد کنید:", reply_markup=back_keyboard())
 
+        @bot.message_handler(func=lambda m: m.text == "🗂️ فیلتر وضعیت")
+        def filter_proxy_menu(message):
+            if not is_admin(message.chat.id, app): return
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("🟢 فعال (Running)", callback_data="filter_running"),
+                       types.InlineKeyboardButton("🔴 غیرفعال (Stopped)", callback_data="filter_stopped"))
+            markup.add(types.InlineKeyboardButton("⚠️ دارای هشدار", callback_data="filter_warning"))
+            bot.reply_to(message, "🗂️ <b>فیلتر بر اساس وضعیت:</b>", reply_markup=markup, parse_mode='HTML')
+
+        @bot.message_handler(func=lambda m: m.text == "🛡️ تنظیمات امنیتی")
+        def security_settings_menu(message):
+            if not is_admin(message.chat.id, app): return
+            
+            with app.app_context():
+                auto_block = get_setting('auto_block_enabled') == '1'
+                max_conn = get_setting('alert_ip_conn_threshold') or '20'
+            
+            status_icon = "✅ فعال" if auto_block else "❌ غیرفعال"
+            
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton(f"مسدودسازی خودکار: {status_icon}", callback_data="toggle_autoblock"))
+            markup.add(types.InlineKeyboardButton(f"حداکثر اتصال مجاز: {max_conn}", callback_data="edit_maxconn"))
+            markup.add(types.InlineKeyboardButton("🔙 بستن", callback_data="close_settings"))
+            
+            msg = (
+                "🛡️ <b>تنظیمات امنیتی (Security Center)</b>\n\n"
+                f"🚫 <b>مسدودسازی خودکار:</b> {status_icon}\n"
+                "اگر فعال باشد، آی‌پی‌هایی که بیش از حد مجاز اتصال داشته باشند به صورت خودکار مسدود می‌شوند.\n\n"
+                f"🔢 <b>حداکثر اتصال مجاز:</b> {max_conn}\n"
+                "تعداد کانکشن همزمان مجاز برای هر آی‌پی روی یک پورت."
+            )
+            bot.reply_to(message, msg, reply_markup=markup, parse_mode='HTML')
+
+        @bot.callback_query_handler(func=lambda call: call.data == "toggle_autoblock")
+        def toggle_autoblock_callback(call):
+            if not is_admin(call.message.chat.id, app): return
+            with app.app_context():
+                current = get_setting('auto_block_enabled') == '1'
+                new_val = '0' if current else '1'
+                set_setting('auto_block_enabled', new_val)
+                db.session.commit()
+                
+                # Refresh Menu
+                auto_block = new_val == '1'
+                max_conn = get_setting('alert_ip_conn_threshold') or '20'
+            
+            status_icon = "✅ فعال" if auto_block else "❌ غیرفعال"
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton(f"مسدودسازی خودکار: {status_icon}", callback_data="toggle_autoblock"))
+            markup.add(types.InlineKeyboardButton(f"حداکثر اتصال مجاز: {max_conn}", callback_data="edit_maxconn"))
+            markup.add(types.InlineKeyboardButton("🔙 بستن", callback_data="close_settings"))
+            
+            msg = (
+                "🛡️ <b>تنظیمات امنیتی (Security Center)</b>\n\n"
+                f"🚫 <b>مسدودسازی خودکار:</b> {status_icon}\n"
+                "اگر فعال باشد، آی‌پی‌هایی که بیش از حد مجاز اتصال داشته باشند به صورت خودکار مسدود می‌شوند.\n\n"
+                f"🔢 <b>حداکثر اتصال مجاز:</b> {max_conn}\n"
+                "تعداد کانکشن همزمان مجاز برای هر آی‌پی روی یک پورت."
+            )
+            bot.edit_message_text(msg, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode='HTML')
+            bot.answer_callback_query(call.id, "تغییر ذخیره شد.")
+
+        @bot.callback_query_handler(func=lambda call: call.data == "edit_maxconn")
+        def edit_maxconn_init(call):
+            if not is_admin(call.message.chat.id, app): return
+            set_state(call.message.chat.id, 'set_max_conn')
+            bot.send_message(call.message.chat.id, "🔢 لطفاً حداکثر تعداد اتصال مجاز برای هر آی‌پی را وارد کنید (مثلاً 20):", reply_markup=back_keyboard())
+            bot.answer_callback_query(call.id)
+
+        @bot.callback_query_handler(func=lambda call: call.data.startswith('filter_'))
+        def filter_proxy_callback(call):
+            if not is_admin(call.message.chat.id, app): return
+            mode = call.data.split('_')[1]
+            
+            query = None
+            if mode == 'running': query = 'status:running'
+            elif mode == 'stopped': query = 'status:stopped'
+            elif mode == 'warning': query = 'status:warning' # Custom logic needed?
+            
+            # Use existing list logic but we need to pass a special filter
+            # Let's use the 'viewing_list' state with a special prefix in query
+            set_state(call.message.chat.id, 'viewing_list', {'query': query})
+            show_proxy_list_page(call.message.chat.id, 1)
+            bot.answer_callback_query(call.id)
+
         @bot.message_handler(func=lambda m: m.text == "➕ افزودن پروکسی")
         def add_proxy_step1(message):
             if not is_admin(message.chat.id, app): return
             set_state(message.chat.id, 'add_proxy_port')
             bot.reply_to(message, "🔢 لطفاً <b>شماره پورت</b> را وارد کنید:\n(مثال: 443)", reply_markup=back_keyboard(), parse_mode='HTML')
+
+        @bot.message_handler(func=lambda m: m.text == "� مدیریت سرور")
+        def server_menu(message):
+            if not is_admin(message.chat.id, app): return
+            bot.reply_to(message, "🔌 مدیریت سرور:", reply_markup=server_menu_keyboard())
+
+        @bot.message_handler(func=lambda m: m.text == "🔄 ریستارت سرور")
+        def reboot_server_cmd(message):
+            if not is_admin(message.chat.id, app): return
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("✅ بله، ریستارت شود", callback_data="confirm_reboot_server"),
+                       types.InlineKeyboardButton("❌ خیر", callback_data="noop"))
+            bot.reply_to(message, "⚠️ <b>آیا از ریستارت کامل سرور (OS) اطمینان دارید؟</b>\nدسترسی شما برای چند دقیقه قطع خواهد شد.", reply_markup=markup, parse_mode='HTML')
+
+        @bot.message_handler(func=lambda m: m.text == "🐳 ریستارت داکر")
+        def restart_docker_cmd(message):
+            if not is_admin(message.chat.id, app): return
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("✅ بله، داکر ریستارت شود", callback_data="confirm_restart_docker"),
+                       types.InlineKeyboardButton("❌ خیر", callback_data="noop"))
+            bot.reply_to(message, "⚠️ <b>آیا از ریستارت سرویس داکر اطمینان دارید؟</b>\nتمام پروکسی‌ها موقتاً قطع و وصل می‌شوند.", reply_markup=markup, parse_mode='HTML')
+
+        @bot.message_handler(func=lambda m: m.text == "🧹 پاکسازی رم")
+        def clear_ram_cmd(message):
+            if not is_admin(message.chat.id, app): return
+            try:
+                import subprocess
+                subprocess.run('sync; echo 3 > /proc/sys/vm/drop_caches', shell=True)
+                bot.reply_to(message, "✅ حافظه کش (RAM Cache) پاکسازی شد.")
+            except Exception as e:
+                bot.reply_to(message, f"❌ خطا: {e}")
+
+        @bot.message_handler(func=lambda m: m.text == "�🔄 آپدیت پنل")
+        def update_panel_cmd(message):
+            if not is_admin(message.chat.id, app): return
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("✅ بله، آپدیت شود", callback_data="confirm_update_panel"),
+                       types.InlineKeyboardButton("❌ خیر", callback_data="noop"))
+            bot.reply_to(message, "⚠️ <b>آیا از آپدیت پنل اطمینان دارید؟</b>\nاین عملیات آخرین تغییرات را از گیت‌هاب دریافت کرده و پنل را ریستارت می‌کند.", reply_markup=markup, parse_mode='HTML')
 
         # --- Firewall Management ---
         @bot.message_handler(func=lambda m: m.text == "🛡️ فایروال")
@@ -538,6 +952,61 @@ def run_telegram_bot(app):
             if not is_admin(message.chat.id, app): return
             msg = "⚙️ <b>تنظیمات</b>\n\nهم‌اکنون فقط از طریق پنل وب قابل دسترسی است."
             bot.reply_to(message, msg, parse_mode='HTML')
+
+        @bot.message_handler(func=lambda m: m.text == "🔔 تنظیمات اعلان")
+        def notification_settings(message):
+            if not is_admin(message.chat.id, app): return
+            
+            with app.app_context():
+                # Defaults
+                login_alert = get_setting('alert_login_enabled') != '0'
+                sys_alert = get_setting('alert_system_enabled') != '0'
+                proxy_alert = get_setting('alert_proxy_enabled') != '0'
+            
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton(f"اعلان ورود: {'✅' if login_alert else '❌'}", callback_data="toggle_alert_login"))
+            markup.add(types.InlineKeyboardButton(f"هشدار سیستم: {'✅' if sys_alert else '❌'}", callback_data="toggle_alert_system"))
+            markup.add(types.InlineKeyboardButton(f"هشدار پروکسی: {'✅' if proxy_alert else '❌'}", callback_data="toggle_alert_proxy"))
+            markup.add(types.InlineKeyboardButton("🔙 بازگشت", callback_data="close_settings"))
+            
+            bot.reply_to(message, "🔔 <b>تنظیمات اعلان‌ها</b>\n\nلطفاً مواردی که می‌خواهید دریافت کنید را فعال نمایید:", reply_markup=markup, parse_mode='HTML')
+
+        @bot.callback_query_handler(func=lambda call: call.data.startswith('toggle_alert_'))
+        def toggle_alert(call):
+            if not is_admin(call.message.chat.id, app): return
+            key_map = {
+                'toggle_alert_login': 'alert_login_enabled',
+                'toggle_alert_system': 'alert_system_enabled',
+                'toggle_alert_proxy': 'alert_proxy_enabled'
+            }
+            setting_key = key_map.get(call.data)
+            if not setting_key: return
+            
+            with app.app_context():
+                current = get_setting(setting_key) != '0'
+                new_val = '0' if current else '1'
+                set_setting(setting_key, new_val)
+                db.session.commit()
+                
+                # Refresh Menu
+                login_alert = get_setting('alert_login_enabled') != '0'
+                sys_alert = get_setting('alert_system_enabled') != '0'
+                proxy_alert = get_setting('alert_proxy_enabled') != '0'
+            
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton(f"اعلان ورود: {'✅' if login_alert else '❌'}", callback_data="toggle_alert_login"))
+            markup.add(types.InlineKeyboardButton(f"هشدار سیستم: {'✅' if sys_alert else '❌'}", callback_data="toggle_alert_system"))
+            markup.add(types.InlineKeyboardButton(f"هشدار پروکسی: {'✅' if proxy_alert else '❌'}", callback_data="toggle_alert_proxy"))
+            markup.add(types.InlineKeyboardButton("🔙 بازگشت", callback_data="close_settings"))
+            
+            try:
+                bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=markup)
+            except: pass
+            bot.answer_callback_query(call.id, "تغییر ذخیره شد.")
+
+        @bot.callback_query_handler(func=lambda call: call.data == "close_settings")
+        def close_settings(call):
+             bot.delete_message(call.message.chat.id, call.message.message_id)
 
         # --- Backup & Restore ---
         @bot.message_handler(func=lambda m: m.text == "📦 بکاپ")
@@ -665,6 +1134,21 @@ def run_telegram_bot(app):
             step = state['step']
             data = state['data']
             
+            if step == 'set_max_conn':
+                try:
+                    val = int(message.text.strip())
+                    if val < 1:
+                         bot.reply_to(message, "❌ لطفاً عددی بزرگتر از 0 وارد کنید.")
+                         return
+                    
+                    with app.app_context():
+                        set_setting('alert_ip_conn_threshold', str(val))
+                        db.session.commit()
+                        bot.reply_to(message, f"✅ حداکثر تعداد اتصال مجاز روی {val} تنظیم شد.", reply_markup=settings_menu_keyboard())
+                    clear_state(message.chat.id)
+                except ValueError:
+                    bot.reply_to(message, "❌ لطفاً عدد صحیح وارد کنید.")
+
             # --- Add Proxy Wizard ---
             if step == 'search_proxy':
                 query = message.text.strip()
@@ -824,6 +1308,54 @@ def run_telegram_bot(app):
                     bot.reply_to(message, f"❌ خطا در ساخت: {e}")
                 clear_state(message.chat.id)
 
+            elif step == 'set_global_tag':
+                tag = message.text.strip()
+                if tag.lower() == 'none': tag = ''
+                
+                wait_msg = bot.reply_to(message, "⏳ در حال بروزرسانی همه پروکسی‌ها...")
+                
+                with app.app_context():
+                    proxies = Proxy.query.all()
+                    count = 0
+                    for p in proxies:
+                        try:
+                            p.tag = tag
+                            # We need to recreate container to apply TAG env
+                            if docker_client and p.container_id:
+                                try:
+                                    c = docker_client.containers.get(p.container_id)
+                                    c.stop()
+                                    c.remove()
+                                    
+                                    # Recreate
+                                    ports_config = {'443/tcp': p.port}
+                                    if p.proxy_ip:
+                                         ports_config = {'443/tcp': (p.proxy_ip, p.port)}
+                                         
+                                    new_c = docker_client.containers.run(
+                                        "telegrammessenger/proxy",
+                                        detach=True,
+                                        ports=ports_config,
+                                        environment={
+                                            'SECRET': p.secret,
+                                            'TAG': tag,
+                                            'WORKERS': p.workers
+                                        },
+                                        restart_policy={"Name": "always"},
+                                        name=f"mtproto_{p.port}"
+                                    )
+                                    p.container_id = new_c.id
+                                    p.status = 'running'
+                                    count += 1
+                                except Exception as e:
+                                    print(f"Update Tag Error {p.port}: {e}")
+                        except Exception:
+                            pass
+                    
+                    db.session.commit()
+                    bot.edit_message_text(f"✅ تگ تبلیغاتی برای {count} پروکسی آپدیت شد.", message.chat.id, wait_msg.message_id)
+                clear_state(message.chat.id)
+
             # --- Firewall Wizard ---
             elif step == 'block_ip_addr':
                 ip = message.text.strip()
@@ -870,6 +1402,88 @@ def run_telegram_bot(app):
                         bot.reply_to(message, f"✅ مدیر {data['username']} اضافه شد.", reply_markup=users_menu_keyboard())
                 clear_state(message.chat.id)
 
+            # --- Bulk Create Wizard ---
+            elif step == 'bulk_count':
+                try:
+                    count = int(message.text.strip())
+                    if count < 1 or count > 50:
+                         bot.reply_to(message, "❌ لطفاً عددی بین 1 تا 50 وارد کنید.")
+                         return
+                    data['count'] = count
+                    set_state(message.chat.id, 'bulk_start_port', data)
+                    bot.reply_to(message, "🔢 از چه پورتی شروع شود؟ (مثلاً 2000):")
+                except ValueError:
+                    bot.reply_to(message, "❌ لطفاً عدد صحیح وارد کنید.")
+
+            elif step == 'bulk_start_port':
+                try:
+                    start_port = int(message.text.strip())
+                    data['start_port'] = start_port
+                    
+                    wait_msg = bot.reply_to(message, "⏳ در حال ساخت پروکسی‌ها...")
+                    
+                    created_count = 0
+                    current_port = start_port
+                    target_count = data['count']
+                    
+                    with app.app_context():
+                        while created_count < target_count:
+                             # Find next free port
+                             while Proxy.query.filter_by(port=current_port).first():
+                                 current_port += 1
+                             
+                             if current_port > 65535:
+                                 bot.send_message(message.chat.id, "❌ پورت‌ها تمام شدند!")
+                                 break
+                                 
+                             # Create Proxy
+                             try:
+                                 if not docker_client: break
+                                 
+                                 secret = secrets.token_hex(16)
+                                 parsed = parse_mtproxy_secret_input(None, secret)
+                                 
+                                 container = docker_client.containers.run(
+                                     'telegrammessenger/proxy',
+                                     detach=True,
+                                     ports={'443/tcp': current_port},
+                                     environment={
+                                         'SECRET': parsed["base_secret"],
+                                         'TAG': '',
+                                         'WORKERS': 1
+                                     },
+                                     restart_policy={"Name": "always"},
+                                     name=f"mtproto_{current_port}"
+                                 )
+                                 
+                                 p = Proxy(
+                                     port=current_port,
+                                     secret=parsed["base_secret"],
+                                     proxy_type=parsed["proxy_type"],
+                                     tls_domain=parsed["tls_domain"],
+                                     tag="Bulk Created",
+                                     workers=1,
+                                     container_id=container.id,
+                                     status="running",
+                                     expiry_date=None,
+                                     quota_bytes=0
+                                 )
+                                 db.session.add(p)
+                                 db.session.commit()
+                                 
+                                 created_count += 1
+                                 current_port += 1
+                                 
+                             except Exception as e:
+                                 print(f"Bulk Create Error: {e}")
+                                 current_port += 1 # Skip this port
+                    
+                    bot.edit_message_text(f"✅ عملیات پایان یافت.\nتعداد {created_count} پروکسی جدید ساخته شد.", message.chat.id, wait_msg.message_id)
+                    clear_state(message.chat.id)
+                    
+                except ValueError:
+                    bot.reply_to(message, "❌ لطفاً عدد صحیح وارد کنید.")
+
         @bot.message_handler(commands=['restart_panel'])
         def restart_panel_cmd(message):
             if not is_admin(message.chat.id, app): return
@@ -887,6 +1501,194 @@ def run_telegram_bot(app):
                 subprocess.Popen(['systemctl', 'restart', 'hoseinproxy'])
             except Exception as e:
                 bot.send_message(call.message.chat.id, f"❌ خطا: {e}")
+
+        @bot.callback_query_handler(func=lambda call: call.data == "confirm_stop_all")
+        def do_stop_all(call):
+            if not is_admin(call.message.chat.id, app): return
+            bot.edit_message_text("⏳ در حال توقف همه پروکسی‌ها...", call.message.chat.id, call.message.message_id)
+            with app.app_context():
+                proxies = Proxy.query.filter_by(status='running').all()
+                count = 0
+                for p in proxies:
+                    try:
+                        if docker_client and p.container_id:
+                            try:
+                                c = docker_client.containers.get(p.container_id)
+                                c.stop()
+                            except: pass
+                        p.status = 'stopped'
+                        count += 1
+                    except Exception: pass
+                db.session.commit()
+                bot.send_message(call.message.chat.id, f"✅ تعداد {count} پروکسی متوقف شدند.")
+
+        @bot.callback_query_handler(func=lambda call: call.data == "confirm_start_all")
+        def do_start_all(call):
+            if not is_admin(call.message.chat.id, app): return
+            bot.edit_message_text("⏳ در حال روشن کردن همه پروکسی‌ها...", call.message.chat.id, call.message.message_id)
+            with app.app_context():
+                proxies = Proxy.query.all() # Try start all, checking status logic inside loop or filter
+                # Better: filter only stopped ones, OR just force start all to be safe
+                count = 0
+                for p in proxies:
+                    if p.status == 'running': continue
+                    try:
+                        if docker_client and p.container_id:
+                            try:
+                                c = docker_client.containers.get(p.container_id)
+                                c.start()
+                                p.status = 'running'
+                                count += 1
+                            except: pass
+                    except Exception: pass
+                db.session.commit()
+                bot.send_message(call.message.chat.id, f"✅ تعداد {count} پروکسی روشن شدند.")
+
+        @bot.callback_query_handler(func=lambda call: call.data == "confirm_reboot_server")
+        def do_reboot_server(call):
+            if not is_admin(call.message.chat.id, app): return
+            bot.edit_message_text("🔄 سرور در حال ریستارت است... خداحافظ!", call.message.chat.id, call.message.message_id)
+            import subprocess
+            try:
+                subprocess.Popen(['reboot'])
+            except Exception as e:
+                bot.send_message(call.message.chat.id, f"❌ خطا: {e}")
+
+        @bot.callback_query_handler(func=lambda call: call.data == "confirm_restart_docker")
+        def do_restart_docker(call):
+            if not is_admin(call.message.chat.id, app): return
+            bot.edit_message_text("🔄 سرویس داکر در حال ریستارت است...", call.message.chat.id, call.message.message_id)
+            import subprocess
+            try:
+                subprocess.Popen(['systemctl', 'restart', 'docker'])
+            except Exception as e:
+                bot.send_message(call.message.chat.id, f"❌ خطا: {e}")
+
+        @bot.callback_query_handler(func=lambda call: call.data == "confirm_del_expired")
+        def do_del_expired(call):
+            if not is_admin(call.message.chat.id, app): return
+            bot.edit_message_text("⏳ در حال حذف پروکسی‌های منقضی شده...", call.message.chat.id, call.message.message_id)
+            with app.app_context():
+                now = datetime.utcnow()
+                proxies = Proxy.query.filter(Proxy.expiry_date != None, Proxy.expiry_date < now).all()
+                count = 0
+                for p in proxies:
+                    try:
+                        if docker_client and p.container_id:
+                            try:
+                                c = docker_client.containers.get(p.container_id)
+                                c.stop()
+                                c.remove()
+                            except: pass
+                        db.session.delete(p)
+                        count += 1
+                    except Exception: pass
+                db.session.commit()
+                bot.send_message(call.message.chat.id, f"✅ تعداد {count} پروکسی منقضی شده حذف شدند.")
+
+        @bot.callback_query_handler(func=lambda call: call.data == "confirm_del_unused")
+        def do_del_unused(call):
+            if not is_admin(call.message.chat.id, app): return
+            bot.edit_message_text("⏳ در حال حذف پروکسی‌های بدون استفاده...", call.message.chat.id, call.message.message_id)
+            with app.app_context():
+                # Unused means upload + download == 0
+                proxies = Proxy.query.filter(Proxy.upload == 0, Proxy.download == 0).all()
+                count = 0
+                for p in proxies:
+                    try:
+                        if docker_client and p.container_id:
+                            try:
+                                c = docker_client.containers.get(p.container_id)
+                                c.stop()
+                                c.remove()
+                            except: pass
+                        db.session.delete(p)
+                        count += 1
+                    except Exception: pass
+                db.session.commit()
+                bot.send_message(call.message.chat.id, f"✅ تعداد {count} پروکسی بدون استفاده حذف شدند.")
+
+        @bot.callback_query_handler(func=lambda call: call.data == "start_live_monitor")
+        def start_live_monitor_callback(call):
+            if not is_admin(call.message.chat.id, app): return
+            
+            # Use a simple way: loop for 60 seconds
+            msg_id = call.message.message_id
+            chat_id = call.message.chat.id
+            
+            def _monitor_loop():
+                import time
+                end_time = time.time() + 60
+                
+                while time.time() < end_time:
+                    try:
+                        cpu = psutil.cpu_percent(interval=None)
+                        ram = psutil.virtual_memory()
+                        net = psutil.net_io_counters()
+                        
+                        sent_gb = round(net.bytes_sent / (1024**3), 2)
+                        recv_gb = round(net.bytes_recv / (1024**3), 2)
+                        
+                        msg = (
+                            f"🔴 <b>LIVE MONITOR</b> (Updates every 3s)\n\n"
+                            f"💻 CPU: <code>{cpu}%</code>\n"
+                            f"🧠 RAM: <code>{ram.percent}%</code>\n"
+                            f"🌐 Net: ⬆️ {sent_gb} GB | ⬇️ {recv_gb} GB\n\n"
+                            f"⏳ Auto-close in {int(end_time - time.time())}s"
+                        )
+                        
+                        try:
+                            bot.edit_message_text(msg, chat_id, msg_id, parse_mode='HTML')
+                        except Exception:
+                            pass # Message might be not modified or network error
+                        
+                        time.sleep(3)
+                    except Exception as e:
+                        print(f"Monitor Error: {e}")
+                        break
+                
+                try:
+                    bot.edit_message_text("✅ مانیتورینگ پایان یافت.", chat_id, msg_id)
+                except: pass
+
+            import threading
+            threading.Thread(target=_monitor_loop).start()
+            bot.answer_callback_query(call.id, "مانیتورینگ شروع شد...")
+
+        @bot.callback_query_handler(func=lambda call: call.data == "confirm_update_panel")
+        def do_update_panel(call):
+            if not is_admin(call.message.chat.id, app): return
+            bot.edit_message_text("⏳ در حال دریافت آپدیت از گیت‌هاب...", call.message.chat.id, call.message.message_id)
+            
+            def _update():
+                try:
+                    import subprocess
+                    # Run git pull
+                    # Assuming we are in panel directory or root
+                    # The cwd of the process might be panel/
+                    # We need to go up if .git is in root
+                    cwd = os.getcwd() # likely .../panel
+                    root_dir = os.path.dirname(cwd) # .../HoseinProxy
+                    
+                    # Check if .git exists in root_dir or cwd
+                    target_dir = cwd
+                    if os.path.exists(os.path.join(root_dir, '.git')):
+                        target_dir = root_dir
+                    
+                    process = subprocess.Popen(['git', 'pull'], cwd=target_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    stdout, stderr = process.communicate()
+                    
+                    if process.returncode == 0:
+                         bot.send_message(call.message.chat.id, f"✅ <b>آپدیت با موفقیت انجام شد!</b>\n\n<pre>{stdout.decode()}</pre>\n\n🔄 در حال ریستارت سرویس...", parse_mode='HTML')
+                         time.sleep(2)
+                         subprocess.Popen(['systemctl', 'restart', 'hoseinproxy'])
+                    else:
+                         bot.send_message(call.message.chat.id, f"❌ خطا در آپدیت:\n<pre>{stderr.decode()}</pre>", parse_mode='HTML')
+                except Exception as e:
+                    bot.send_message(call.message.chat.id, f"❌ خطا: {e}")
+
+            import threading
+            threading.Thread(target=_update).start()
 
         # --- Callbacks ---
         @bot.callback_query_handler(func=lambda call: call.data.startswith('list_page_'))
