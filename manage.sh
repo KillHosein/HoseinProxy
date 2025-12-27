@@ -55,6 +55,23 @@ check_command() {
 install_dependencies() {
     info "Installing system dependencies..."
     
+    # Wait for package manager lock to be released (max 60 seconds)
+    local lock_wait=0
+    while [ $lock_wait -lt 60 ] && [ -f /var/lib/dpkg/lock-frontend ]; do
+        info "Waiting for package manager lock to be released... ($lock_wait/60)"
+        sleep 2
+        ((lock_wait++))
+    done
+    
+    # Kill any hanging apt processes if lock persists
+    if [ -f /var/lib/dpkg/lock-frontend ]; then
+        warning "Package manager lock still present, attempting to clean up..."
+        pkill -9 apt-get apt dpkg 2>/dev/null || true
+        sleep 5
+        rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/cache/apt/archives/lock
+        dpkg --configure -a
+    fi
+    
     # Try to fix broken installs first
     apt-get --fix-broken install -y >> "$LOG_FILE" 2>&1
     
@@ -99,8 +116,26 @@ install_dependencies() {
 ensure_docker_running() {
     if ! command -v docker &> /dev/null; then
         info "Docker not found. Installing..."
-        apt-get update -y >> "$LOG_FILE" 2>&1
-        apt-get install -y docker.io >> "$LOG_FILE" 2>&1
+        
+        # Try multiple installation methods
+        if ! apt-get install -y docker.io >> "$LOG_FILE" 2>&1; then
+            warning "Failed to install docker.io, trying alternative methods..."
+            
+            # Try installing docker-ce
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - >> "$LOG_FILE" 2>&1
+            add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" >> "$LOG_FILE" 2>&1
+            apt-get update -y >> "$LOG_FILE" 2>&1
+            
+            if ! apt-get install -y docker-ce docker-ce-cli containerd.io >> "$LOG_FILE" 2>&1; then
+                # Last resort: try snap
+                if command -v snap &> /dev/null; then
+                    snap install docker >> "$LOG_FILE" 2>&1
+                else
+                    error "Failed to install Docker through all methods."
+                    return 1
+                fi
+            fi
+        fi
     fi
 
     # Try systemd first
@@ -110,7 +145,7 @@ ensure_docker_running() {
             systemctl unmask docker >> "$LOG_FILE" 2>&1
             systemctl enable docker >> "$LOG_FILE" 2>&1
             systemctl start docker >> "$LOG_FILE" 2>&1
-            sleep 3
+            sleep 5
         fi
         if systemctl is-active --quiet docker; then
             return 0
@@ -122,9 +157,20 @@ ensure_docker_running() {
         if ! service docker status &> /dev/null; then
             info "Starting Docker (service)..."
             service docker start >> "$LOG_FILE" 2>&1
-            sleep 3
+            sleep 5
         fi
         if service docker status &> /dev/null; then
+            return 0
+        fi
+    fi
+    
+    # Final fallback: try starting dockerd directly
+    if command -v dockerd &> /dev/null; then
+        info "Attempting to start dockerd directly..."
+        nohup dockerd >> "$LOG_FILE" 2>&1 &
+        sleep 10
+        if command -v docker &> /dev/null && docker info >> "$LOG_FILE" 2>&1; then
+            success "Docker started successfully via dockerd."
             return 0
         fi
     fi
