@@ -49,6 +49,11 @@ class Proxy(db.Model):
     proxy_ip = db.Column(db.String(50), nullable=True) # Specific Bind IP for this proxy
     name = db.Column(db.String(100), nullable=True) # User friendly name for the proxy
 
+    @property
+    def display_secret(self):
+        from app.utils.helpers import format_mtproxy_client_secret
+        return format_mtproxy_client_secret(self.proxy_type, self.secret, self.tls_domain)
+
 class ProxyStats(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     proxy_id = db.Column(db.Integer, db.ForeignKey('proxy.id'), nullable=False)

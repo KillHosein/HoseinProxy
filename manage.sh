@@ -696,7 +696,7 @@ from urllib.parse import urlparse
 
 # Configuration
 PORT = 443
-SECRET = "your_secret_here"
+SECRET = "00000000000000000000000000000000"
 TLS_DOMAIN = "google.com"
 WORKERS = 2
 ENABLE_FAKE_TLS = True
@@ -705,6 +705,11 @@ FALLBACK_DOMAIN = "google.com"
 ENABLE_ANTIFILTER = True
 OBFUSCATION_LEVEL = 2
 PADDING_ENABLED = True
+
+try:
+    from config import *
+except ImportError:
+    pass
 
 class FakeTLSProxy:
     def __init__(self):
