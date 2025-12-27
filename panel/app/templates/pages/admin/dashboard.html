@@ -458,7 +458,7 @@
     <div class="glass-card fade-in-up delay-3 mb-5">
         <div class="card-header-clean">
             <div class="d-flex align-items-center gap-3">
-                <div class="bg-gradient-to-br from-indigo-500 to-purple-600 p-2 rounded-3 shadow-lg" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
+                <div class="p-2 rounded-3 shadow-lg" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
                     <i class="fas fa-list text-white"></i>
                 </div>
                 <div>
@@ -554,7 +554,7 @@
                                     <span class="text-white fw-bold small" id="proxy-quota-total-{{ proxy.id }}">-</span>
                                 </div>
                                 <div class="progress bg-dark bg-opacity-50 rounded-pill" style="height: 6px;">
-                                    <div id="proxy-quota-bar-{{ proxy.id }}" class="progress-bar rounded-pill bg-gradient-to-r from-green-400 to-emerald-500" style="width: 0%; box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);"></div>
+                                    <div id="proxy-quota-bar-{{ proxy.id }}" class="progress-bar rounded-pill" style="width: 0%; background: linear-gradient(to right, #4ade80, #10b981); box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);"></div>
                                 </div>
                                 {% if proxy.expiry_date %}
                                 <div class="mt-2 d-flex align-items-center gap-1 text-secondary" style="font-size: 0.7rem;">
@@ -912,18 +912,36 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    // --- Starfield Background (Optimized) ---
+    // --- Starfield Background (Cinematic) ---
     const canvas = document.getElementById('starfield');
     const ctx = canvas.getContext('2d');
     let width, height, stars = [];
     const resizeCanvas = () => { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; };
     class Star {
         constructor() { this.reset(); }
-        reset() { this.x = Math.random()*width; this.y = Math.random()*height; this.size = Math.random()*1.2+0.3; this.speed = Math.random()*0.05+0.01; this.opacity = Math.random()*0.7; }
-        update() { this.y -= this.speed; if(this.y<0) this.reset(); }
-        draw() { ctx.fillStyle = `rgba(255,255,255,${this.opacity})`; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill(); }
+        reset() { 
+            this.x = Math.random() * width; 
+            this.y = Math.random() * height; 
+            this.size = Math.random() * 1.5 + 0.1; 
+            this.speed = Math.random() * 0.03 + 0.005; 
+            this.opacity = Math.random() * 0.5 + 0.1; 
+            this.fade = Math.random() * 0.01 + 0.002;
+        }
+        update() { 
+            this.y -= this.speed; 
+            if(this.y < 0) this.reset(); 
+            // Twinkle effect
+            this.opacity += this.fade;
+            if (this.opacity > 0.8 || this.opacity < 0.1) this.fade = -this.fade;
+        }
+        draw() { 
+            ctx.fillStyle = `rgba(255,255,255,${this.opacity})`; 
+            ctx.beginPath(); 
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); 
+            ctx.fill(); 
+        }
     }
-    const initStars = () => { stars = Array.from({length:80}, () => new Star()); }; // Reduced count for performance
+    const initStars = () => { stars = Array.from({length: 60}, () => new Star()); }; 
     const animateStars = () => { ctx.clearRect(0,0,width,height); stars.forEach(s => { s.update(); s.draw(); }); requestAnimationFrame(animateStars); };
     window.addEventListener('resize', () => { resizeCanvas(); initStars(); });
     resizeCanvas(); initStars(); animateStars();
@@ -942,7 +960,12 @@
     const copyToClipboard = (text) => { 
         if (navigator.clipboard && window.isSecureContext) {
             navigator.clipboard.writeText(text).then(() => {
-                Swal.fire({toast:true, position:'bottom', icon:'success', title:'کپی شد', showConfirmButton:false, timer:1500, background:'#1e293b', color:'#fff'});
+                Swal.fire({
+                    toast:true, position:'bottom-end', icon:'success', title:'کپی شد', 
+                    showConfirmButton:false, timer:2000, 
+                    background:'#1e293b', color:'#f8fafc',
+                    customClass: { popup: 'rounded-4 border border-secondary border-opacity-10' }
+                });
             });
         } else {
             const textArea = document.createElement("textarea");
@@ -951,7 +974,12 @@
             document.body.appendChild(textArea); textArea.focus(); textArea.select();
             try {
                 document.execCommand('copy');
-                Swal.fire({toast:true, position:'bottom', icon:'success', title:'کپی شد', showConfirmButton:false, timer:1500, background:'#1e293b', color:'#fff'});
+                Swal.fire({
+                    toast:true, position:'bottom-end', icon:'success', title:'کپی شد', 
+                    showConfirmButton:false, timer:2000, 
+                    background:'#1e293b', color:'#f8fafc',
+                    customClass: { popup: 'rounded-4 border border-secondary border-opacity-10' }
+                });
             } catch (err) { console.error(err); }
             document.body.removeChild(textArea);
         }
@@ -1005,9 +1033,9 @@
         const serverIp = proxyIp || '{{ server_ip }}' || window.location.hostname;
         const link = `tg://proxy?server=${serverIp}&port=${port}&secret=${secret}`;
         Swal.fire({
-            html: `<div class="mb-3"><label class="small text-secondary mb-1">لینک اتصال</label><input class="form-control bg-dark text-white text-center font-monospace border-secondary border-opacity-25" value="${link}" readonly onclick="this.select()"></div><a href="${link}" class="btn btn-glow-primary w-100"><i class="fab fa-telegram-plane me-2"></i>اتصال به تلگرام</a>`,
+            html: `<div class="mb-4 text-start"><label class="small text-secondary mb-2 fw-bold">لینک اتصال</label><input class="form-control bg-dark text-info text-center font-monospace border-secondary border-opacity-25 py-3" value="${link}" readonly onclick="this.select()"></div><a href="${link}" class="btn btn-glow-primary w-100 py-3 rounded-3 fw-bold"><i class="fab fa-telegram-plane me-2 fs-5"></i>اتصال به تلگرام</a>`,
             background: '#0f172a', showConfirmButton: false, showCloseButton: true,
-            customClass: { popup: 'border border-secondary border-opacity-25 rounded-4' }
+            customClass: { popup: 'border border-secondary border-opacity-25 rounded-5 p-4' }
         });
     }
     
@@ -1024,7 +1052,7 @@
     Chart.defaults.borderColor = 'rgba(255,255,255,0.03)';
     
     const createGradient = (ctx, colorStart, colorEnd) => {
-        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
         gradient.addColorStop(0, colorStart);
         gradient.addColorStop(1, colorEnd);
         return gradient;
@@ -1041,24 +1069,46 @@
                     label:'CPU Usage', 
                     data:Array(20).fill(0), 
                     borderColor:'#8b5cf6', 
-                    backgroundColor: createGradient(sysCtx, 'rgba(139,92,246,0.4)', 'rgba(139,92,246,0)'),
-                    fill:true, tension:0.4, pointRadius:0, borderWidth: 2
+                    backgroundColor: createGradient(sysCtx, 'rgba(139, 92, 246, 0.5)', 'rgba(139, 92, 246, 0.0)'),
+                    fill:true, tension:0.4, pointRadius:0, borderWidth: 3,
+                    pointHoverRadius: 6, pointHoverBackgroundColor: '#fff', pointHoverBorderWidth: 3
                 }, 
                 { 
                     label:'RAM Usage', 
                     data:Array(20).fill(0), 
                     borderColor:'#10b981', 
-                    backgroundColor: 'transparent',
-                    borderDash: [5, 5],
-                    tension:0.4, pointRadius:0, borderWidth: 2
+                    backgroundColor: createGradient(sysCtx, 'rgba(16, 185, 129, 0.3)', 'rgba(16, 185, 129, 0.0)'),
+                    fill:true, tension:0.4, pointRadius:0, borderWidth: 3,
+                    pointHoverRadius: 6, pointHoverBackgroundColor: '#fff', pointHoverBorderWidth: 3
                 }
             ] 
         },
         options: { 
             responsive:true, maintainAspectRatio:false, 
             interaction: { mode: 'index', intersect: false },
-            plugins:{legend:{display:true, labels:{usePointStyle:true, boxWidth:8}}}, 
-            scales:{x:{display:false}, y:{beginAtZero:true, max:100, grid:{color:'rgba(255,255,255,0.02)'}}} 
+            plugins:{
+                legend:{display:false},
+                tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    titleColor: '#f8fafc',
+                    bodyColor: '#cbd5e1',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: true,
+                    usePointStyle: true,
+                    titleFont: { family: 'Vazirmatn' },
+                    bodyFont: { family: 'Vazirmatn' }
+                }
+            }, 
+            scales:{
+                x:{display:false}, 
+                y:{
+                    beginAtZero:true, max:100, 
+                    grid:{color:'rgba(255,255,255,0.03)', drawBorder: false},
+                    ticks: { color: '#64748b', font: {size: 10} }
+                }
+            } 
         }
     });
 
@@ -1066,25 +1116,43 @@
     const trafCtx = document.getElementById('trafficChart').getContext('2d');
     const trafChart = new Chart(trafCtx, {
         type: 'bar', 
-        data: { labels:[], datasets:[{ label:'دانلود (MB)', data:[], backgroundColor:'#06b6d4', borderRadius:4, hoverBackgroundColor:'#22d3ee' }] },
+        data: { labels:[], datasets:[{ label:'دانلود (MB)', data:[], backgroundColor:'#06b6d4', borderRadius:6, hoverBackgroundColor:'#22d3ee' }] },
         options: { 
             responsive:true, maintainAspectRatio:false, 
             plugins:{legend:{display:false}, tooltip:{backgroundColor:'rgba(15,23,42,0.9)', padding:10, cornerRadius:8}}, 
-            scales:{x:{grid:{display:false}}, y:{grid:{color:'rgba(255,255,255,0.02)'}}} 
+            scales:{
+                x:{grid:{display:false}, ticks: { color: '#64748b', font: {size: 10} }}, 
+                y:{grid:{color:'rgba(255,255,255,0.02)', drawBorder: false}, ticks: { color: '#64748b', font: {size: 10} }}
+            } 
         }
     });
 
     // Sparklines Setup
-    const sparkOptions = { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{enabled:false}}, scales:{x:{display:false}, y:{display:false, min:0}} };
-    const createSparkline = (id, color) => new Chart(document.getElementById(id), {
+    const sparkOptions = { 
+        responsive:true, maintainAspectRatio:false, 
+        plugins:{legend:{display:false}, tooltip:{enabled:false}}, 
+        scales:{x:{display:false}, y:{display:false, min:0}},
+        elements: { point: { radius: 0 } }
+    };
+    const createSparkline = (id, color, bg) => new Chart(document.getElementById(id), {
         type: 'line',
-        data: { labels: Array(10).fill(''), datasets: [{ data: Array(10).fill(0), borderColor: color, backgroundColor: color, borderWidth: 2, tension: 0.4, pointRadius: 0, fill: false }] },
+        data: { 
+            labels: Array(10).fill(''), 
+            datasets: [{ 
+                data: Array(10).fill(0), 
+                borderColor: color, 
+                backgroundColor: bg || 'transparent', 
+                borderWidth: 2, 
+                tension: 0.5, 
+                fill: !!bg 
+            }] 
+        },
         options: sparkOptions
     });
     
-    const sparkCpu = createSparkline('sparkCpu', '#8b5cf6');
-    const sparkRam = createSparkline('sparkRam', '#10b981');
-    const sparkNet = createSparkline('sparkNet', '#06b6d4');
+    const sparkCpu = createSparkline('sparkCpu', '#8b5cf6', 'rgba(139, 92, 246, 0.1)');
+    const sparkRam = createSparkline('sparkRam', '#10b981', 'rgba(16, 185, 129, 0.1)');
+    const sparkNet = createSparkline('sparkNet', '#06b6d4', 'rgba(6, 182, 212, 0.1)');
     
     // --- Data Update Logic ---
     let currentProxyId, connChart, usageChart, lastAlertId = 0, lastNetSent=null, lastNetRecv=null, lastTime=Date.now();
@@ -1093,10 +1161,10 @@
         const el = document.getElementById('latency-display');
         if(d.status === 'success') {
             el.innerText = d.latency + 'ms';
-            el.className = `fw-bold small font-monospace ${d.latency < 100 ? 'text-success' : (d.latency < 300 ? 'text-warning' : 'text-danger')}`;
+            el.className = `fw-bold font-monospace ${d.latency < 100 ? 'text-success' : (d.latency < 300 ? 'text-warning' : 'text-danger')}`;
         } else {
             el.innerText = 'Err';
-            el.className = 'fw-bold text-danger small font-monospace';
+            el.className = 'fw-bold text-danger font-monospace';
         }
     });
 
@@ -1120,16 +1188,18 @@
                 datasets: [{
                     data: values,
                     backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'],
-                    borderWidth: 0
+                    borderWidth: 0,
+                    hoverOffset: 10
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'bottom', labels: { color: '#94a3b8', font: {family: 'Vazirmatn'} } }
+                    legend: { position: 'bottom', labels: { color: '#94a3b8', font: {family: 'Vazirmatn'}, boxWidth: 10, usePointStyle: true } }
                 },
-                cutout: '70%'
+                cutout: '75%',
+                layout: { padding: 10 }
             }
         });
     });
@@ -1148,9 +1218,8 @@
         let speedBytes = 0;
         if(lastNetRecv!==null && tDiff>0) {
             speedBytes = ((d.net_recv - lastNetRecv) * 1024 * 1024) / tDiff;
-            document.getElementById('net-down-speed').innerHTML = formatBytes(speedBytes).split(' ')[0]; // Just the number
-            // Update Unit manually if needed or just use formatBytes fully in a span
-             document.getElementById('net-down-speed').innerHTML = formatBytes(speedBytes).replace(' ', '<small class="fs-6 text-secondary ms-1">') + '</small>/s';
+            // Just the number for the main display
+            document.getElementById('net-down-speed').innerText = formatBytes(speedBytes); 
         }
         lastNetRecv = d.net_recv; lastTime = now;
         document.getElementById('net-total-down').innerText = formatMB(d.net_recv);
@@ -1197,7 +1266,16 @@
                     els.qT.innerText = total;
                     const pct = Math.min(100, (p.quota_used_mb/p.quota_mb)*100);
                     els.qB.style.width = pct+'%';
-                    els.qB.className = `progress-bar rounded-pill ${pct > 90 ? 'bg-danger' : 'bg-gradient-to-r from-green-400 to-emerald-500'}`;
+                    
+                    if (pct > 90) {
+                        els.qB.className = 'progress-bar rounded-pill bg-danger';
+                        els.qB.style.background = '';
+                        els.qB.style.boxShadow = '0 0 10px rgba(239, 68, 68, 0.5)';
+                    } else {
+                        els.qB.className = 'progress-bar rounded-pill';
+                        els.qB.style.background = 'linear-gradient(to right, #4ade80, #10b981)';
+                        els.qB.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.3)';
+                    }
                 } else {
                     els.qT.innerText = '∞';
                     els.qB.style.width = '100%';
@@ -1232,7 +1310,13 @@
             lastAlertId = Math.max(lastAlertId, a.id);
             const li = document.createElement('li');
             li.className = 'list-group-item d-flex justify-content-between align-items-center bg-transparent border-bottom border-secondary border-opacity-10 text-white small py-3 fade-in-up';
-            li.innerHTML = `<span class="text-truncate me-2">${a.message}</span><span class="badge bg-danger rounded-pill">${a.severity}</span>`;
+            li.innerHTML = `
+                <div class="d-flex align-items-center gap-3">
+                    <i class="fas fa-exclamation-triangle text-warning"></i>
+                    <span class="text-truncate" style="max-width: 200px;">${a.message}</span>
+                </div>
+                <span class="badge bg-danger rounded-pill">${a.severity}</span>
+            `;
             if(list.firstElementChild?.classList.contains('text-center')) list.innerHTML = '';
             list.prepend(li);
             // Limit list size
@@ -1251,12 +1335,12 @@
     const updateActivityLogs = () => fetch('/api/activity?limit=8').then(r=>r.json()).then(items => {
         const list = document.getElementById('activityList');
         if(!list) return;
-        if(!items.length) { list.innerHTML = `<li class="list-group-item text-secondary border-0 text-center py-3 bg-transparent small">موردی یافت نشد.</li>`; return; }
+        if(!items.length) { list.innerHTML = `<li class="list-group-item text-secondary border-0 text-center py-5 bg-transparent small">موردی یافت نشد.</li>`; return; }
         list.innerHTML = items.map(it => `
             <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent border-bottom border-secondary border-opacity-10 py-3">
                 <div class="d-flex align-items-center overflow-hidden">
-                    <div class="rounded-circle bg-dark border border-secondary border-opacity-25 p-2 me-3 text-secondary d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; flex-shrink: 0;">
-                        <i class="fas fa-terminal small"></i>
+                    <div class="rounded-circle bg-dark border border-secondary border-opacity-25 p-2 me-3 text-secondary d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; flex-shrink: 0;">
+                        <i class="fas fa-terminal small text-info"></i>
                     </div>
                     <div class="text-truncate">
                         <div class="text-white small fw-bold text-truncate">${it.action}</div>
