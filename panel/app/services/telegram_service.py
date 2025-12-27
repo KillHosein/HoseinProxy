@@ -97,6 +97,23 @@ def clear_state(chat_id):
 
 # --- Bot Runner ---
 def run_telegram_bot(app):
+    # Try to acquire a lock to ensure only one instance runs (for Gunicorn)
+    try:
+        import fcntl
+        lock_file = '/tmp/hoseinproxy_bot.lock'
+        fp = open(lock_file, 'w')
+        try:
+            fcntl.lockf(fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except IOError:
+            # Lock is held by another process
+            print("[Telegram] Bot is already running in another worker. Skipping.")
+            return
+    except ImportError:
+        # Not on Linux/Unix, skip locking (dev mode)
+        pass
+    except Exception as e:
+        print(f"[Telegram] Lock Error: {e}")
+
     with app.app_context():
         token = get_valid_bot_token()
         if not token:

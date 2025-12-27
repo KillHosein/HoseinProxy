@@ -9,6 +9,11 @@ def _apply_firewall_rule(ip, action='block'):
         return
         
     try:
+        # Check if iptables exists
+        if subprocess.call("which iptables", shell=True, stdout=subprocess.DEVNULL) != 0:
+            # print("iptables not found, skipping firewall rule")
+            return
+
         # Check if rule exists
         check_cmd = f"iptables -C INPUT -s {ip} -j DROP"
         rule_exists = subprocess.call(check_cmd.split(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
