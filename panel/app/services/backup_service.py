@@ -2,6 +2,7 @@ import os
 import shutil
 import tarfile
 import subprocess
+import re
 from datetime import datetime
 from app.utils.helpers import get_setting
 
@@ -19,49 +20,48 @@ class BackupService:
 
     def create_backup(self):
         """
-        Creates a comprehensive backup of the system.
+        Creates a comprehensive backup of the entire project + dependencies.
         Returns: (file_path, filename)
         """
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"hoseinproxy_backup_{timestamp}.tar.gz"
         file_path = os.path.join(self.backup_dir, filename)
         
-        # Files to backup
-        # Format: (source_path, arcname)
-        files_to_backup = []
-        
-        # 1. Database (Critical)
-        db_path = os.path.join(self.app_root, 'panel.db')
-        if os.path.exists(db_path):
-            files_to_backup.append((db_path, 'panel.db'))
-            
-        # 2. Secret Key (Critical)
-        key_path = os.path.join(self.app_root, 'secret.key')
-        if os.path.exists(key_path):
-            files_to_backup.append((key_path, 'secret.key'))
-            
-        # 3. Config Env (Critical)
-        config_path = os.path.join(self.project_root, 'config.env')
-        if os.path.exists(config_path):
-            files_to_backup.append((config_path, 'config.env'))
-            
-        # 4. Requirements (Useful)
-        req_path = os.path.join(self.app_root, 'requirements.txt')
-        if os.path.exists(req_path):
-            files_to_backup.append((req_path, 'requirements.txt'))
-
-        # 5. Nginx Config (Optional but good)
-        nginx_conf = "/etc/nginx/sites-available/hoseinproxy"
-        if os.path.exists(nginx_conf):
-            files_to_backup.append((nginx_conf, 'nginx_hoseinproxy.conf'))
-            
-        if not files_to_backup:
-            raise Exception("No files found to backup!")
-
         with tarfile.open(file_path, "w:gz") as tar:
-            for source, arcname in files_to_backup:
-                tar.add(source, arcname=arcname)
+            # 1. Backup Entire Project Directory (excluding junk)
+            # We add everything in self.project_root to tar root
+            exclude_dirs = {'venv', '.git', 'backups', '__pycache__', 'restore_temp', 'static'} 
+            # Note: static is usually safe to backup, but if it contains huge user uploads, exclude it.
+            # Here static is likely small (css/js), so we KEEP it.
+            
+            for root, dirs, files in os.walk(self.project_root):
+                # Modify dirs in-place to skip excluded ones
+                dirs[:] = [d for d in dirs if d not in exclude_dirs]
                 
+                for file in files:
+                    if file.endswith('.pyc') or file.endswith('.log'):
+                        continue
+                        
+                    full_path = os.path.join(root, file)
+                    # Relpath inside tar
+                    arcname = os.path.relpath(full_path, self.project_root)
+                    tar.add(full_path, arcname=arcname)
+            
+            # 2. External Configs (Nginx)
+            nginx_conf = "/etc/nginx/sites-available/hoseinproxy"
+            if os.path.exists(nginx_conf):
+                tar.add(nginx_conf, arcname='external/nginx_hoseinproxy.conf')
+                
+                # 3. SSL Certs (if found in nginx config)
+                ssl_files = self._find_ssl_files(nginx_conf)
+                for f in ssl_files:
+                    if os.path.exists(f):
+                        # Add to external/ssl/path/to/file
+                        # arcname needs to be unique to avoid collisions
+                        # We use 'external/ssl' + absolute path stripped of leading slash
+                        arcname = 'external/ssl/' + f.lstrip('/')
+                        tar.add(f, arcname=arcname)
+
         # Cleanup old backups (keep last 10)
         self._cleanup_old_backups()
         
@@ -69,8 +69,7 @@ class BackupService:
 
     def restore_backup(self, backup_file_path):
         """
-        Restores the system from a backup file.
-        backup_file_path: Path to the .tar.gz backup file
+        Restores the system from a full backup.
         """
         if not tarfile.is_tarfile(backup_file_path):
             raise Exception("Invalid backup file format (must be tar.gz)")
@@ -85,47 +84,79 @@ class BackupService:
             with tarfile.open(backup_file_path, "r:gz") as tar:
                 tar.extractall(path=extract_dir)
                 
-            # Validate
-            if not os.path.exists(os.path.join(extract_dir, 'panel.db')):
-                raise Exception("Backup is invalid: panel.db not found")
+            # 1. Restore Project Files
+            # Walk through extract_dir and copy to project_root
+            # But skip 'external' folder
+            for root, dirs, files in os.walk(extract_dir):
+                if 'external' in root.split(os.sep):
+                    continue
+                
+                # Relative path from extract_dir
+                rel_path = os.path.relpath(root, extract_dir)
+                target_root = os.path.join(self.project_root, rel_path)
+                
+                if not os.path.exists(target_root):
+                    os.makedirs(target_root)
+                    
+                for file in files:
+                    if file == 'external': continue
+                    src_file = os.path.join(root, file)
+                    dst_file = os.path.join(target_root, file)
+                    shutil.copy2(src_file, dst_file)
 
-            # Restore Database
-            src_db = os.path.join(extract_dir, 'panel.db')
-            dst_db = os.path.join(self.app_root, 'panel.db')
-            # Close DB connection if possible? 
-            # In Flask-SQLAlchemy, connections are scoped. 
-            # Ideally, we should stop the service before this, but we are running INSIDE the service.
-            # SQLite allows overwriting file usually, but might corrupt if writing.
-            # We will rely on restart after restore.
-            shutil.copy2(src_db, dst_db)
+            # 2. Restore External (Nginx & SSL)
+            external_dir = os.path.join(extract_dir, 'external')
+            if os.path.exists(external_dir):
+                # Nginx
+                nginx_src = os.path.join(external_dir, 'nginx_hoseinproxy.conf')
+                if os.path.exists(nginx_src):
+                    dst_nginx = "/etc/nginx/sites-available/hoseinproxy"
+                    # Only restore if destination dir exists (to avoid restoring on dev machine randomly)
+                    if os.path.exists(os.path.dirname(dst_nginx)):
+                         try:
+                             shutil.copy2(nginx_src, dst_nginx)
+                             subprocess.run(['systemctl', 'reload', 'nginx'], check=False)
+                         except: pass
 
-            # Restore Secret Key
-            if os.path.exists(os.path.join(extract_dir, 'secret.key')):
-                shutil.copy2(os.path.join(extract_dir, 'secret.key'), os.path.join(self.app_root, 'secret.key'))
-
-            # Restore Config
-            if os.path.exists(os.path.join(extract_dir, 'config.env')):
-                shutil.copy2(os.path.join(extract_dir, 'config.env'), os.path.join(self.project_root, 'config.env'))
-
-            # Restore Nginx Config
-            if os.path.exists(os.path.join(extract_dir, 'nginx_hoseinproxy.conf')):
-                # Only restore if it exists on destination to avoid permission issues if not root
-                # But usually we are root.
-                dst_nginx = "/etc/nginx/sites-available/hoseinproxy"
-                if os.path.exists(os.path.dirname(dst_nginx)):
-                     try:
-                         shutil.copy2(os.path.join(extract_dir, 'nginx_hoseinproxy.conf'), dst_nginx)
-                         # Reload nginx
-                         subprocess.run(['systemctl', 'reload', 'nginx'], check=False)
-                     except Exception as e:
-                         print(f"Failed to restore Nginx config: {e}")
-
+                # SSL
+                ssl_dir = os.path.join(external_dir, 'ssl')
+                if os.path.exists(ssl_dir):
+                    for root, dirs, files in os.walk(ssl_dir):
+                        for file in files:
+                            src_file = os.path.join(root, file)
+                            # Reconstruct original absolute path
+                            # src is .../external/ssl/etc/letsencrypt/...
+                            # rel is etc/letsencrypt/...
+                            rel = os.path.relpath(src_file, ssl_dir)
+                            dst_file = '/' + rel # /etc/letsencrypt/...
+                            
+                            # Restore only if dir exists (safety)
+                            if os.path.exists(os.path.dirname(dst_file)):
+                                try:
+                                    shutil.copy2(src_file, dst_file)
+                                except: pass
+            
             return True
 
         finally:
-            # Cleanup temp
             if os.path.exists(extract_dir):
                 shutil.rmtree(extract_dir)
+
+    def _find_ssl_files(self, nginx_conf_path):
+        """Scans nginx config for ssl_certificate directives"""
+        files = set()
+        try:
+            with open(nginx_conf_path, 'r') as f:
+                content = f.read()
+                # Find ssl_certificate /path/to/file;
+                certs = re.findall(r'ssl_certificate\s+([^;]+);', content)
+                keys = re.findall(r'ssl_certificate_key\s+([^;]+);', content)
+                
+                files.update([c.strip() for c in certs])
+                files.update([k.strip() for k in keys])
+        except:
+            pass
+        return list(files)
 
     def _cleanup_old_backups(self, keep=10):
         try:
@@ -141,5 +172,4 @@ class BackupService:
 
     def restart_service(self):
         """Restarts the hoseinproxy service"""
-        # We spawn a background process to restart, so the current request can finish
         subprocess.Popen(['systemctl', 'restart', 'hoseinproxy'])
