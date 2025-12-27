@@ -406,16 +406,35 @@ def run_telegram_bot(app):
                     backup_path = os.path.join(backup_dir, filename)
                     
                     # Files to backup
+                    # Check for panel.db in panel_dir or current working directory
+                    db_path = os.path.join(panel_dir, 'panel.db')
+                    if not os.path.exists(db_path):
+                        cwd_db = os.path.join(os.getcwd(), 'panel.db')
+                        if os.path.exists(cwd_db):
+                            db_path = cwd_db
+                    
                     files_to_backup = [
-                        ('panel.db', os.path.join(panel_dir, 'panel.db')),
+                        ('panel.db', db_path),
                         ('secret.key', os.path.join(panel_dir, 'secret.key')),
-                        ('config.env', os.path.join(os.path.dirname(panel_dir), 'config.env')), # One level up if exists
+                        ('config.env', os.path.join(os.path.dirname(panel_dir), 'config.env')),
                     ]
                     
+                    added_count = 0
                     with tarfile.open(backup_path, "w:gz") as tar:
                         for arcname, fullpath in files_to_backup:
                             if os.path.exists(fullpath):
                                 tar.add(fullpath, arcname=arcname)
+                                added_count += 1
+                            else:
+                                print(f"Backup Warning: File not found: {fullpath}")
+                    
+                    if added_count == 0:
+                        bot.edit_message_text("❌ هیچ فایلی برای بکاپ یافت نشد.", message.chat.id, wait_msg.message_id)
+                        return
+
+                    if not os.path.exists(backup_path) or os.path.getsize(backup_path) == 0:
+                        bot.edit_message_text("❌ فایل بکاپ ایجاد نشد یا خالی است.", message.chat.id, wait_msg.message_id)
+                        return
                     
                     # Send file
                     with open(backup_path, 'rb') as f:
@@ -423,7 +442,8 @@ def run_telegram_bot(app):
                             message.chat.id, 
                             f, 
                             caption=f"📦 <b>نسخه پشتیبان کامل</b>\n📅 تاریخ: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n🔐 شامل دیتابیس و کلیدهای امنیتی",
-                            parse_mode='HTML'
+                            parse_mode='HTML',
+                            timeout=120
                         )
                     
                     bot.delete_message(message.chat.id, wait_msg.message_id)
