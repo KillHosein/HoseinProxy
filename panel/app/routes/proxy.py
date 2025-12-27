@@ -98,17 +98,11 @@ def add():
 
     if docker_client:
         try:
-            # Configure ports based on proxy type
-            if proxy_type == "tls":
-                # For Fake TLS, use the same port internally and externally
-                ports_config = {f'{port}/tcp': port}
-                if proxy_ip:
-                    ports_config = {f'{port}/tcp': (proxy_ip, port)}
-            else:
-                # For other types, use 443 internally
-                ports_config = {'443/tcp': port}
-                if proxy_ip:
-                    ports_config = {'443/tcp': (proxy_ip, port)}
+            # Configure ports
+            # Both standard and Fake TLS images listen on port 443 inside the container
+            ports_config = {'443/tcp': port}
+            if proxy_ip:
+                ports_config = {'443/tcp': (proxy_ip, port)}
 
             container = docker_client.containers.run(
                 image_name,
@@ -383,12 +377,12 @@ def update(id):
                         except: pass
                     
                     # Create new with appropriate image
+                    # Both standard and Fake TLS images listen on port 443 inside the container
+                    ports_config = {'443/tcp': proxy.port}
+                    if proxy.proxy_ip:
+                        ports_config = {'443/tcp': (proxy.proxy_ip, proxy.port)}
+
                     if proxy.proxy_type == "tls":
-                        # For Fake TLS, use the same port internally and externally
-                        ports_config = {f'{proxy.port}/tcp': proxy.port}
-                        if proxy.proxy_ip:
-                            ports_config = {f'{proxy.port}/tcp': (proxy.proxy_ip, proxy.port)}
-                        
                         image_name = "mtproxy-faketls:latest"
                         environment = {
                             'SECRET': proxy.secret,
@@ -398,11 +392,6 @@ def update(id):
                             'PORT': proxy.port
                         }
                     else:
-                        # For other types, use 443 internally
-                        ports_config = {'443/tcp': proxy.port}
-                        if proxy.proxy_ip:
-                            ports_config = {'443/tcp': (proxy.proxy_ip, proxy.port)}
-                        
                         image_name = _mtproxy_image()
                         environment = {
                             'SECRET': proxy.secret,

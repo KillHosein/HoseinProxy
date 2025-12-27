@@ -57,7 +57,7 @@ install_dependencies() {
     
     # Wait for package manager lock to be released (max 60 seconds)
     local lock_wait=0
-    while [ $lock_wait -lt 60 ] && [ -f /var/lib/dpkg/lock-frontend ]; do
+    while [ $lock_wait -lt 60 ] && { [ -f /var/lib/dpkg/lock-frontend ] || [ -f /var/lib/dpkg/lock ]; }; do
         info "Waiting for package manager lock to be released... ($lock_wait/60)"
         sleep 2
         ((lock_wait++))
@@ -162,6 +162,11 @@ ensure_docker_running() {
         if service docker status &> /dev/null; then
             return 0
         fi
+    fi
+    
+    # Check if Docker is already responsive before trying manual startup
+    if command -v docker &> /dev/null && docker info &> /dev/null; then
+        return 0
     fi
     
     # Final fallback: try starting dockerd directly
@@ -638,9 +643,9 @@ build_fake_tls_image() {
 install_fake_tls() {
     info "Installing Fake TLS support..."
     
-    # Check if Docker is running
-    if ! systemctl is-active --quiet docker; then
-        error "Docker is not running. Please start Docker first."
+    # Ensure Docker is running (using our robust check)
+    if ! ensure_docker_running; then
+        error "Docker is not running and could not be started."
         return 1
     fi
     
